@@ -189,7 +189,7 @@ To use Realize MCP with Cursor, add the following configuration to your Cursor s
   "mcpServers": {
     "realize-mcp": {
       "command": "python",
-      "args": ["/absolute/path/to/realize_mcp/src/realize_server.py"],
+      "args": ["{absolute_path}/realize_mcp/src/realize_server.py"],
       "env": {
         "REALIZE_CLIENT_ID": "your_client_id_here",
         "REALIZE_CLIENT_SECRET": "your_client_secret_here"
@@ -208,7 +208,7 @@ For Claude Desktop, add this to your `claude_desktop_config.json`:
   "mcpServers": {
     "realize-mcp": {
       "command": "python",
-      "args": ["/absolute/path/to/realize_mcp/src/realize_server.py"],
+      "args": ["{absolute_path}/realize_mcp/src/realize_server.py"],
       "env": {
         "REALIZE_CLIENT_ID": "your_client_id_here",
         "REALIZE_CLIENT_SECRET": "your_client_secret_here"
