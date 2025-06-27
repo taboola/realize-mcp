@@ -49,20 +49,18 @@ Based on the [Realize API](https://developers.taboola.com/backstage-api/referenc
 - `get_user_account` - Get current user's account information
 
 ### Campaign Management
-- `get_all_campaigns` - List all campaigns for an account
-- `get_all_campaigns_base` - Get basic campaign information
-- `get_campaign` - Get specific campaign details
+- `get_all_campaigns` - Get all campaigns for an account (read-only)
+- `get_campaign` - Get specific campaign details (read-only)
 
 ### Campaign Items
+- `get_campaign_items` - Get all items for a campaign (read-only)
+- `get_campaign_item` - Get specific campaign item details (read-only)
 
-- `get_campaign_items` - List all items for a campaign
-- `get_campaign_item` - Get specific campaign item details
-
-### Media Reports
-- `get_top_campaign_content_report` - Get top performing campaign content report
-- `get_campaign_breakdown_report` - Get campaign breakdown report (specific dimension)
-- `get_campaign_site_day_breakdown_report` - Get campaign site day breakdown report (specific dimension)
-- `get_campaign_history_report` - Get campaign history report by account
+### Reports
+- `get_top_campaign_content_report` - Get top performing campaign content report (read-only)
+- `get_campaign_breakdown_report` - Get campaign breakdown report with hardcoded dimension (read-only)
+- `get_campaign_site_day_breakdown_report` - Get campaign site day breakdown report with hardcoded dimension (read-only)
+- `get_campaign_history_report` - Get campaign history report (read-only)
 
 ## Read-Only Benefits
 
@@ -135,7 +133,7 @@ realize_mcp/
 
 4. **Run the server**
    ```bash
-   python3.11 src/realize_server.py
+   python src/realize_server.py
    ```
 
 ## MCP Server Configuration
@@ -152,7 +150,7 @@ To use Realize MCP with Cursor, add the following configuration to your Cursor s
 {
   "mcpServers": {
     "realize-mcp": {
-      "command": "python3.11",
+      "command": "python",
       "args": ["/absolute/path/to/realize_mcp/src/realize_server.py"],
       "env": {
         "REALIZE_CLIENT_ID": "your_client_id_here",
@@ -171,7 +169,7 @@ For Claude Desktop, add this to your `claude_desktop_config.json`:
 {
   "mcpServers": {
     "realize-mcp": {
-      "command": "python3.11",
+      "command": "python",
       "args": ["/absolute/path/to/realize_mcp/src/realize_server.py"],
       "env": {
         "REALIZE_CLIENT_ID": "your_client_id_here",
@@ -226,16 +224,16 @@ Run the comprehensive test suite:
 
 ```bash
 # Run all tests
-python3.11 -m pytest tests/ -v
+python -m pytest tests/ -v
 
 # Run production tests
-python3.11 -m pytest tests/test_production.py -v
+python -m pytest tests/test_production.py -v
 
 # Run integration tests
-python3.11 -m pytest tests/test_integration.py -v
+python -m pytest tests/test_integration.py -v
 
 # Run tests with coverage
-python3.11 -m pytest tests/ --cov=src --cov-report=html
+python -m pytest tests/ --cov=src --cov-report=html
 ```
 
 ## Troubleshooting
@@ -266,7 +264,7 @@ python3.11 -m pytest tests/ --cov=src --cov-report=html
 Enable debug logging:
 ```bash
 export LOG_LEVEL=DEBUG
-python3.11 src/realize_server.py
+python src/realize_server.py
 ```
 
 ## Production Checklist
