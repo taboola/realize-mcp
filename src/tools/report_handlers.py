@@ -114,7 +114,7 @@ async def get_top_campaign_content_report(arguments: dict = None) -> List[types.
         }
         
         # Make API request to get top campaign content report - returns raw JSON dict
-        endpoint = f"/{account_id}/reports/top-campaign-content"
+        endpoint = f"/{account_id}/reports/top-campaign-content/dimensions/item_breakdown"
         response = await client.get(endpoint, params=params)
         
         return [types.TextContent(
@@ -150,7 +150,7 @@ async def get_campaign_history_report(arguments: dict = None) -> List[types.Text
         }
         
         # Make API request to get campaign history report - returns raw JSON dict
-        endpoint = f"/{account_id}/reports/campaign-summary/campaign-history"
+        endpoint = f"/{account_id}/reports/campaign-history/dimensions/by_account"
         response = await client.get(endpoint, params=params)
         
         return [types.TextContent(
