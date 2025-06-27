@@ -1,0 +1,121 @@
+"""Campaign and campaign items handlers for read-only operations using raw JSON."""
+
+import logging
+from typing import List
+import mcp.types as types
+from realize.client import client
+from tools.utils import format_response
+
+logger = logging.getLogger(__name__)
+
+
+async def get_all_campaigns(arguments: dict = None) -> List[types.TextContent]:
+    """Get all campaigns for an account (read-only)."""
+    try:
+        account_id = arguments.get("account_id") if arguments else None
+        
+        if not account_id:
+            return [types.TextContent(
+                type="text",
+                text="account_id is required"
+            )]
+        
+        # Make API request to get campaigns - returns raw JSON dict
+        response = await client.get(f"/{account_id}/campaigns")
+        
+        return [types.TextContent(
+            type="text", 
+            text=f"Campaigns for account {account_id}:\n{format_response(response)}"
+        )]
+        
+    except Exception as e:
+        logger.error(f"Failed to get campaigns: {e}")
+        return [types.TextContent(
+            type="text",
+            text=f"Failed to get campaigns: {str(e)}"
+        )]
+
+
+async def get_campaign(arguments: dict = None) -> List[types.TextContent]:
+    """Get specific campaign details (read-only)."""
+    try:
+        account_id = arguments.get("account_id") if arguments else None
+        campaign_id = arguments.get("campaign_id") if arguments else None
+        
+        if not account_id or not campaign_id:
+            return [types.TextContent(
+                type="text",
+                text="Both account_id and campaign_id are required"
+            )]
+        
+        # Make API request to get campaign details - returns raw JSON dict
+        response = await client.get(f"/{account_id}/campaigns/{campaign_id}")
+        
+        return [types.TextContent(
+            type="text",
+            text=f"Campaign {campaign_id} details:\n{format_response(response)}"
+        )]
+        
+    except Exception as e:
+        logger.error(f"Failed to get campaign details: {e}")
+        return [types.TextContent(
+            type="text",
+            text=f"Failed to get campaign details: {str(e)}"
+        )]
+
+
+async def get_campaign_items(arguments: dict = None) -> List[types.TextContent]:
+    """Get all items for a campaign (read-only)."""
+    try:
+        account_id = arguments.get("account_id") if arguments else None
+        campaign_id = arguments.get("campaign_id") if arguments else None
+        
+        if not account_id or not campaign_id:
+            return [types.TextContent(
+                type="text",
+                text="Both account_id and campaign_id are required"
+            )]
+        
+        # Make API request to get campaign items - returns raw JSON dict
+        response = await client.get(f"/{account_id}/campaigns/{campaign_id}/campaign_items")
+        
+        return [types.TextContent(
+            type="text",
+            text=f"Campaign items for campaign {campaign_id}:\n{format_response(response)}"
+        )]
+        
+    except Exception as e:
+        logger.error(f"Failed to get campaign items: {e}")
+        return [types.TextContent(
+            type="text",
+            text=f"Failed to get campaign items: {str(e)}"
+        )]
+
+
+async def get_campaign_item(arguments: dict = None) -> List[types.TextContent]:
+    """Get specific campaign item details (read-only)."""
+    try:
+        account_id = arguments.get("account_id") if arguments else None
+        campaign_id = arguments.get("campaign_id") if arguments else None
+        item_id = arguments.get("item_id") if arguments else None
+        
+        if not account_id or not campaign_id or not item_id:
+            return [types.TextContent(
+                type="text",
+                text="account_id, campaign_id, and item_id are all required"
+            )]
+        
+        # Make API request to get campaign item details - returns raw JSON dict
+        response = await client.get(f"/{account_id}/campaigns/{campaign_id}/campaign_items/{item_id}")
+        
+        return [types.TextContent(
+            type="text",
+            text=f"Campaign item {item_id} details:\n{format_response(response)}"
+        )]
+        
+    except Exception as e:
+        logger.error(f"Failed to get campaign item details: {e}")
+        return [types.TextContent(
+            type="text",
+            text=f"Failed to get campaign item details: {str(e)}"
+        )] 
