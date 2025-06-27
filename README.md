@@ -93,7 +93,6 @@ realize_mcp/
 │   │   ├── account_handlers.py  # Account management tools
 │   │   ├── campaign_handlers.py # Campaign & items tools
 │   │   ├── report_handlers.py   # Reporting tools
-
 │   │   └── utils.py             # Utility functions
 │   ├── realize/                 # Realize API client
 │   │   ├── auth.py              # Authentication handling
@@ -103,9 +102,7 @@ realize_mcp/
 ├── tests/                       # Comprehensive test suite
 │   ├── test_production.py       # Production readiness tests
 │   └── test_integration.py      # Integration tests
-├── documents/                   # Implementation documentation
 ├── requirements.txt             # Python dependencies
-├── .env.example                 # Environment variables template
 └── README.md                    # This file
 ```
 
@@ -129,10 +126,11 @@ realize_mcp/
    pip install -r requirements.txt
    ```
 
-3. **Configure environment**
+3. **Configure environment variables**
+   Set your Realize API credentials as environment variables:
    ```bash
-   cp .env.example .env
-   # Edit .env with your Realize API credentials
+   export REALIZE_CLIENT_ID="your_client_id_here"
+   export REALIZE_CLIENT_SECRET="your_client_secret_here"
    ```
 
 4. **Run the server**
@@ -222,8 +220,6 @@ User: "Get campaign performance report for last month"
 AI Assistant: [Uses get_campaign_summary_report tool to get performance data]
 ```
 
-
-
 ## Testing
 
 Run the comprehensive test suite:
@@ -247,7 +243,7 @@ python3.11 -m pytest tests/ --cov=src --cov-report=html
 ### Common Issues
 
 1. **Authentication Errors**
-   - Verify credentials are correct in .env file
+   - Verify credentials are correct in environment variables
    - Check if API access is enabled for your account
    - Ensure credentials have proper permissions
 
@@ -271,27 +267,6 @@ Enable debug logging:
 ```bash
 export LOG_LEVEL=DEBUG
 python3.11 src/realize_server.py
-```
-
-## Extending with Custom Read-Only Tools
-
-To add new read-only tools using raw JSON approach:
-
-1. Add tool definition to `tools/registry.py`
-2. Create handler function that works with dictionaries
-3. Use `format_response()` utility for consistent JSON display
-4. Only implement GET operations for safety
-5. No model definitions needed - just handle raw dicts
-
-```python
-# Example custom read-only tool handler
-async def my_custom_read_handler(arguments: dict) -> List[types.TextContent]:
-    response = await client.get("/my-read-endpoint")
-    # response is already a dict - no parsing needed
-    return [types.TextContent(
-        type="text",
-        text=f"Read-only response: {format_response(response)}"
-    )]
 ```
 
 ## Production Checklist
