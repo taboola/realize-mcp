@@ -61,15 +61,9 @@ async def handle_call_tool(
             from tools.auth_handlers import get_token_details
             return await get_token_details()
             
-        elif handler_path == "account_handlers.get_user_allowed_accounts":
-            from tools.account_handlers import get_user_allowed_accounts
-            return await get_user_allowed_accounts()
-            
-        elif handler_path == "account_handlers.get_user_account":
-            from tools.account_handlers import get_user_account
-            return await get_user_account()
-            
-
+        elif handler_path == "account_handlers.search_accounts":
+            from tools.account_handlers import search_accounts
+            return await search_accounts(arguments.get("query"))
             
         # Campaign handlers
         elif handler_path == "campaign_handlers.get_all_campaigns":

@@ -84,8 +84,7 @@ Based on the [Realize API](https://developers.taboola.com/backstage-api/referenc
 - `get_token_details` - Retrieve token information and validity
 
 ### Account Management
-- `get_user_allowed_accounts` - Get accounts accessible to the current user
-- `get_user_account` - Get current user's account information
+- `search_accounts` - Search for accounts to get account_id values needed for other tools (read-only)
 
 ### Campaign Management
 - `get_all_campaigns` - Get all campaigns for an account (read-only)
@@ -255,6 +254,26 @@ AI Assistant: [Uses get_campaign tool with campaign details]
 ```
 User: "Get campaign performance report for last month"
 AI Assistant: [Uses get_campaign_summary_report tool to get performance data]
+```
+
+### Account Discovery
+```
+User: "Find accounts with 'Marketing' in the name"
+AI Assistant: [Uses search_accounts tool to find matching accounts with account_id values]
+```
+
+### Find Account by ID
+```
+User: "Get details for account 12345"
+AI Assistant: [Uses search_accounts tool to get account_id for other operations]
+```
+
+### Account Resolution Workflow
+```
+1. User: "Show campaigns for Marketing Corp"
+2. AI: Uses search_accounts("Marketing Corp") to get account_id
+3. AI: Extracts account_id from response (e.g., "1234567890")
+4. AI: Uses get_all_campaigns(account_id="1234567890") with the account_id
 ```
 
 ## Testing

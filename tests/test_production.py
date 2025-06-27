@@ -22,10 +22,11 @@ class TestProductionReadiness:
         # Check minimum required read-only tools
         required_tools = [
             'get_auth_token', 'get_token_details',
-            'get_user_allowed_accounts', 'get_user_account',
+            'search_accounts',
             'get_all_campaigns', 'get_campaign',
             'get_campaign_items', 'get_campaign_item',
-            'get_campaign_summary_report', 'api_request_get'
+            'get_top_campaign_content_report', 'get_campaign_history_report',
+            'get_campaign_breakdown_report', 'get_campaign_site_day_breakdown_report'
         ]
         
         for tool in required_tools:
@@ -195,7 +196,7 @@ class TestReadOnlyToolHandlers:
     @patch('tools.account_handlers.client')
     async def test_account_handlers_raw_json(self, mock_client):
         """Test account handlers with raw JSON responses."""
-        from tools.account_handlers import get_user_allowed_accounts
+        from tools.account_handlers import search_accounts
         
         # Mock raw JSON API response (no model parsing)
         mock_client.get.return_value = {
@@ -204,7 +205,7 @@ class TestReadOnlyToolHandlers:
             ]
         }
         
-        result = await get_user_allowed_accounts()
+        result = await search_accounts("Test Account")
         assert len(result) == 1
         assert "Test Account" in result[0].text
     

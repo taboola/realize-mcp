@@ -4,7 +4,7 @@
 TOOL_REGISTRY = {
     # Authentication & Token Tools
     "get_auth_token": {
-        "description": "Authenticate with Realize API using client credentials",
+        "description": "Authenticate with Realize API using client credentials (read-only)",
         "schema": {
             "type": "object",
             "properties": {},
@@ -15,7 +15,7 @@ TOOL_REGISTRY = {
     },
     
     "get_token_details": {
-        "description": "Get details about current authentication token",
+        "description": "Get details about current authentication token (read-only)",
         "schema": {
             "type": "object", 
             "properties": {},
@@ -26,25 +26,19 @@ TOOL_REGISTRY = {
     },
     
     # Account Management Tools
-    "get_user_allowed_accounts": {
-        "description": "Get list of accounts accessible to current user",
+    "search_accounts": {
+        "description": "Search for accounts by numeric ID or text query to get account_id values needed for other tools (read-only). Returns account data including 'account_id' field (camelCase string) required for campaign and report operations.",
         "schema": {
             "type": "object",
-            "properties": {},
-            "required": []
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Account ID (numeric) or search term (text) to find accounts. Use the returned 'account_id' field for other tool operations."
+                }
+            },
+            "required": ["query"]
         },
-        "handler": "account_handlers.get_user_allowed_accounts",
-        "category": "accounts"
-    },
-    
-    "get_user_account": {
-        "description": "Get current user's account information",
-        "schema": {
-            "type": "object",
-            "properties": {},
-            "required": []
-        },
-        "handler": "account_handlers.get_user_account", 
+        "handler": "account_handlers.search_accounts",
         "category": "accounts"
     },
     

@@ -1,0 +1,170 @@
+"""Tests for account search functionality."""
+import pytest
+import json
+import sys
+import pathlib
+sys.path.append(str(pathlib.Path(__file__).parent.parent / "src"))
+from unittest.mock import patch, AsyncMock
+from tools.account_handlers import search_accounts
+from realize.client import RealizeClient
+
+
+class TestAccountSearch:
+    """Test cases for search_accounts tool."""
+    
+    @pytest.mark.asyncio
+    async def test_search_accounts_numeric_query(self):
+        """Test searching with numeric ID."""
+        mock_response = {
+            "results": [
+                {
+                    "id": "12345",
+                    "name": "Test Account",
+                    "type": "advertiser"
+                }
+            ]
+        }
+        
+        with patch.object(RealizeClient, 'get', new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = mock_response
+            
+            result = await search_accounts("12345")
+            
+            assert len(result) == 1
+            assert hasattr(result[0], 'type')
+            assert hasattr(result[0], 'text')
+            response_data = json.loads(result[0].text)
+            assert response_data == mock_response
+            mock_get.assert_called_once_with("/advertisers", params={"id": "12345"})
+    
+    @pytest.mark.asyncio
+    async def test_search_accounts_text_query(self):
+        """Test searching with text query."""
+        mock_response = {
+            "results": [
+                {
+                    "id": "67890",
+                    "name": "Marketing Corp",
+                    "type": "advertiser"
+                }
+            ]
+        }
+        
+        with patch.object(RealizeClient, 'get', new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = mock_response
+            
+            result = await search_accounts("Marketing")
+            
+            assert len(result) == 1
+            assert hasattr(result[0], 'type')
+            assert hasattr(result[0], 'text')
+            response_data = json.loads(result[0].text)
+            assert response_data == mock_response
+            mock_get.assert_called_once_with("/advertisers", params={"search": "Marketing"})
+    
+    @pytest.mark.asyncio
+    async def test_search_accounts_empty_query(self):
+        """Test with empty query string."""
+        result = await search_accounts("")
+        
+        assert len(result) == 1
+        assert hasattr(result[0], 'text')
+        assert "Error: Query parameter cannot be empty" in result[0].text
+    
+    @pytest.mark.asyncio
+    async def test_search_accounts_whitespace_query(self):
+        """Test with whitespace-only query."""
+        result = await search_accounts("   ")
+        
+        assert len(result) == 1
+        assert hasattr(result[0], 'text')
+        assert "Error: Query parameter cannot be empty" in result[0].text
+    
+    @pytest.mark.asyncio
+    async def test_search_accounts_none_query(self):
+        """Test with None query."""
+        result = await search_accounts(None)
+        
+        assert len(result) == 1
+        assert hasattr(result[0], 'text')
+        assert "Error: Query parameter cannot be empty" in result[0].text
+    
+    @pytest.mark.asyncio
+    async def test_search_accounts_api_error(self):
+        """Test error handling when API call fails."""
+        with patch.object(RealizeClient, 'get', new_callable=AsyncMock) as mock_get:
+            mock_get.side_effect = Exception("API Error")
+            
+            result = await search_accounts("test")
+            
+            assert len(result) == 1
+            assert hasattr(result[0], 'text')
+            assert "Failed to search accounts: API Error" in result[0].text
+    
+    @pytest.mark.asyncio
+    async def test_search_accounts_mixed_alphanumeric(self):
+        """Test mixed alphanumeric query (should be treated as text)."""
+        mock_response = {"results": []}
+        
+        with patch.object(RealizeClient, 'get', new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = mock_response
+            
+            result = await search_accounts("ABC123")
+            
+            assert len(result) == 1
+            mock_get.assert_called_once_with("/advertisers", params={"search": "ABC123"})
+    
+    @pytest.mark.asyncio
+    async def test_search_accounts_leading_zeros(self):
+        """Test numeric query with leading zeros."""
+        mock_response = {"results": []}
+        
+        with patch.object(RealizeClient, 'get', new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = mock_response
+            
+            result = await search_accounts("00123")
+            
+            assert len(result) == 1
+            mock_get.assert_called_once_with("/advertisers", params={"id": "00123"})
+    
+    @pytest.mark.asyncio
+    async def test_search_accounts_special_characters(self):
+        """Test query with special characters."""
+        mock_response = {"results": []}
+        
+        with patch.object(RealizeClient, 'get', new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = mock_response
+            
+            result = await search_accounts("Test & Co.")
+            
+            assert len(result) == 1
+            mock_get.assert_called_once_with("/advertisers", params={"search": "Test & Co."})
+
+
+# The get_advertisers method was moved to search_accounts handler
+# These tests are now covered by the TestAccountSearch class above
+
+
+# Integration test scenarios (these would run with real API credentials)
+class TestAccountSearchIntegration:
+    """Integration tests for account search functionality."""
+    
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_search_accounts_integration_numeric(self):
+        """Integration test with real API - numeric search."""
+        # This test would only run when integration test credentials are available
+        # and would test against the real Realize API
+        pytest.skip("Integration test - requires real API credentials")
+    
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_search_accounts_integration_text(self):
+        """Integration test with real API - text search."""
+        # This test would only run when integration test credentials are available
+        # and would test against the real Realize API
+        pytest.skip("Integration test - requires real API credentials")
+
+
+if __name__ == "__main__":
+    pytest.main([__file__]) 
