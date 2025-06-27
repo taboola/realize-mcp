@@ -89,10 +89,6 @@ async def handle_call_tool(
             return await get_campaign_item(arguments)
             
         # Report handlers
-        elif handler_path == "report_handlers.get_campaign_summary_report": 
-            from tools.report_handlers import get_campaign_summary_report
-            return await get_campaign_summary_report(arguments)
-            
         elif handler_path == "report_handlers.get_top_campaign_content_report":
             from tools.report_handlers import get_top_campaign_content_report
             return await get_top_campaign_content_report(arguments)
@@ -100,6 +96,14 @@ async def handle_call_tool(
         elif handler_path == "report_handlers.get_campaign_history_report":
             from tools.report_handlers import get_campaign_history_report
             return await get_campaign_history_report(arguments)
+            
+        elif handler_path == "report_handlers.get_campaign_breakdown_report":
+            from tools.report_handlers import get_campaign_breakdown_report
+            return await get_campaign_breakdown_report(arguments)
+            
+        elif handler_path == "report_handlers.get_campaign_site_day_breakdown_report":
+            from tools.report_handlers import get_campaign_site_day_breakdown_report
+            return await get_campaign_site_day_breakdown_report(arguments)
             
         else:
             raise ValueError(f"Handler not implemented: {handler_path}")
