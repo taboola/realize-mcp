@@ -2,6 +2,45 @@
 
 An MCP (Model Context Protocol) server that wraps Realize API, enabling AI assistants to interact with Taboola's advertising platform through natural language.
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Architecture](#architecture)
+  - [High-Level Design](#high-level-design)
+  - [Core Components](#core-components)
+- [Available Tools](#available-tools)
+  - [Authentication & Token Management](#authentication--token-management)
+  - [Account Management](#account-management)
+  - [Campaign Management](#campaign-management)
+  - [Campaign Items](#campaign-items)
+  - [Reports](#reports)
+- [Read-Only Benefits](#read-only-benefits)
+- [Technology Stack](#technology-stack)
+- [Project Structure](#project-structure)
+- [Installation](#installation)
+  - [Prerequisites](#prerequisites)
+  - [Setup](#setup)
+- [MCP Server Configuration](#mcp-server-configuration)
+  - [Cursor IDE Setup](#cursor-ide-setup)
+  - [Claude Desktop Setup](#claude-desktop-setup)
+  - [Configuration Notes](#configuration-notes)
+- [Configuration](#configuration)
+  - [Environment Variables](#environment-variables)
+- [Usage Examples](#usage-examples)
+  - [Query Campaigns](#query-campaigns)
+  - [Get Campaign Details](#get-campaign-details)
+  - [Performance Reports](#performance-reports)
+- [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
+  - [Common Issues](#common-issues)
+  - [Debug Mode](#debug-mode)
+- [Production Checklist](#production-checklist)
+- [Development](#development)
+  - [Local Development Setup](#local-development-setup)
+- [Security Considerations](#security-considerations)
+- [API Reference](#api-reference)
+- [License](#license)
+
 ## Overview
 
 Realize MCP is a lightweight wrapper around the [Taboola Realize API](https://developers.taboola.com/backstage-api/reference/welcome) that exposes advertising operations as MCP tools. This allows AI assistants to manage campaigns, analyze performance, and handle advertising operations through natural language interactions.
