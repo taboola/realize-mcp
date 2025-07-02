@@ -4,7 +4,7 @@ import logging
 from typing import List
 import mcp.types as types
 from realize.client import client
-from tools.utils import format_response
+from tools.utils import format_response, validate_account_id
 
 logger = logging.getLogger(__name__)
 
@@ -14,10 +14,12 @@ async def get_all_campaigns(arguments: dict = None) -> List[types.TextContent]:
     try:
         account_id = arguments.get("account_id") if arguments else None
         
-        if not account_id:
+        # Validate account_id format
+        is_valid, error_message = validate_account_id(account_id)
+        if not is_valid:
             return [types.TextContent(
                 type="text",
-                text="account_id is required"
+                text=error_message
             )]
         
         # Make API request to get campaigns - returns raw JSON dict
@@ -42,10 +44,18 @@ async def get_campaign(arguments: dict = None) -> List[types.TextContent]:
         account_id = arguments.get("account_id") if arguments else None
         campaign_id = arguments.get("campaign_id") if arguments else None
         
-        if not account_id or not campaign_id:
+        # Validate account_id format
+        is_valid, error_message = validate_account_id(account_id)
+        if not is_valid:
             return [types.TextContent(
                 type="text",
-                text="Both account_id and campaign_id are required"
+                text=error_message
+            )]
+        
+        if not campaign_id:
+            return [types.TextContent(
+                type="text",
+                text="campaign_id is required"
             )]
         
         # Make API request to get campaign details - returns raw JSON dict
@@ -70,10 +80,18 @@ async def get_campaign_items(arguments: dict = None) -> List[types.TextContent]:
         account_id = arguments.get("account_id") if arguments else None
         campaign_id = arguments.get("campaign_id") if arguments else None
         
-        if not account_id or not campaign_id:
+        # Validate account_id format
+        is_valid, error_message = validate_account_id(account_id)
+        if not is_valid:
             return [types.TextContent(
                 type="text",
-                text="Both account_id and campaign_id are required"
+                text=error_message
+            )]
+        
+        if not campaign_id:
+            return [types.TextContent(
+                type="text",
+                text="campaign_id is required"
             )]
         
         # Make API request to get campaign items - returns raw JSON dict
@@ -99,10 +117,18 @@ async def get_campaign_item(arguments: dict = None) -> List[types.TextContent]:
         campaign_id = arguments.get("campaign_id") if arguments else None
         item_id = arguments.get("item_id") if arguments else None
         
-        if not account_id or not campaign_id or not item_id:
+        # Validate account_id format
+        is_valid, error_message = validate_account_id(account_id)
+        if not is_valid:
             return [types.TextContent(
                 type="text",
-                text="account_id, campaign_id, and item_id are all required"
+                text=error_message
+            )]
+        
+        if not campaign_id or not item_id:
+            return [types.TextContent(
+                type="text",
+                text="campaign_id and item_id are both required"
             )]
         
         # Make API request to get campaign item details - returns raw JSON dict

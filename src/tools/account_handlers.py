@@ -60,13 +60,44 @@ async def search_accounts(query: str) -> List[types.TextContent]:
         # Call the API directly
         data = await client.get("/advertisers", params=params)
         
-        # Return raw JSON response with all fields
-        return [
-            types.TextContent(
-                type="text",
-                text=json.dumps(data, indent=2, ensure_ascii=False)
-            )
-        ]
+        # Enhanced formatting with guidance
+        if isinstance(data, dict) and "results" in data and data["results"]:
+            # Extract account_id values for summary
+            account_ids = []
+            for result in data["results"]:
+                if "account_id" in result:
+                    account_ids.append(result["account_id"])
+            
+            # Create formatted response with guidance
+            response_text = "🎯 ACCOUNT SEARCH RESULTS\n\n"
+            
+            if account_ids:
+                response_text += "📋 ACCOUNT_ID VALUES FOR OTHER TOOLS:\n"
+                for i, account_id in enumerate(account_ids, 1):
+                    result = data["results"][i-1]
+                    name = result.get("name", "Unknown")
+                    response_text += f"  {i}. account_id: '{account_id}' ({name})\n"
+                
+                response_text += "\n⚠️  IMPORTANT: Use these exact 'account_id' values (in quotes above) for campaign and report tools.\n\n"
+            
+            response_text += "📊 FULL DETAILS:\n"
+            response_text += json.dumps(data, indent=2, ensure_ascii=False)
+            
+            return [
+                types.TextContent(
+                    type="text",
+                    text=response_text
+                )
+            ]
+        else:
+            # Handle case where no results or unexpected format
+            return [
+                types.TextContent(
+                    type="text",
+                    text=f"No accounts found for query: '{query}'\n\nRaw response:\n{json.dumps(data, indent=2, ensure_ascii=False)}"
+                )
+            ]
+            
     except Exception as e:
         logger.error(f"Failed to search accounts: {e}")
         return [

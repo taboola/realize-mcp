@@ -84,17 +84,20 @@ Based on the [Realize API](https://developers.taboola.com/backstage-api/referenc
 - `get_token_details` - Retrieve token information and validity
 
 ### Account Management
-- `search_accounts` - Search for accounts to get account_id values needed for other tools (read-only)
+- `search_accounts` - **[REQUIRED FIRST]** Search for accounts to get account_id values needed for other tools (read-only)
 
 ### Campaign Management
+> **⚠️ Workflow Required**: Use `search_accounts` first to get account_id values for these tools
 - `get_all_campaigns` - Get all campaigns for an account (read-only)
 - `get_campaign` - Get specific campaign details (read-only)
 
 ### Campaign Items
+> **⚠️ Workflow Required**: Use `search_accounts` first to get account_id values for these tools
 - `get_campaign_items` - Get all items for a campaign (read-only)
 - `get_campaign_item` - Get specific campaign item details (read-only)
 
 ### Reports
+> **⚠️ Workflow Required**: Use `search_accounts` first to get account_id values for these tools
 - `get_top_campaign_content_report` - Get top performing campaign content report (read-only)
 - `get_campaign_breakdown_report` - Get campaign breakdown report with hardcoded dimension (read-only)
 - `get_campaign_site_day_breakdown_report` - Get campaign site day breakdown report with hardcoded dimension (read-only)
@@ -238,42 +241,79 @@ For Claude Desktop, add this to your `claude_desktop_config.json`:
 
 ## Usage Examples
 
-### Query Campaigns
+> **⚠️ IMPORTANT WORKFLOW**: All campaign and report operations require account_id values from `search_accounts` tool first. Do NOT use numeric IDs directly.
+
+### 1. Account Resolution Workflow (REQUIRED FIRST STEP)
+
+This is the **mandatory first step** for all campaign and report operations:
+
 ```
-User: "Show me all campaigns for account 123"
-AI Assistant: [Uses get_all_campaigns tool to retrieve all campaigns]
+User: "Show campaigns for Marketing Corp"
+AI Assistant: 
+  Step 1: Uses search_accounts("Marketing Corp")
+  Response: 🎯 ACCOUNT SEARCH RESULTS
+            📋 ACCOUNT_ID VALUES FOR OTHER TOOLS:
+              1. account_id: 'mktg_corp_001' (Marketing Corp)
+  
+  Step 2: Uses get_all_campaigns(account_id="mktg_corp_001")
+  Result: [Campaign list for Marketing Corp]
 ```
 
-### Get Campaign Details
+### 2. Finding Accounts by Numeric ID
+
 ```
-User: "Get details for campaign 456 in account 123"
-AI Assistant: [Uses get_campaign tool with campaign details]
+User: "Get campaigns for account 12345"
+AI Assistant:
+  Step 1: Uses search_accounts("12345") 
+  Response: 🎯 ACCOUNT SEARCH RESULTS
+            📋 ACCOUNT_ID VALUES FOR OTHER TOOLS:
+              1. account_id: 'advertiser_12345_prod' (Company Name)
+  
+  Step 2: Uses get_all_campaigns(account_id="advertiser_12345_prod")
+  Result: [Campaign list for account]
 ```
 
-### Performance Reports
+### 3. Campaign Management Examples
+
 ```
-User: "Get campaign performance report for last month"
-AI Assistant: [Uses get_campaign_summary_report tool to get performance data]
+User: "Show campaign details for campaign 456 in Marketing Corp"
+AI Assistant:
+  Step 1: search_accounts("Marketing Corp") → account_id: 'mktg_corp_001'
+  Step 2: get_campaign(account_id="mktg_corp_001", campaign_id="456")
 ```
 
-### Account Discovery
+### 4. Performance Reports
+
 ```
-User: "Find accounts with 'Marketing' in the name"
-AI Assistant: [Uses search_accounts tool to find matching accounts with account_id values]
+User: "Get campaign performance report for Marketing Corp last month"
+AI Assistant:
+  Step 1: search_accounts("Marketing Corp") → account_id: 'mktg_corp_001'
+  Step 2: get_campaign_breakdown_report(
+            account_id="mktg_corp_001", 
+            start_date="2024-01-01", 
+            end_date="2024-01-31"
+          )
 ```
 
-### Find Account by ID
+### 5. Error Prevention Examples
+
+❌ **WRONG**: Using numeric IDs directly
 ```
-User: "Get details for account 12345"
-AI Assistant: [Uses search_accounts tool to get account_id for other operations]
+get_all_campaigns(account_id="12345")  # This will fail with helpful error
 ```
 
-### Account Resolution Workflow
+✅ **CORRECT**: Using account_id from search_accounts
 ```
-1. User: "Show campaigns for Marketing Corp"
-2. AI: Uses search_accounts("Marketing Corp") to get account_id
-3. AI: Extracts account_id from response (e.g., "1234567890")
-4. AI: Uses get_all_campaigns(account_id="1234567890") with the account_id
+search_accounts("12345") → extract account_id → use in other tools
+```
+
+### 6. Validation and Error Messages
+
+If you accidentally use a numeric ID, you'll get a helpful error:
+```
+Error: This appears to be a numeric account ID (12345). Please use the search_accounts tool first 
+to get the proper account_id field value. REQUIRED WORKFLOW: 
+1) search_accounts('12345') 2) Extract 'account_id' field from response 3) Use that account_id value instead
 ```
 
 ## Testing
