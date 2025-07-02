@@ -32,5 +32,12 @@ class Config(BaseSettings):
         case_sensitive = False
 
 
+# Pagination configuration
+PAGINATION_DEFAULTS = {
+    "default_page": 1,
+    "default_page_size": 100,
+    "max_page_size": 1000
+}
+
 # Global config instance
 config = Config() 

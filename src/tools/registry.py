@@ -127,7 +127,7 @@ TOOL_REGISTRY = {
     # Reporting Tools (READ-ONLY)
 
     "get_top_campaign_content_report": {
-        "description": "Get top performing campaign content report (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
+        "description": "Get top performing campaign content report with pagination support (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Supports pagination with page and page_size parameters (defaults: page=1, page_size=100). Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
         "schema": {
             "type": "object",
             "properties": {
@@ -147,6 +147,19 @@ TOOL_REGISTRY = {
                     "type": "integer", 
                     "description": "Number of top items to return", 
                     "default": 10
+                },
+                "page": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1,
+                    "description": "Page number for pagination (default: 1)"
+                },
+                "page_size": {
+                    "type": "integer",
+                    "default": 100,
+                    "minimum": 1,
+                    "maximum": 1000,
+                    "description": "Records per page (default: 100, max: 1000)"
                 }
             },
             "required": ["account_id", "start_date", "end_date"]
@@ -156,7 +169,7 @@ TOOL_REGISTRY = {
     },
 
     "get_campaign_history_report": {
-        "description": "Get campaign history report (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
+        "description": "Get campaign history report with pagination support (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Supports pagination with page and page_size parameters (defaults: page=1, page_size=100). Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
         "schema": {
             "type": "object",
             "properties": {
@@ -171,6 +184,19 @@ TOOL_REGISTRY = {
                 "end_date": {
                     "type": "string", 
                     "description": "End date (YYYY-MM-DD)"
+                },
+                "page": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1,
+                    "description": "Page number for pagination (default: 1)"
+                },
+                "page_size": {
+                    "type": "integer",
+                    "default": 100,
+                    "minimum": 1,
+                    "maximum": 1000,
+                    "description": "Records per page (default: 100, max: 1000)"
                 }
             },
             "required": ["account_id", "start_date", "end_date"]
@@ -180,7 +206,7 @@ TOOL_REGISTRY = {
     },
 
     "get_campaign_breakdown_report": {
-        "description": "Get campaign breakdown report with hardcoded dimension (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
+        "description": "Get campaign breakdown report with pagination support and hardcoded dimension (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Supports pagination with page and page_size parameters (defaults: page=1, page_size=100). Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
         "schema": {
             "type": "object",
             "properties": {
@@ -200,6 +226,19 @@ TOOL_REGISTRY = {
                     "type": "object", 
                     "description": "Optional filters (flexible JSON object)",
                     "additionalProperties": {"type": "string"}
+                },
+                "page": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1,
+                    "description": "Page number for pagination (default: 1)"
+                },
+                "page_size": {
+                    "type": "integer",
+                    "default": 100,
+                    "minimum": 1,
+                    "maximum": 1000,
+                    "description": "Records per page (default: 100, max: 1000)"
                 }
             },
             "required": ["account_id", "start_date", "end_date"]
@@ -209,7 +248,7 @@ TOOL_REGISTRY = {
     },
 
     "get_campaign_site_day_breakdown_report": {
-        "description": "Get campaign site day breakdown report with hardcoded dimension (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
+        "description": "Get campaign site day breakdown report with pagination support and hardcoded dimension (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Supports pagination with page and page_size parameters (defaults: page=1, page_size=100). Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
         "schema": {
             "type": "object",
             "properties": {
@@ -229,6 +268,19 @@ TOOL_REGISTRY = {
                     "type": "object", 
                     "description": "Optional filters (flexible JSON object)",
                     "additionalProperties": {"type": "string"}
+                },
+                "page": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1,
+                    "description": "Page number for pagination (default: 1)"
+                },
+                "page_size": {
+                    "type": "integer",
+                    "default": 100,
+                    "minimum": 1,
+                    "maximum": 1000,
+                    "description": "Records per page (default: 100, max: 1000)"
                 }
             },
             "required": ["account_id", "start_date", "end_date"]

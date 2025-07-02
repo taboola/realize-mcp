@@ -98,10 +98,12 @@ Based on the [Realize API](https://developers.taboola.com/backstage-api/referenc
 
 ### Reports
 > **⚠️ Workflow Required**: Use `search_accounts` first to get account_id values for these tools
-- `get_top_campaign_content_report` - Get top performing campaign content report (read-only)
-- `get_campaign_breakdown_report` - Get campaign breakdown report with hardcoded dimension (read-only)
-- `get_campaign_site_day_breakdown_report` - Get campaign site day breakdown report with hardcoded dimension (read-only)
-- `get_campaign_history_report` - Get campaign history report (read-only)
+> 
+> **📄 Pagination Support**: All reporting tools now support pagination with `page` and `page_size` parameters (defaults: page=1, page_size=100, max=1000) to prevent overwhelming responses and improve system reliability.
+- `get_top_campaign_content_report` - Get top performing campaign content report with pagination support (read-only)
+- `get_campaign_breakdown_report` - Get campaign breakdown report with pagination support and hardcoded dimension (read-only)
+- `get_campaign_site_day_breakdown_report` - Get campaign site day breakdown report with pagination support and hardcoded dimension (read-only)
+- `get_campaign_history_report` - Get campaign history report with pagination support (read-only)
 
 ## Read-Only Benefits
 
@@ -295,7 +297,51 @@ AI Assistant:
           )
 ```
 
-### 5. Error Prevention Examples
+### 5. Pagination Examples
+
+**Default Pagination (Recommended)**
+```
+User: "Get campaign breakdown report for Marketing Corp"
+AI Assistant:
+  Step 1: search_accounts("Marketing Corp") → account_id: 'mktg_corp_001'
+  Step 2: get_campaign_breakdown_report(
+            account_id="mktg_corp_001", 
+            start_date="2024-01-01", 
+            end_date="2024-01-31"
+            # Uses defaults: page=1, page_size=100
+          )
+  Result: Returns first 100 records (page 1) with pagination info
+```
+
+**Custom Pagination**
+```
+User: "Get the second page of campaign data with 50 records per page"
+AI Assistant:
+  get_campaign_breakdown_report(
+    account_id="mktg_corp_001",
+    start_date="2024-01-01", 
+    end_date="2024-01-31",
+    page=2,
+    page_size=50
+  )
+  Result: Returns records 51-100 (page 2, 50 per page)
+```
+
+**Large Dataset Handling**
+```
+User: "Get more detailed campaign data"
+AI Assistant:
+  get_campaign_breakdown_report(
+    account_id="mktg_corp_001",
+    start_date="2024-01-01", 
+    end_date="2024-01-31",
+    page=1,
+    page_size=500  # Up to 1000 max
+  )
+  Result: Returns first 500 records with improved system reliability
+```
+
+### 6. Error Prevention Examples
 
 ❌ **WRONG**: Using numeric IDs directly
 ```
@@ -307,7 +353,7 @@ get_all_campaigns(account_id="12345")  # This will fail with helpful error
 search_accounts("12345") → extract account_id → use in other tools
 ```
 
-### 6. Validation and Error Messages
+### 7. Validation and Error Messages
 
 If you accidentally use a numeric ID, you'll get a helpful error:
 ```
