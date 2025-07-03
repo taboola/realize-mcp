@@ -127,7 +127,7 @@ TOOL_REGISTRY = {
     # Reporting Tools (READ-ONLY)
 
     "get_top_campaign_content_report": {
-        "description": "Get top performing campaign content report with pagination support (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Supports pagination with page and page_size parameters (defaults: page=1, page_size=100). Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
+        "description": "Get top performing campaign content report with sorting and pagination support (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Supports sorting with sort_field and sort_direction parameters (single field sorting) and pagination (defaults: page=1, page_size=100). Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
         "schema": {
             "type": "object",
             "properties": {
@@ -160,6 +160,17 @@ TOOL_REGISTRY = {
                     "minimum": 1,
                     "maximum": 1000,
                     "description": "Records per page (default: 100, max: 1000)"
+                },
+                "sort_field": {
+                    "type": "string",
+                    "enum": ["clicks", "spent", "impressions"],
+                    "description": "Optional sort field name. Available fields: clicks, spent, impressions. When specified, sorts by this field."
+                },
+                "sort_direction": {
+                    "type": "string",
+                    "enum": ["ASC", "DESC"],
+                    "default": "DESC",
+                    "description": "Sort direction: ASC (ascending) or DESC (descending). Default: DESC"
                 }
             },
             "required": ["account_id", "start_date", "end_date"]
@@ -206,7 +217,7 @@ TOOL_REGISTRY = {
     },
 
     "get_campaign_breakdown_report": {
-        "description": "Get campaign breakdown report with pagination support and hardcoded dimension (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Supports pagination with page and page_size parameters (defaults: page=1, page_size=100). Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
+        "description": "Get campaign breakdown report with sorting and pagination support and hardcoded dimension (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Supports sorting with sort_field and sort_direction parameters (single field sorting) and pagination (defaults: page=1, page_size=100). Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
         "schema": {
             "type": "object",
             "properties": {
@@ -239,6 +250,17 @@ TOOL_REGISTRY = {
                     "minimum": 1,
                     "maximum": 1000,
                     "description": "Records per page (default: 100, max: 1000)"
+                },
+                "sort_field": {
+                    "type": "string",
+                    "enum": ["clicks", "spent", "impressions"],
+                    "description": "Optional sort field name. Available fields: clicks, spent, impressions. When specified, sorts by this field."
+                },
+                "sort_direction": {
+                    "type": "string",
+                    "enum": ["ASC", "DESC"],
+                    "default": "DESC",
+                    "description": "Sort direction: ASC (ascending) or DESC (descending). Default: DESC"
                 }
             },
             "required": ["account_id", "start_date", "end_date"]
@@ -248,7 +270,7 @@ TOOL_REGISTRY = {
     },
 
     "get_campaign_site_day_breakdown_report": {
-        "description": "Get campaign site day breakdown report with pagination support and hardcoded dimension (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Supports pagination with page and page_size parameters (defaults: page=1, page_size=100). Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
+        "description": "Get campaign site day breakdown report with sorting and pagination support and hardcoded dimension (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Supports sorting with sort_field and sort_direction parameters (single field sorting) and pagination (defaults: page=1, page_size=100). Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
         "schema": {
             "type": "object",
             "properties": {
@@ -281,6 +303,17 @@ TOOL_REGISTRY = {
                     "minimum": 1,
                     "maximum": 1000,
                     "description": "Records per page (default: 100, max: 1000)"
+                },
+                "sort_field": {
+                    "type": "string",
+                    "enum": ["clicks", "spent", "impressions"],
+                    "description": "Optional sort field name. Available fields: clicks, spent, impressions. When specified, sorts by this field."
+                },
+                "sort_direction": {
+                    "type": "string",
+                    "enum": ["ASC", "DESC"],
+                    "default": "DESC",
+                    "description": "Sort direction: ASC (ascending) or DESC (descending). Default: DESC"
                 }
             },
             "required": ["account_id", "start_date", "end_date"]

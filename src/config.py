@@ -39,5 +39,13 @@ PAGINATION_DEFAULTS = {
     "max_page_size": 1000
 }
 
+# Sort configuration
+SORT_CONFIG = {
+    "valid_directions": ["ASC", "DESC"],
+    "default_direction": "DESC",
+    "default_sort_field": "spent",
+    "report_sort_fields": ["clicks", "spent", "impressions"]
+}
+
 # Global config instance
 config = Config() 

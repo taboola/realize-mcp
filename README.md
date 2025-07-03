@@ -100,9 +100,11 @@ Based on the [Realize API](https://developers.taboola.com/backstage-api/referenc
 > **⚠️ Workflow Required**: Use `search_accounts` first to get account_id values for these tools
 > 
 > **📄 Pagination Support**: All reporting tools now support pagination with `page` and `page_size` parameters (defaults: page=1, page_size=100, max=1000) to prevent overwhelming responses and improve system reliability.
-- `get_top_campaign_content_report` - Get top performing campaign content report with pagination support (read-only)
-- `get_campaign_breakdown_report` - Get campaign breakdown report with pagination support and hardcoded dimension (read-only)
-- `get_campaign_site_day_breakdown_report` - Get campaign site day breakdown report with pagination support and hardcoded dimension (read-only)
+> 
+> **📊 Sort Support**: Most reporting tools now support sorting with `sort_field` and `sort_direction` parameters for improved data analysis. Available sort fields: `clicks`, `spent`, `impressions`. Sort directions: `ASC` (ascending) or `DESC` (descending, default).
+- `get_top_campaign_content_report` - Get top performing campaign content report with sorting and pagination support (read-only)
+- `get_campaign_breakdown_report` - Get campaign breakdown report with sorting and pagination support and hardcoded dimension (read-only)
+- `get_campaign_site_day_breakdown_report` - Get campaign site day breakdown report with sorting and pagination support and hardcoded dimension (read-only)
 - `get_campaign_history_report` - Get campaign history report with pagination support (read-only)
 
 ## Read-Only Benefits
@@ -341,7 +343,68 @@ AI Assistant:
   Result: Returns first 500 records with improved system reliability
 ```
 
-### 6. Error Prevention Examples
+### 6. Sorting Examples
+
+**Basic Sorting (Single Field)**
+```
+User: "Show campaigns sorted by spend, highest first"
+AI Assistant:
+  Step 1: search_accounts("Marketing Corp") → account_id: 'mktg_corp_001'
+  Step 2: get_campaign_breakdown_report(
+            account_id="mktg_corp_001",
+            start_date="2024-01-01",
+            end_date="2024-01-31",
+            sort_field="spent",
+            sort_direction="DESC"
+          )
+  Result: Returns campaigns sorted by highest spend first
+```
+
+**Sorting by Clicks**
+```
+User: "Get campaign breakdown sorted by clicks, highest first"
+AI Assistant:
+  get_campaign_breakdown_report(
+    account_id="mktg_corp_001",
+    start_date="2024-01-01",
+    end_date="2024-01-31",
+    sort_field="clicks",
+    sort_direction="DESC"
+  )
+  Result: Returns campaigns sorted by highest clicks first
+```
+
+**Combined Sorting and Pagination**
+```
+User: "Get top performing campaigns by spend, show first 50 results"
+AI Assistant:
+  get_campaign_breakdown_report(
+    account_id="mktg_corp_001",
+    start_date="2024-01-01",
+    end_date="2024-01-31",
+    sort_field="spent",
+    sort_direction="DESC",
+    page=1,
+    page_size=50
+  )
+  Result: Returns first 50 campaigns sorted by highest spend
+```
+
+**Sorting by Impressions**
+```
+User: "Show top campaign content sorted by impressions, highest first"
+AI Assistant:
+  get_top_campaign_content_report(
+    account_id="mktg_corp_001",
+    start_date="2024-01-01",
+    end_date="2024-01-31",
+    sort_field="impressions",
+    sort_direction="DESC"
+  )
+  Result: Returns top content sorted by highest impressions first
+```
+
+### 7. Error Prevention Examples
 
 ❌ **WRONG**: Using numeric IDs directly
 ```
@@ -353,7 +416,7 @@ get_all_campaigns(account_id="12345")  # This will fail with helpful error
 search_accounts("12345") → extract account_id → use in other tools
 ```
 
-### 7. Validation and Error Messages
+### 8. Validation and Error Messages
 
 If you accidentally use a numeric ID, you'll get a helpful error:
 ```
@@ -450,6 +513,35 @@ python src/realize_server.py
 - Regularly rotate API credentials
 - Monitor API usage and access logs
 - **Safe by Design**: Read-only operations eliminate data modification risks
+
+## Sort Field Reference
+
+### Available Sort Fields for Reports
+The following reporting tools support sorting (`get_top_campaign_content_report`, `get_campaign_breakdown_report`, `get_campaign_site_day_breakdown_report`) with these sort fields:
+
+- **`clicks`** - Number of clicks received
+- **`spent`** - Amount spent (most commonly used for performance analysis)
+- **`impressions`** - Number of impressions served
+
+> **Note**: `get_campaign_history_report` does not support sorting and returns data in API default order.
+
+### Sort Parameters
+- **`sort_field`** - Optional field name to sort by (from the list above)
+- **`sort_direction`** - Sort direction: `ASC` (ascending) or `DESC` (descending, default)
+
+### Sort Behavior
+- **When `sort_field` is specified**: Data is sorted by the specified field in the specified direction
+- **When `sort_field` is not specified**: Data is returned in API default order (no sorting applied)
+- **Default direction**: `DESC` (highest values first) when sorting is enabled
+- **Integration**: Sort works seamlessly with existing pagination parameters
+
+### Natural Language Processing
+AI agents can interpret various sorting requests:
+- "highest spend first" → `sort_field="spent", sort_direction="DESC"`
+- "most clicks first" → `sort_field="clicks", sort_direction="DESC"`
+- "best performing by impressions" → `sort_field="impressions", sort_direction="DESC"`
+- "lowest spend first" → `sort_field="spent", sort_direction="ASC"`
+- "least clicks first" → `sort_field="clicks", sort_direction="ASC"`
 
 ## API Reference
 

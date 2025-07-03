@@ -5,7 +5,7 @@ from typing import List
 import mcp.types as types
 from realize.client import client
 from tools.utils import format_response, validate_account_id
-from config import PAGINATION_DEFAULTS
+from config import PAGINATION_DEFAULTS, SORT_CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,10 @@ async def get_campaign_breakdown_report(arguments: dict = None) -> List[types.Te
         # Get pagination parameters with defaults
         page = arguments.get("page", PAGINATION_DEFAULTS["default_page"]) if arguments else PAGINATION_DEFAULTS["default_page"]
         page_size = arguments.get("page_size", PAGINATION_DEFAULTS["default_page_size"]) if arguments else PAGINATION_DEFAULTS["default_page_size"]
+        
+        # Get sort parameters with defaults
+        sort_field = arguments.get("sort_field") if arguments else None
+        sort_direction = arguments.get("sort_direction", SORT_CONFIG["default_direction"]) if arguments else SORT_CONFIG["default_direction"]
         
         # Validate account_id format
         is_valid, error_message = validate_account_id(account_id)
@@ -48,6 +52,11 @@ async def get_campaign_breakdown_report(arguments: dict = None) -> List[types.Te
         # Add optional filters
         if filters:
             params.update(filters)
+        
+        # Handle sort parameter construction
+        if sort_field:
+            # Convert to API string format: ?sort=spent,DESC
+            params["sort"] = f"{sort_field},{sort_direction}"
         
         # Make API request to get campaign breakdown report - hardcoded dimension
         endpoint = f"/{account_id}/reports/campaign-summary/dimensions/campaign_breakdown"
@@ -78,6 +87,10 @@ async def get_campaign_site_day_breakdown_report(arguments: dict = None) -> List
         page = arguments.get("page", PAGINATION_DEFAULTS["default_page"]) if arguments else PAGINATION_DEFAULTS["default_page"]
         page_size = arguments.get("page_size", PAGINATION_DEFAULTS["default_page_size"]) if arguments else PAGINATION_DEFAULTS["default_page_size"]
         
+        # Get sort parameters with defaults
+        sort_field = arguments.get("sort_field") if arguments else None
+        sort_direction = arguments.get("sort_direction", SORT_CONFIG["default_direction"]) if arguments else SORT_CONFIG["default_direction"]
+        
         # Validate account_id format
         is_valid, error_message = validate_account_id(account_id)
         if not is_valid:
@@ -103,6 +116,11 @@ async def get_campaign_site_day_breakdown_report(arguments: dict = None) -> List
         # Add optional filters
         if filters:
             params.update(filters)
+        
+        # Handle sort parameter construction
+        if sort_field:
+            # Convert to API string format: ?sort=spent,DESC
+            params["sort"] = f"{sort_field},{sort_direction}"
         
         # Make API request to get campaign site day breakdown report - hardcoded dimension
         endpoint = f"/{account_id}/reports/campaign-summary/dimensions/campaign_site_day_breakdown"
@@ -133,6 +151,10 @@ async def get_top_campaign_content_report(arguments: dict = None) -> List[types.
         page = arguments.get("page", PAGINATION_DEFAULTS["default_page"]) if arguments else PAGINATION_DEFAULTS["default_page"]
         page_size = arguments.get("page_size", PAGINATION_DEFAULTS["default_page_size"]) if arguments else PAGINATION_DEFAULTS["default_page_size"]
         
+        # Get sort parameters with defaults
+        sort_field = arguments.get("sort_field") if arguments else None
+        sort_direction = arguments.get("sort_direction", SORT_CONFIG["default_direction"]) if arguments else SORT_CONFIG["default_direction"]
+        
         # Validate account_id format
         is_valid, error_message = validate_account_id(account_id)
         if not is_valid:
@@ -155,6 +177,11 @@ async def get_top_campaign_content_report(arguments: dict = None) -> List[types.
             "page": page,
             "page_size": page_size
         }
+        
+        # Handle sort parameter construction
+        if sort_field:
+            # Convert to API string format: ?sort=spent,DESC
+            params["sort"] = f"{sort_field},{sort_direction}"
         
         # Make API request to get top campaign content report - returns raw JSON dict
         endpoint = f"/{account_id}/reports/top-campaign-content/dimensions/item_breakdown"
