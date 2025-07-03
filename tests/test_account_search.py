@@ -18,7 +18,7 @@ class TestAccountSearch:
         mock_response = {
             "results": [
                 {
-                    "id": "12345",
+                    "account_id": "12345",
                     "name": "Test Account",
                     "type": "advertiser"
                 }
@@ -33,8 +33,12 @@ class TestAccountSearch:
             assert len(result) == 1
             assert hasattr(result[0], 'type')
             assert hasattr(result[0], 'text')
-            response_data = json.loads(result[0].text)
-            assert response_data == mock_response
+            # Check for formatted response elements
+            assert "🎯 ACCOUNT SEARCH RESULTS" in result[0].text
+            assert "📋 ACCOUNT_ID VALUES FOR OTHER TOOLS:" in result[0].text
+            assert "account_id: '12345'" in result[0].text
+            assert "Test Account" in result[0].text
+            assert "📊 FULL DETAILS:" in result[0].text
             mock_get.assert_called_once_with("/advertisers", params={"id": "12345"})
     
     @pytest.mark.asyncio
@@ -43,7 +47,7 @@ class TestAccountSearch:
         mock_response = {
             "results": [
                 {
-                    "id": "67890",
+                    "account_id": "67890",
                     "name": "Marketing Corp",
                     "type": "advertiser"
                 }
@@ -58,8 +62,12 @@ class TestAccountSearch:
             assert len(result) == 1
             assert hasattr(result[0], 'type')
             assert hasattr(result[0], 'text')
-            response_data = json.loads(result[0].text)
-            assert response_data == mock_response
+            # Check for formatted response elements
+            assert "🎯 ACCOUNT SEARCH RESULTS" in result[0].text
+            assert "📋 ACCOUNT_ID VALUES FOR OTHER TOOLS:" in result[0].text
+            assert "account_id: '67890'" in result[0].text
+            assert "Marketing Corp" in result[0].text
+            assert "📊 FULL DETAILS:" in result[0].text
             mock_get.assert_called_once_with("/advertisers", params={"search": "Marketing"})
     
     @pytest.mark.asyncio
@@ -112,6 +120,7 @@ class TestAccountSearch:
             result = await search_accounts("ABC123")
             
             assert len(result) == 1
+            assert "No accounts found for query: 'ABC123'" in result[0].text
             mock_get.assert_called_once_with("/advertisers", params={"search": "ABC123"})
     
     @pytest.mark.asyncio
@@ -125,6 +134,7 @@ class TestAccountSearch:
             result = await search_accounts("00123")
             
             assert len(result) == 1
+            assert "No accounts found for query: '00123'" in result[0].text
             mock_get.assert_called_once_with("/advertisers", params={"id": "00123"})
     
     @pytest.mark.asyncio
@@ -138,6 +148,7 @@ class TestAccountSearch:
             result = await search_accounts("Test & Co.")
             
             assert len(result) == 1
+            assert "No accounts found for query: 'Test & Co.'" in result[0].text
             mock_get.assert_called_once_with("/advertisers", params={"search": "Test & Co."})
 
 

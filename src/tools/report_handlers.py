@@ -145,7 +145,6 @@ async def get_top_campaign_content_report(arguments: dict = None) -> List[types.
         account_id = arguments.get("account_id") if arguments else None
         start_date = arguments.get("start_date") if arguments else None
         end_date = arguments.get("end_date") if arguments else None
-        count = arguments.get("count", 10) if arguments else 10
         
         # Get pagination parameters with defaults
         page = arguments.get("page", PAGINATION_DEFAULTS["default_page"]) if arguments else PAGINATION_DEFAULTS["default_page"]
@@ -173,7 +172,6 @@ async def get_top_campaign_content_report(arguments: dict = None) -> List[types.
         params = {
             "start_date": start_date,
             "end_date": end_date,
-            "count": count,
             "page": page,
             "page_size": page_size
         }
@@ -189,7 +187,7 @@ async def get_top_campaign_content_report(arguments: dict = None) -> List[types.
         
         return [types.TextContent(
             type="text",
-            text=f"Top {count} campaign content for account {account_id} ({start_date} to {end_date}) - Page {page}, {page_size} records:\n{format_response(response)}"
+            text=f"Top campaign content for account {account_id} ({start_date} to {end_date}) - Page {page}, {page_size} records:\n{format_response(response)}"
         )]
         
     except Exception as e:

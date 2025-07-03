@@ -143,11 +143,6 @@ TOOL_REGISTRY = {
                     "type": "string", 
                     "description": "End date (YYYY-MM-DD)"
                 },
-                "count": {
-                    "type": "integer", 
-                    "description": "Number of top items to return", 
-                    "default": 10
-                },
                 "page": {
                     "type": "integer",
                     "default": 1,

@@ -5,13 +5,14 @@ import json
 import sys
 import pathlib
 sys.path.append(str(pathlib.Path(__file__).parent.parent / "src"))
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, AsyncMock
 from realize_server import handle_list_tools, handle_call_tool
 
 
 class TestReadOnlyIntegration:
     """Integration tests for the complete read-only system using raw JSON."""
     
+    @pytest.mark.asyncio
     async def test_list_tools_integration(self):
         """Test that list_tools returns all registered read-only tools."""
         tools = await handle_list_tools()
@@ -21,11 +22,12 @@ class TestReadOnlyIntegration:
         
         # Check that essential read-only tools are present
         tool_names = [tool.name for tool in tools]
-        essential_tools = ['get_auth_token', 'get_user_allowed_accounts', 'api_request_get']
+        essential_tools = ['get_auth_token', 'search_accounts', 'get_all_campaigns']
         
         for tool in essential_tools:
             assert tool in tool_names, f"Essential read-only tool {tool} missing"
     
+    @pytest.mark.asyncio
     async def test_no_write_tools_available(self):
         """Test that no write operations are available."""
         tools = await handle_list_tools()
@@ -38,19 +40,21 @@ class TestReadOnlyIntegration:
                 assert not tool_name.startswith(pattern), \
                     f"Found write operation {tool_name} - only read operations should be available"
     
+    @pytest.mark.asyncio
     @patch('tools.auth_handlers.auth')
     async def test_call_tool_integration(self, mock_auth):
         """Test tool calling integration."""
         # Mock auth token (only model used)
         mock_token = Mock()
         mock_token.expires_in = 3600
-        mock_auth.get_auth_token.return_value = mock_token
+        mock_auth.get_auth_token = AsyncMock(return_value=mock_token)
         
         # Test auth tool call
         result = await handle_call_tool("get_auth_token", {})
         assert len(result) == 1
         assert "Successfully authenticated" in result[0].text
     
+    @pytest.mark.asyncio
     async def test_invalid_tool_call(self):
         """Test handling of invalid tool calls."""
         with pytest.raises(ValueError, match="Unknown tool"):
@@ -60,11 +64,12 @@ class TestReadOnlyIntegration:
     
 
     
+    @pytest.mark.asyncio
     @patch('realize.client.client')
     async def test_campaign_tools_integration(self, mock_client):
         """Test campaign tools integration with raw JSON."""
         # Mock campaign data
-        mock_client.get.return_value = {
+        mock_client.get = AsyncMock(return_value={
             "results": [
                 {
                     "id": "123",
@@ -74,7 +79,7 @@ class TestReadOnlyIntegration:
                 }
             ],
             "metadata": {"total": 1}
-        }
+        })
         
         # Test get_all_campaigns
         result = await handle_call_tool("get_all_campaigns", {
@@ -84,11 +89,11 @@ class TestReadOnlyIntegration:
         assert "Integration Test Campaign" in result[0].text
         
         # Test get_campaign  
-        mock_client.get.return_value = {
+        mock_client.get = AsyncMock(return_value={
             "id": "123",
             "name": "Single Campaign",
             "status": "RUNNING"
-        }
+        })
         
         result = await handle_call_tool("get_campaign", {
             "account_id": "test_account",
@@ -97,11 +102,12 @@ class TestReadOnlyIntegration:
         assert len(result) == 1
         assert "Single Campaign" in result[0].text
     
-    @patch('realize.client.client')
+    @pytest.mark.asyncio
+    @patch('tools.campaign_handlers.client')
     async def test_campaign_items_integration(self, mock_client):
         """Test campaign items tools integration with raw JSON."""
-        # Mock campaign items data
-        mock_client.get.return_value = {
+        # Test get_campaign_items
+        mock_client.get = AsyncMock(return_value={
             "results": [
                 {
                     "id": "item_123",
@@ -110,9 +116,8 @@ class TestReadOnlyIntegration:
                     "status": "APPROVED"
                 }
             ]
-        }
+        })
         
-        # Test get_campaign_items
         result = await handle_call_tool("get_campaign_items", {
             "account_id": "test_account", 
             "campaign_id": "123"
@@ -120,12 +125,13 @@ class TestReadOnlyIntegration:
         assert len(result) == 1
         assert "Test Campaign Item" in result[0].text
         
-        # Test get_campaign_item
-        mock_client.get.return_value = {
+        # Test get_campaign_item - reset mock with new data
+        mock_client.get.reset_mock()
+        mock_client.get = AsyncMock(return_value={
             "id": "item_123",
             "title": "Single Campaign Item",
             "status": "APPROVED"
-        }
+        })
         
         result = await handle_call_tool("get_campaign_item", {
             "account_id": "test_account",
@@ -135,11 +141,13 @@ class TestReadOnlyIntegration:
         assert len(result) == 1
         assert "Single Campaign Item" in result[0].text
     
+    @pytest.mark.asyncio
     @patch('realize.client.client')
     async def test_reports_integration(self, mock_client):
         """Test reporting tools integration with raw JSON."""
         # Mock report data
-        mock_client.get.return_value = {
+        mock_client.get.return_value = asyncio.Future()
+        mock_client.get.return_value.set_result({
             "results": [
                 {
                     "campaign_id": "123",
@@ -153,12 +161,11 @@ class TestReadOnlyIntegration:
                 "start_date": "2024-01-01",
                 "end_date": "2024-01-31"
             }
-        }
+        })
         
-        # Test get_campaign_summary_report
-        result = await handle_call_tool("get_campaign_summary_report", {
+        # Test get_campaign_breakdown_report
+        result = await handle_call_tool("get_campaign_breakdown_report", {
             "account_id": "test_account",
-            "dimension": "campaign_id",
             "start_date": "2024-01-01",
             "end_date": "2024-01-31"
         })
@@ -169,11 +176,10 @@ class TestReadOnlyIntegration:
         result = await handle_call_tool("get_top_campaign_content_report", {
             "account_id": "test_account",
             "start_date": "2024-01-01", 
-            "end_date": "2024-01-31",
-            "count": 10
+            "end_date": "2024-01-31"
         })
         assert len(result) == 1
-        assert "Top 10 campaign content" in result[0].text
+        assert "Top campaign content" in result[0].text
         
         # Test get_campaign_history_report
         result = await handle_call_tool("get_campaign_history_report", {
@@ -184,12 +190,10 @@ class TestReadOnlyIntegration:
         assert len(result) == 1
         assert "Campaign history report" in result[0].text
     
-    @patch('realize.client.client')
+    @pytest.mark.asyncio  
+    @patch('tools.campaign_handlers.client')
     async def test_error_handling_integration(self, mock_client):
         """Test error handling integration across all tools."""
-        # Mock API error
-        mock_client.get.side_effect = Exception("API Error")
-        
         # Test that all tools handle errors gracefully
         error_tools = [
             ("get_all_campaigns", {"account_id": "test"}),
@@ -198,10 +202,15 @@ class TestReadOnlyIntegration:
         ]
         
         for tool_name, args in error_tools:
+            # Reset and configure mock for each tool test
+            mock_client.get.reset_mock()
+            mock_client.get = AsyncMock(side_effect=Exception("API Error"))
+            
             result = await handle_call_tool(tool_name, args)
             assert len(result) == 1
             assert "failed" in result[0].text.lower() or "error" in result[0].text.lower()
     
+    @pytest.mark.asyncio
     async def test_parameter_validation_integration(self):
         """Test parameter validation across all tools."""
         # Test tools with missing required parameters
@@ -210,7 +219,7 @@ class TestReadOnlyIntegration:
             ("get_campaign", {"account_id": "test"}, "campaign_id"),
             ("get_campaign_items", {"account_id": "test"}, "campaign_id"),
             ("get_campaign_item", {"account_id": "test", "campaign_id": "123"}, "item_id"),
-            ("get_campaign_summary_report", {"account_id": "test"}, "dimension"),
+            ("get_campaign_breakdown_report", {"account_id": "test"}, "start_date"),
             ("get_top_campaign_content_report", {"account_id": "test"}, "start_date"),
             ("get_campaign_history_report", {"account_id": "test"}, "start_date")
         ]
@@ -220,6 +229,7 @@ class TestReadOnlyIntegration:
             assert len(result) == 1
             assert expected_error in result[0].text
     
+    @pytest.mark.asyncio
     async def test_tool_categories_integration(self):
         """Test that tools are properly categorized."""
         tools = await handle_list_tools()

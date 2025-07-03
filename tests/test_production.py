@@ -5,7 +5,7 @@ import os
 import sys
 import pathlib
 sys.path.append(str(pathlib.Path(__file__).parent.parent / "src"))
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, AsyncMock
 from realize.auth import auth
 from realize.client import client
 from tools.registry import get_all_tools, get_tools_by_category
@@ -78,6 +78,7 @@ class TestProductionReadiness:
             assert 'properties' in schema
             assert 'required' in schema
     
+    @pytest.mark.asyncio
     @patch('realize.auth.httpx.AsyncClient')
     async def test_authentication_flow(self, mock_client):
         """Test authentication flow works correctly with Token model."""
@@ -105,6 +106,7 @@ class TestProductionReadiness:
         assert hasattr(config, 'realize_base_url')
         assert hasattr(config, 'log_level')
     
+    @pytest.mark.asyncio
     @patch('realize.client.httpx.AsyncClient')
     async def test_api_client_read_only_json_handling(self, mock_client):
         """Test API client returns raw JSON dictionaries for read operations."""
@@ -118,7 +120,11 @@ class TestProductionReadiness:
         }
         mock_response.raise_for_status.return_value = None
         
-        mock_client.return_value.__aenter__.return_value.get.return_value = mock_response
+        # Create an async context manager mock
+        mock_context = Mock()
+        mock_context.request = AsyncMock(return_value=mock_response)
+        mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_context)
+        mock_client.return_value.__aexit__ = AsyncMock(return_value=None)
         
         # Test raw JSON response handling for GET operations
         response = await client.get("/test-endpoint")
@@ -129,6 +135,7 @@ class TestProductionReadiness:
         assert "metadata" in response
         assert response["results"][0]["name"] == "Test Campaign"
     
+    @pytest.mark.asyncio
     @patch('realize.client.httpx.AsyncClient')
     async def test_api_client_error_handling(self, mock_client):
         """Test API client error handling."""
@@ -140,7 +147,11 @@ class TestProductionReadiness:
             "401 Unauthorized", request=Mock(), response=mock_response
         )
         
-        mock_client.return_value.__aenter__.return_value.get.return_value = mock_response
+        # Create an async context manager mock that raises error
+        mock_context = Mock()
+        mock_context.request = AsyncMock(return_value=mock_response)
+        mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_context)
+        mock_client.return_value.__aexit__ = AsyncMock(return_value=None)
         
         # Test error handling
         with pytest.raises(HTTPStatusError):
@@ -179,6 +190,7 @@ class TestProductionReadiness:
 class TestReadOnlyToolHandlers:
     """Test read-only tool handler functions with raw JSON responses."""
     
+    @pytest.mark.asyncio
     @patch('tools.auth_handlers.auth')
     async def test_auth_handlers(self, mock_auth):
         """Test authentication handlers (only place where models are used)."""
@@ -187,33 +199,39 @@ class TestReadOnlyToolHandlers:
         # Mock successful auth - Token model is OK to use
         mock_token = Mock()
         mock_token.expires_in = 3600
-        mock_auth.get_auth_token.return_value = mock_token
+        mock_auth.get_auth_token = AsyncMock(return_value=mock_token)
         
         result = await get_auth_token()
         assert len(result) == 1
         assert "Successfully authenticated" in result[0].text
     
+    @pytest.mark.asyncio
     @patch('tools.account_handlers.client')
     async def test_account_handlers_raw_json(self, mock_client):
         """Test account handlers with raw JSON responses."""
         from tools.account_handlers import search_accounts
         
         # Mock raw JSON API response (no model parsing)
-        mock_client.get.return_value = {
+        mock_client.get = AsyncMock(return_value={
             "results": [
-                {"name": "Test Account", "id": "123", "type": "advertiser"}
+                {"name": "Test Account", "account_id": "123", "type": "advertiser"}
             ]
-        }
+        })
         
         result = await search_accounts("Test Account")
         assert len(result) == 1
         assert "Test Account" in result[0].text
     
-    @patch('realize.client.client')
+    @pytest.mark.asyncio
+    @patch('tools.campaign_handlers.client')
     async def test_campaign_read_handlers_raw_json(self, mock_client):
         """Test read-only campaign handlers work with raw JSON responses."""
-        # Mock raw JSON responses for campaigns
-        mock_client.get.return_value = {
+        # Test campaign handlers with raw JSON
+        from tools.campaign_handlers import get_all_campaigns, get_campaign
+        
+        # Test campaign listing (read-only) - reset mock first
+        mock_client.get.reset_mock()
+        mock_client.get = AsyncMock(return_value={
             "results": [
                 {
                     "id": "campaign_123",
@@ -223,23 +241,20 @@ class TestReadOnlyToolHandlers:
                     "is_active": True
                 }
             ]
-        }
+        })
         
-        # Test campaign handlers with raw JSON
-        from tools.campaign_handlers import get_all_campaigns, get_campaign
-        
-        # Test campaign listing (read-only)
         result = await get_all_campaigns({"account_id": "acc_123"})
         assert len(result) == 1
         assert "Test Campaign" in result[0].text
         
-        # Test single campaign retrieval (read-only)
-        mock_client.get.return_value = {
+        # Test single campaign retrieval (read-only) - reset mock with new data
+        mock_client.get.reset_mock()
+        mock_client.get = AsyncMock(return_value={
             "id": "campaign_123",
             "name": "Test Campaign Details",
             "cpc": 1.25,
             "is_active": True
-        }
+        })
         
         result = await get_campaign({
             "account_id": "acc_123",
