@@ -8,8 +8,8 @@ from pydantic_settings import BaseSettings
 class Config(BaseSettings):
     """Configuration settings for Realize MCP server."""
     
-    realize_client_id: str
-    realize_client_secret: str
+    realize_client_id: str = "your_client_id"
+    realize_client_secret: str = "your_client_secret"
     realize_base_url: str = "https://backstage.taboola.com/backstage"
     log_level: str = "INFO"
     

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "realize-mcp"
-version = "1.0.4"
+version = "1.0.5"
 description = "MCP server for Taboola's Realize API - campaign analysis and reporting"
 readme = "README.md"
 license = "Apache-2.0"

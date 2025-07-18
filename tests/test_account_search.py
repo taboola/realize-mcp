@@ -39,7 +39,7 @@ class TestAccountSearch:
             assert "account_id: '12345'" in result[0].text
             assert "Test Account" in result[0].text
             assert "📊 FULL DETAILS:" in result[0].text
-            mock_get.assert_called_once_with("/advertisers", params={"id": "12345"})
+            mock_get.assert_called_once_with("/advertisers", params={"id": "12345", "page": 1, "page_size": 10})
     
     @pytest.mark.asyncio
     async def test_search_accounts_text_query(self):
@@ -68,7 +68,7 @@ class TestAccountSearch:
             assert "account_id: '67890'" in result[0].text
             assert "Marketing Corp" in result[0].text
             assert "📊 FULL DETAILS:" in result[0].text
-            mock_get.assert_called_once_with("/advertisers", params={"search": "Marketing"})
+            mock_get.assert_called_once_with("/advertisers", params={"search_text": "Marketing", "page": 1, "page_size": 10})
     
     @pytest.mark.asyncio
     async def test_search_accounts_empty_query(self):
@@ -121,7 +121,7 @@ class TestAccountSearch:
             
             assert len(result) == 1
             assert "No accounts found for query: 'ABC123'" in result[0].text
-            mock_get.assert_called_once_with("/advertisers", params={"search": "ABC123"})
+            mock_get.assert_called_once_with("/advertisers", params={"search_text": "ABC123", "page": 1, "page_size": 10})
     
     @pytest.mark.asyncio
     async def test_search_accounts_leading_zeros(self):
@@ -135,7 +135,7 @@ class TestAccountSearch:
             
             assert len(result) == 1
             assert "No accounts found for query: '00123'" in result[0].text
-            mock_get.assert_called_once_with("/advertisers", params={"id": "00123"})
+            mock_get.assert_called_once_with("/advertisers", params={"id": "00123", "page": 1, "page_size": 10})
     
     @pytest.mark.asyncio
     async def test_search_accounts_special_characters(self):
@@ -149,32 +149,15 @@ class TestAccountSearch:
             
             assert len(result) == 1
             assert "No accounts found for query: 'Test & Co.'" in result[0].text
-            mock_get.assert_called_once_with("/advertisers", params={"search": "Test & Co."})
+            mock_get.assert_called_once_with("/advertisers", params={"search_text": "Test & Co.", "page": 1, "page_size": 10})
 
 
 # The get_advertisers method was moved to search_accounts handler
 # These tests are now covered by the TestAccountSearch class above
 
 
-# Integration test scenarios (these would run with real API credentials)
-class TestAccountSearchIntegration:
-    """Integration tests for account search functionality."""
-    
-    @pytest.mark.integration
-    @pytest.mark.asyncio
-    async def test_search_accounts_integration_numeric(self):
-        """Integration test with real API - numeric search."""
-        # This test would only run when integration test credentials are available
-        # and would test against the real Realize API
-        pytest.skip("Integration test - requires real API credentials")
-    
-    @pytest.mark.integration
-    @pytest.mark.asyncio
-    async def test_search_accounts_integration_text(self):
-        """Integration test with real API - text search."""
-        # This test would only run when integration test credentials are available
-        # and would test against the real Realize API
-        pytest.skip("Integration test - requires real API credentials")
+# Note: Integration tests would require real API credentials and are not needed
+# since we have comprehensive mocking tests that cover all scenarios
 
 
 if __name__ == "__main__":

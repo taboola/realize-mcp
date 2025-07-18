@@ -34,6 +34,19 @@ TOOL_REGISTRY = {
                 "query": {
                     "type": "string",
                     "description": "Account ID (numeric) or search term (text) to find accounts. Use the returned 'account_id' field for other tool operations."
+                },
+                "page": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1,
+                    "description": "Page number for pagination (default: 1)"
+                },
+                "page_size": {
+                    "type": "integer",
+                    "default": 10,
+                    "minimum": 1,
+                    "maximum": 10,
+                    "description": "Records per page (default: 10, max: 10)"
                 }
             },
             "required": ["query"]
@@ -323,12 +336,14 @@ TOOL_REGISTRY = {
 
 def get_all_tools():
     """Get all registered tools."""
-    return TOOL_REGISTRY
+    import copy
+    return copy.deepcopy(TOOL_REGISTRY)
 
 
 def get_tools_by_category(category: str):
     """Get tools filtered by category."""
-    return {name: tool for name, tool in TOOL_REGISTRY.items() 
+    import copy
+    return {name: copy.deepcopy(tool) for name, tool in TOOL_REGISTRY.items() 
             if tool.get("category") == category}
 
 
