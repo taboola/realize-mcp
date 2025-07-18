@@ -463,6 +463,92 @@ python -m pytest tests/
 
 ## Troubleshooting
 
+### ❌ Server Shows 0 Tools Available
+
+**Problem**: MCP client shows no tools or server appears to not be working.
+
+**Root Cause**: This is typically caused by incorrect startup configuration, entry point issues, or installation problems.
+
+**Solution**: Follow these diagnostic steps in order:
+
+#### 1. Verify Installation
+```bash
+# For source installation
+pip3 install -e .
+
+# For PyPI installation
+pip3 install realize-mcp
+
+# Verify installation
+pip3 show realize-mcp
+```
+
+#### 2. Test Server Manually
+```bash
+# Test with dummy credentials
+REALIZE_CLIENT_ID=test REALIZE_CLIENT_SECRET=test realize-mcp-server
+```
+
+**Expected Output**: `INFO:realize.realize_server:Starting Realize MCP Server...`
+
+**If you see**:
+- `<coroutine object main at 0x...>` → Entry point issue (fixed in v1.0.1+)
+- `ModuleNotFoundError` → Installation or path issue
+- `ImportError` → Missing dependencies
+- No output → Environment variable or configuration issue
+
+#### 3. Check MCP Configuration
+
+**Cursor/Claude Desktop Configuration**:
+```json
+{
+  "mcpServers": {
+    "realize-mcp": {
+      "command": "realize-mcp-server",
+      "env": {
+        "REALIZE_CLIENT_ID": "your_client_id",
+        "REALIZE_CLIENT_SECRET": "your_client_secret"
+      }
+    }
+  }
+}
+```
+
+**Common Configuration Issues**:
+- ❌ Wrong command: `python3 src/realize/realize_server.py`
+- ✅ Correct command: `realize-mcp-server`
+- ❌ Missing environment variables in MCP config
+- ✅ Environment variables set in MCP configuration, not shell
+
+#### 4. Reinstall and Restart
+```bash
+# Clean reinstall
+pip3 uninstall realize-mcp -y
+pip3 install realize-mcp
+
+# Or for development
+pip3 install -e . --force-reinstall
+```
+
+**Then restart your MCP client** (Cursor, Claude Desktop, etc.)
+
+#### 5. Debug Installation
+```bash
+# Check if command is available
+which realize-mcp-server
+
+# Check Python path
+python3 -c "import realize; print(realize.__file__)"
+
+# Test tool registry
+python3 -c "
+import sys
+sys.path.append('src')
+from tools.registry import get_all_tools
+print(f'Found {len(get_all_tools())} tools')
+"
+```
+
 ### Common Issues
 
 #### Authentication Errors
@@ -504,6 +590,31 @@ python -m pytest tests/
   - Reduce page_size for initial requests
   - Enable debug logging to identify bottlenecks
   - Check network connectivity to Taboola API
+
+#### Import and Path Errors
+- **Symptom**: `ModuleNotFoundError` or import-related errors
+- **Solutions**:
+  - Ensure you're running from the correct directory or have installed the package properly
+  - For source installation: Run `pip3 install -e .` from the project root
+  - For PyPI installation: Ensure `pip3 install realize-mcp` completed successfully
+  - Check Python path and virtual environment setup
+
+#### Permission and File Access Errors  
+- **Symptom**: Permission denied or file access errors
+- **Solutions**:
+  - Check file permissions and ensure proper installation
+  - Verify write access to temporary directories if needed
+  - For source installation, ensure you have read access to all source files
+  - Check if antivirus software is blocking file access
+
+#### MCP Client Integration Issues
+- **Symptom**: MCP client doesn't recognize or connect to server
+- **Solutions**:
+  - Restart your MCP client (Cursor, Claude Desktop, etc.) after configuration changes
+  - Verify environment variables are set in the MCP configuration, not just your shell
+  - Use full paths if relative paths don't work
+  - Check JSON formatting in MCP configuration files
+  - Test with different MCP clients to isolate client-specific issues
 
 ### Debug Mode
 

@@ -72,7 +72,7 @@ def test_edge_cases():
 
 def test_tool_registry_structure():
     """Test that our tool registry has the correct structure."""
-    from tools.registry import get_all_tools, get_tools_by_category, get_tool_categories
+    from realize.tools.registry import get_all_tools, get_tools_by_category, get_tool_categories
     
     # Test that registry functions work
     all_tools = get_all_tools()

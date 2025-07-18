@@ -3,7 +3,7 @@ import logging
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 import httpx
-from config import config
+from .config import config
 from models.realize import Token
 
 logger = logging.getLogger(__name__)

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "realize-mcp"
-version = "1.0.1"
+version = "1.0.4"
 description = "MCP server for Taboola's Realize API - campaign analysis and reporting"
 readme = "README.md"
 license = "Apache-2.0"
@@ -37,7 +37,7 @@ Documentation = "https://github.com/taboola/realize-mcp#readme"
 "Bug Tracker" = "https://github.com/taboola/realize-mcp/issues"
 
 [project.scripts]
-realize-mcp-server = "realize.realize_server:main"
+realize-mcp-server = "realize.realize_server:cli_main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

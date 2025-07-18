@@ -8,7 +8,7 @@ from mcp.server import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
 import mcp.server.stdio
 import mcp.types as types
-from config import config
+from .config import config
 
 # Configure logging
 logging.basicConfig(level=getattr(logging, config.log_level))
@@ -20,7 +20,7 @@ server = Server("realize-mcp")
 @server.list_tools()
 async def handle_list_tools() -> list[types.Tool]:
     """List available MCP tools from registry."""
-    from tools.registry import get_all_tools
+    from .tools.registry import get_all_tools
     
     tools = []
     for tool_name, tool_config in get_all_tools().items():
@@ -39,9 +39,9 @@ async def handle_call_tool(
     name: str, arguments: dict[str, Any] | None
 ) -> list[types.TextContent]:
     """Handle tool calls using registry-based dispatch."""
-    from tools.registry import get_all_tools
-    from tools.utils import format_response
-    from realize.client import client
+    from .tools.registry import get_all_tools
+    from .tools.utils import format_response
+    from .client import client
     
     # Get tool configuration from registry
     registry = get_all_tools()
@@ -54,49 +54,49 @@ async def handle_call_tool(
     try:
         # Dynamic handler import and execution
         if handler_path == "auth_handlers.get_auth_token":
-            from tools.auth_handlers import get_auth_token
+            from .tools.auth_handlers import get_auth_token
             return await get_auth_token()
             
         elif handler_path == "auth_handlers.get_token_details":
-            from tools.auth_handlers import get_token_details
+            from .tools.auth_handlers import get_token_details
             return await get_token_details()
             
         elif handler_path == "account_handlers.search_accounts":
-            from tools.account_handlers import search_accounts
+            from .tools.account_handlers import search_accounts
             return await search_accounts(arguments.get("query"))
             
         # Campaign handlers
         elif handler_path == "campaign_handlers.get_all_campaigns":
-            from tools.campaign_handlers import get_all_campaigns
+            from .tools.campaign_handlers import get_all_campaigns
             return await get_all_campaigns(arguments)
             
         elif handler_path == "campaign_handlers.get_campaign":
-            from tools.campaign_handlers import get_campaign
+            from .tools.campaign_handlers import get_campaign
             return await get_campaign(arguments)
             
         elif handler_path == "campaign_handlers.get_campaign_items":
-            from tools.campaign_handlers import get_campaign_items
+            from .tools.campaign_handlers import get_campaign_items
             return await get_campaign_items(arguments)
             
         elif handler_path == "campaign_handlers.get_campaign_item":
-            from tools.campaign_handlers import get_campaign_item
+            from .tools.campaign_handlers import get_campaign_item
             return await get_campaign_item(arguments)
             
         # Report handlers
         elif handler_path == "report_handlers.get_top_campaign_content_report":
-            from tools.report_handlers import get_top_campaign_content_report
+            from .tools.report_handlers import get_top_campaign_content_report
             return await get_top_campaign_content_report(arguments)
             
         elif handler_path == "report_handlers.get_campaign_history_report":
-            from tools.report_handlers import get_campaign_history_report
+            from .tools.report_handlers import get_campaign_history_report
             return await get_campaign_history_report(arguments)
             
         elif handler_path == "report_handlers.get_campaign_breakdown_report":
-            from tools.report_handlers import get_campaign_breakdown_report
+            from .tools.report_handlers import get_campaign_breakdown_report
             return await get_campaign_breakdown_report(arguments)
             
         elif handler_path == "report_handlers.get_campaign_site_day_breakdown_report":
-            from tools.report_handlers import get_campaign_site_day_breakdown_report
+            from .tools.report_handlers import get_campaign_site_day_breakdown_report
             return await get_campaign_site_day_breakdown_report(arguments)
             
         else:
@@ -133,5 +133,11 @@ async def main():
             ),
         )
 
-if __name__ == "__main__":
+
+def cli_main():
+    """Synchronous entry point for command-line usage."""
     asyncio.run(main())
+
+
+if __name__ == "__main__":
+    cli_main()

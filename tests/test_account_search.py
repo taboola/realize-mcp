@@ -5,7 +5,7 @@ import sys
 import pathlib
 sys.path.append(str(pathlib.Path(__file__).parent.parent / "src"))
 from unittest.mock import patch, AsyncMock
-from tools.account_handlers import search_accounts
+from realize.tools.account_handlers import search_accounts
 from realize.client import RealizeClient
 
 

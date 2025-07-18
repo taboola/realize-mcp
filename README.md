@@ -50,6 +50,11 @@ Add to your `claude_desktop_config.json`:
 pip install realize-mcp
 ```
 
+**Note**: If you installed an earlier version that had import issues, make sure to upgrade:
+```bash
+pip install --upgrade realize-mcp
+```
+
 ### Setup
 
 ```bash
@@ -57,6 +62,14 @@ pip install realize-mcp
 export REALIZE_CLIENT_ID="your_client_id"
 export REALIZE_CLIENT_SECRET="your_client_secret"
 ```
+
+## Recent Fixes
+
+**v1.0.3+** - Fixed package structure and import issues:
+- ✅ Resolved `ModuleNotFoundError: No module named 'config'` 
+- ✅ Fixed package structure to properly organize modules
+- ✅ Server now starts successfully and exposes all tools
+- ✅ MCP clients can now discover and use all available tools
 
 ## Basic Usage
 
@@ -172,6 +185,26 @@ get_all_campaigns(account_id="12345")  # Numeric IDs won't work
 - Security Best Practices
 - Complete API Reference
 - Technology Stack Details
+
+## Troubleshooting
+
+If you encounter issues with the MCP server, see the comprehensive [troubleshooting guide in design.md](design.md#troubleshooting) which covers:
+
+- **Server Shows 0 Tools Available** - Installation and configuration issues
+- **Authentication Errors** - Credential and permission problems  
+- **Server Won't Start** - Startup and dependency issues
+- **Tools Not Available** - MCP client configuration problems
+- **Performance Issues** - Optimization and debugging guidance
+
+### Quick Diagnostic
+
+```bash
+# Test server manually
+REALIZE_CLIENT_ID=test REALIZE_CLIENT_SECRET=test realize-mcp-server
+```
+You should see: `INFO:realize.realize_server:Starting Realize MCP Server...`
+
+📖 **For complete troubleshooting steps, see [design.md troubleshooting section](design.md#troubleshooting)**
 
 ## Development & Deployment
 

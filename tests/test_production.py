@@ -8,8 +8,8 @@ sys.path.append(str(pathlib.Path(__file__).parent.parent / "src"))
 from unittest.mock import Mock, patch, AsyncMock
 from realize.auth import auth
 from realize.client import client
-from tools.registry import get_all_tools, get_tools_by_category
-from config import config
+from realize.tools.registry import get_all_tools, get_tools_by_category
+from realize.config import config
 
 
 class TestProductionReadiness:
@@ -191,10 +191,10 @@ class TestReadOnlyToolHandlers:
     """Test read-only tool handler functions with raw JSON responses."""
     
     @pytest.mark.asyncio
-    @patch('tools.auth_handlers.auth')
+    @patch('realize.tools.auth_handlers.auth')
     async def test_auth_handlers(self, mock_auth):
         """Test authentication handlers (only place where models are used)."""
-        from tools.auth_handlers import get_auth_token, get_token_details
+        from realize.tools.auth_handlers import get_auth_token, get_token_details
         
         # Mock successful auth - Token model is OK to use
         mock_token = Mock()
@@ -206,10 +206,10 @@ class TestReadOnlyToolHandlers:
         assert "Successfully authenticated" in result[0].text
     
     @pytest.mark.asyncio
-    @patch('tools.account_handlers.client')
+    @patch('realize.tools.account_handlers.client')
     async def test_account_handlers_raw_json(self, mock_client):
         """Test account handlers with raw JSON responses."""
-        from tools.account_handlers import search_accounts
+        from realize.tools.account_handlers import search_accounts
         
         # Mock raw JSON API response (no model parsing)
         mock_client.get = AsyncMock(return_value={
@@ -223,11 +223,11 @@ class TestReadOnlyToolHandlers:
         assert "Test Account" in result[0].text
     
     @pytest.mark.asyncio
-    @patch('tools.campaign_handlers.client')
+    @patch('realize.tools.campaign_handlers.client')
     async def test_campaign_read_handlers_raw_json(self, mock_client):
         """Test read-only campaign handlers work with raw JSON responses."""
         # Test campaign handlers with raw JSON
-        from tools.campaign_handlers import get_all_campaigns, get_campaign
+        from realize.tools.campaign_handlers import get_all_campaigns, get_campaign
         
         # Test campaign listing (read-only) - reset mock first
         mock_client.get.reset_mock()

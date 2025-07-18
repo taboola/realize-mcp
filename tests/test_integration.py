@@ -1,10 +1,12 @@
-"""Integration tests for Realize MCP server with read-only raw JSON handling."""
-import pytest
+"""Integration tests for Realize MCP server with real API calls (read-only)."""
 import asyncio
-import json
-import sys
+import pytest
+import os
 import pathlib
+import sys
 sys.path.append(str(pathlib.Path(__file__).parent.parent / "src"))
+from datetime import datetime, timedelta
+from realize.tools.registry import get_all_tools
 from unittest.mock import Mock, patch, AsyncMock
 from realize.realize_server import handle_list_tools, handle_call_tool
 
@@ -41,7 +43,7 @@ class TestReadOnlyIntegration:
                     f"Found write operation {tool_name} - only read operations should be available"
     
     @pytest.mark.asyncio
-    @patch('tools.auth_handlers.auth.get_auth_token')
+    @patch('realize.tools.auth_handlers.auth.get_auth_token')
     async def test_call_tool_integration(self, mock_get_auth_token):
         """Test tool calling integration."""
         # Mock auth token (only model used)
@@ -65,7 +67,7 @@ class TestReadOnlyIntegration:
 
     
     @pytest.mark.asyncio
-    @patch('tools.campaign_handlers.client.get')
+    @patch('realize.tools.campaign_handlers.client.get')
     async def test_campaign_tools_integration(self, mock_get):
         """Test campaign tools integration with raw JSON."""
         # Mock campaign data
@@ -103,7 +105,7 @@ class TestReadOnlyIntegration:
         assert "Single Campaign" in result[0].text
     
     @pytest.mark.asyncio
-    @patch('tools.campaign_handlers.client.get')
+    @patch('realize.tools.campaign_handlers.client.get')
     async def test_campaign_items_integration(self, mock_get):
         """Test campaign items tools integration with raw JSON."""
         # Test get_campaign_items
@@ -141,7 +143,7 @@ class TestReadOnlyIntegration:
         assert "Single Campaign Item" in result[0].text
     
     @pytest.mark.asyncio
-    @patch('tools.report_handlers.client.get')
+    @patch('realize.tools.report_handlers.client.get')
     async def test_reports_integration(self, mock_get):
         """Test reporting tools integration with raw JSON."""
         # Mock report data
@@ -189,7 +191,7 @@ class TestReadOnlyIntegration:
         assert "Campaign History Report CSV" in result[0].text
     
     @pytest.mark.asyncio  
-    @patch('tools.campaign_handlers.client.get')
+    @patch('realize.tools.campaign_handlers.client.get')
     async def test_error_handling_integration(self, mock_get):
         """Test error handling integration across all tools."""
         # Test that all tools handle errors gracefully
@@ -235,7 +237,6 @@ class TestReadOnlyIntegration:
         category_counts = {}
         for tool in tools:
             # Get category from tool registry
-            from tools.registry import get_all_tools
             registry = get_all_tools()
             if tool.name in registry:
                 category = registry[tool.name].get("category", "unknown")
