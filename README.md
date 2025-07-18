@@ -99,7 +99,7 @@ Based on the [Realize API](https://developers.taboola.com/backstage-api/referenc
 ### Reports
 > **⚠️ Workflow Required**: Use `search_accounts` first to get account_id values for these tools
 > 
-> **📄 Pagination Support**: All reporting tools now support pagination with `page` and `page_size` parameters (defaults: page=1, page_size=100, max=1000) to prevent overwhelming responses and improve system reliability.
+> **📄 Pagination Support**: All reporting tools now support pagination with `page` and `page_size` parameters (defaults: page=1, page_size=20, max=100) to prevent overwhelming responses and improve system reliability.
 > 
 > **📊 Sort Support**: Most reporting tools now support sorting with `sort_field` and `sort_direction` parameters for improved data analysis. Available sort fields: `clicks`, `spent`, `impressions`. Sort directions: `ASC` (ascending) or `DESC` (descending, default).
 - `get_top_campaign_content_report` - Get top performing campaign content report with sorting and pagination support (read-only)
@@ -115,7 +115,7 @@ Based on the [Realize API](https://developers.taboola.com/backstage-api/referenc
 - **📊 Compact Headers**: Each response includes concise summary with record counts and pagination info
 - **📈 CSV Data Format**: Standard CSV with clear column headers, perfect for data analysis and processing
 - **🔄 Smart Pagination**: Clear indicators when more data is available and how to access it
-- **⚠️ Size Optimization**: Automatic truncation with intelligent record limiting (up to 1000 records)
+- **⚠️ Size Optimization**: Automatic truncation with intelligent record limiting (up to 100 records)
 - **🎯 Agent-Friendly**: Responses designed to prevent retry loops and maximize data density
 
 ### CSV Response Structure Example
@@ -147,8 +147,7 @@ campaign_id,campaign_name,impressions,clicks,ctr,spent,cpc,conversions
   - Maximum page size: 100 records per request
   - Smart row-boundary truncation for large responses
 - **📋 Campaign Tools**: Structured JSON format for campaign and item details
-  - Default page size: 100 records per request  
-  - Maximum page size: 1000 records per request
+  - No explicit pagination limits (uses default formatting)
 - **🔍 Account Tools**: JSON format for account search and details
 
 ### Benefits for AI Agents
@@ -360,9 +359,9 @@ AI Assistant:
             account_id="mktg_corp_001", 
             start_date="2024-01-01", 
             end_date="2024-01-31"
-            # Uses defaults: page=1, page_size=100
+            # Uses defaults: page=1, page_size=20
           )
-  Result: Returns first 100 records (page 1) with pagination info
+  Result: Returns first 20 records (page 1) with pagination info
 ```
 
 **Top Content Report with Pagination**
@@ -403,9 +402,9 @@ AI Assistant:
     start_date="2024-01-01", 
     end_date="2024-01-31",
     page=1,
-    page_size=500  # Up to 1000 max
+    page_size=100  # Up to 100 max
   )
-  Result: Returns first 500 records with improved system reliability
+      Result: Returns first 100 records with improved system reliability
 ```
 
 ### 6. Sorting Examples
