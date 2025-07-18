@@ -172,23 +172,23 @@ class TestReadOnlyIntegration:
         assert len(result) == 1
         assert "1000" in result[0].text  # Should contain impressions data
         
-        # Test get_top_campaign_content_report
+        # Test get_top_campaign_content_report (now returns CSV format)
         result = await handle_call_tool("get_top_campaign_content_report", {
             "account_id": "test_account",
             "start_date": "2024-01-01", 
             "end_date": "2024-01-31"
         })
         assert len(result) == 1
-        assert "Top campaign content" in result[0].text
+        assert "Top Campaign Content Report CSV" in result[0].text
         
-        # Test get_campaign_history_report
+        # Test get_campaign_history_report (now returns CSV format)
         result = await handle_call_tool("get_campaign_history_report", {
             "account_id": "test_account",
             "start_date": "2024-01-01",
             "end_date": "2024-01-31"
         })
         assert len(result) == 1
-        assert "Campaign history report" in result[0].text
+        assert "Campaign History Report CSV" in result[0].text
     
     @pytest.mark.asyncio  
     @patch('tools.campaign_handlers.client')

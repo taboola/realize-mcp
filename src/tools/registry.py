@@ -127,7 +127,7 @@ TOOL_REGISTRY = {
     # Reporting Tools (READ-ONLY)
 
     "get_top_campaign_content_report": {
-        "description": "Get top performing campaign content report with sorting and pagination support (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Supports sorting with sort_field and sort_direction parameters (single field sorting) and pagination (defaults: page=1, page_size=100). Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
+        "description": "Get top performing campaign content report in CSV format (read-only). Returns compact CSV data with summary header for maximum efficiency. IMPORTANT: Each call provides complete, actionable data - do NOT retry unless there's an explicit error. Use pagination parameters to get more data if needed. WORKFLOW: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here. Response includes CSV format with clear headers and pagination info.",
         "schema": {
             "type": "object",
             "properties": {
@@ -151,10 +151,10 @@ TOOL_REGISTRY = {
                 },
                 "page_size": {
                     "type": "integer",
-                    "default": 100,
+                    "default": 20,
                     "minimum": 1,
-                    "maximum": 1000,
-                    "description": "Records per page (default: 100, max: 1000)"
+                    "maximum": 100,
+                    "description": "Records per page (default: 20, max: 100)"
                 },
                 "sort_field": {
                     "type": "string",
@@ -175,7 +175,7 @@ TOOL_REGISTRY = {
     },
 
     "get_campaign_history_report": {
-        "description": "Get campaign history report with pagination support (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Supports pagination with page and page_size parameters (defaults: page=1, page_size=100). Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
+        "description": "Get campaign history report in CSV format (read-only). Returns compact CSV data with historical metrics for maximum efficiency. IMPORTANT: Each call provides complete, actionable data - do NOT retry unless there's an explicit error. Use pagination parameters to get more data if needed. WORKFLOW: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here. Response includes CSV format with clear headers and pagination info.",
         "schema": {
             "type": "object",
             "properties": {
@@ -199,10 +199,10 @@ TOOL_REGISTRY = {
                 },
                 "page_size": {
                     "type": "integer",
-                    "default": 100,
+                    "default": 20,
                     "minimum": 1,
-                    "maximum": 1000,
-                    "description": "Records per page (default: 100, max: 1000)"
+                    "maximum": 100,
+                    "description": "Records per page (default: 20, max: 100)"
                 }
             },
             "required": ["account_id", "start_date", "end_date"]
@@ -212,7 +212,7 @@ TOOL_REGISTRY = {
     },
 
     "get_campaign_breakdown_report": {
-        "description": "Get campaign breakdown report with sorting and pagination support and hardcoded dimension (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Supports sorting with sort_field and sort_direction parameters (single field sorting) and pagination (defaults: page=1, page_size=100). Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
+        "description": "Get campaign breakdown report in CSV format (read-only). Returns compact CSV data with campaign metrics for maximum efficiency. IMPORTANT: Each call provides complete, actionable data - do NOT retry unless there's an explicit error. Use pagination parameters to get more data if needed. WORKFLOW: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here. Response includes CSV format with clear headers and pagination info.",
         "schema": {
             "type": "object",
             "properties": {
@@ -241,10 +241,10 @@ TOOL_REGISTRY = {
                 },
                 "page_size": {
                     "type": "integer",
-                    "default": 100,
+                    "default": 20,
                     "minimum": 1,
-                    "maximum": 1000,
-                    "description": "Records per page (default: 100, max: 1000)"
+                    "maximum": 100,
+                    "description": "Records per page (default: 20, max: 100)"
                 },
                 "sort_field": {
                     "type": "string",
@@ -265,7 +265,7 @@ TOOL_REGISTRY = {
     },
 
     "get_campaign_site_day_breakdown_report": {
-        "description": "Get campaign site day breakdown report with sorting and pagination support and hardcoded dimension (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Supports sorting with sort_field and sort_direction parameters (single field sorting) and pagination (defaults: page=1, page_size=100). Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
+        "description": "Get campaign site day breakdown report in CSV format (read-only). Returns compact CSV data with site/day metrics for maximum efficiency. IMPORTANT: Each call provides complete, actionable data - do NOT retry unless there's an explicit error. Use pagination parameters to get more data if needed. WORKFLOW: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here. Response includes CSV format with clear headers and pagination info.",
         "schema": {
             "type": "object",
             "properties": {
@@ -294,10 +294,10 @@ TOOL_REGISTRY = {
                 },
                 "page_size": {
                     "type": "integer",
-                    "default": 100,
+                    "default": 20,
                     "minimum": 1,
-                    "maximum": 1000,
-                    "description": "Records per page (default: 100, max: 1000)"
+                    "maximum": 100,
+                    "description": "Records per page (default: 20, max: 100)"
                 },
                 "sort_field": {
                     "type": "string",

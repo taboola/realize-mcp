@@ -107,6 +107,56 @@ Based on the [Realize API](https://developers.taboola.com/backstage-api/referenc
 - `get_campaign_site_day_breakdown_report` - Get campaign site day breakdown report with sorting and pagination support and hardcoded dimension (read-only)
 - `get_campaign_history_report` - Get campaign history report with pagination support (read-only)
 
+## Enhanced CSV Response Format
+
+> **🚀 Ultra-Compact CSV Output**: All **report tools** now return data in CSV format for maximum efficiency and reduced response sizes. Campaign and other tools maintain structured JSON format.
+
+### Key Features
+- **📊 Compact Headers**: Each response includes concise summary with record counts and pagination info
+- **📈 CSV Data Format**: Standard CSV with clear column headers, perfect for data analysis and processing
+- **🔄 Smart Pagination**: Clear indicators when more data is available and how to access it
+- **⚠️ Size Optimization**: Automatic truncation with intelligent record limiting (up to 1000 records)
+- **🎯 Agent-Friendly**: Responses designed to prevent retry loops and maximize data density
+
+### CSV Response Structure Example
+```
+🏆 **Campaign Breakdown Report CSV** - Account: ABC123 | Period: 2024-01-01 to 2024-01-31
+
+📊 Records: 250 | Total: 1500 | Page: 1 | Size: 250 | ⚠️ More data available - use pagination
+
+campaign_id,campaign_name,impressions,clicks,ctr,spent,cpc,conversions
+123456,"Summer Sale 2024",15000,750,0.05,125.50,0.167,25
+234567,"Winter Promo",8500,420,0.049,85.75,0.204,18
+345678,"Brand Awareness",22000,890,0.040,178.90,0.201,32
+456789,"Product Launch",12500,625,0.05,156.25,0.25,28
+567890,"Holiday Special",9800,490,0.05,98.00,0.20,22
+```
+
+### CSV Format Benefits
+- **🗜️ Massive Size Reduction**: CSV format reduces response sizes by 60-80% compared to JSON
+- **📋 Easy Processing**: Standard CSV format works seamlessly with spreadsheets, databases, and AI tools
+- **🔍 Clear Structure**: Column headers make data interpretation immediate and unambiguous
+- **⚡ Fast Parsing**: CSV parsing is faster and more reliable than complex JSON structures
+- **💾 Efficient Transfer**: Smaller responses prevent MCP protocol limits and timeout issues
+- **✂️ Smart Truncation**: When size limits are reached, responses are truncated at row boundaries maintaining valid CSV structure
+- **📊 Optimized Pagination**: Report-specific limits (default: 20, max: 100 records) for manageable response sizes
+
+### Format by Tool Type
+- **📊 Report Tools**: CSV format for large datasets (campaign reports, analytics data)
+  - Default page size: 20 records per request
+  - Maximum page size: 100 records per request
+  - Smart row-boundary truncation for large responses
+- **📋 Campaign Tools**: Structured JSON format for campaign and item details
+  - Default page size: 100 records per request  
+  - Maximum page size: 1000 records per request
+- **🔍 Account Tools**: JSON format for account search and details
+
+### Benefits for AI Agents
+- **No More Retry Loops**: Appropriate format for each tool type prevents agents from repeatedly calling the same tool
+- **Immediate Data Access**: CSV for large datasets, structured JSON for detailed objects
+- **Actionable Insights**: Clear format selection optimized for each use case
+- **Error Prevention**: Size optimization and appropriate structure prevent MCP protocol issues
+
 ## Read-Only Benefits
 
 1. **Safety**: No risk of accidental data modification or deletion
