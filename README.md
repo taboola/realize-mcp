@@ -1,254 +1,26 @@
-# Realize MCP - Taboola
+# Realize MCP Server
 
-An MCP (Model Context Protocol) server that wraps Realize API, enabling AI assistants to interact with Taboola's advertising platform through natural language.
+A Model Context Protocol (MCP) server that provides read-only access to Taboola's Realize API, enabling AI assistants to analyze campaigns, retrieve performance data, and generate reports through natural language.
 
-## Table of Contents
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Python](https://img.shields.io/badge/Python-3.10+-green.svg)](https://python.org)
+[![MCP](https://img.shields.io/badge/MCP-Compatible-orange.svg)](https://modelcontextprotocol.io/)
 
-- [Overview](#overview)
-- [Architecture](#architecture)
-  - [High-Level Design](#high-level-design)
-  - [Core Components](#core-components)
-- [Available Tools](#available-tools)
-  - [Authentication & Token Management](#authentication--token-management)
-  - [Account Management](#account-management)
-  - [Campaign Management](#campaign-management)
-  - [Campaign Items](#campaign-items)
-  - [Reports](#reports)
-- [Read-Only Benefits](#read-only-benefits)
-- [Technology Stack](#technology-stack)
-- [Project Structure](#project-structure)
-- [Installation](#installation)
-  - [Prerequisites](#prerequisites)
-  - [Setup](#setup)
-- [MCP Server Configuration](#mcp-server-configuration)
-  - [Cursor IDE Setup](#cursor-ide-setup)
-  - [Claude Desktop Setup](#claude-desktop-setup)
-  - [Configuration Notes](#configuration-notes)
-- [Configuration](#configuration)
-  - [Environment Variables](#environment-variables)
-- [Usage Examples](#usage-examples)
-  - [Query Campaigns](#query-campaigns)
-  - [Get Campaign Details](#get-campaign-details)
-  - [Performance Reports](#performance-reports)
-- [Testing](#testing)
-- [Troubleshooting](#troubleshooting)
-  - [Common Issues](#common-issues)
-  - [Debug Mode](#debug-mode)
-- [Production Checklist](#production-checklist)
-- [Development](#development)
-  - [Local Development Setup](#local-development-setup)
-- [Security Considerations](#security-considerations)
-- [API Reference](#api-reference)
-- [License](#license)
-
-## Overview
-
-Realize MCP is a lightweight wrapper around the [Taboola Realize API](https://developers.taboola.com/backstage-api/reference/welcome) that exposes advertising operations as MCP tools. This allows AI assistants to manage campaigns, analyze performance, and handle advertising operations through natural language interactions.
-
-**Architecture Philosophy**: This MCP server uses a **raw JSON response handling** approach for maximum flexibility. Only the `Token` model is explicitly parsed - all other API responses are handled as Python dictionaries, making the system adaptable to API changes and easy to extend.
-
-## Architecture
-
-### High-Level Design
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   AI Assistant  │    │   Realize MCP   │    │   Realize API   │
-│   (Claude, GPT) │◄──►│     Server      │◄──►│   (Taboola)     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
-
-### Core Components
-
-#### 1. MCP Server
-- **Protocol Implementation**: MCP specification compliance
-- **Tool Registry**: Available advertising operations as tools
-- **Request Handling**: Process natural language requests and convert to API calls
-
-#### 2. Realize API Client
-- **Authentication**: Handle client credentials and token management
-- **HTTP Client**: Make HTTPS requests to `https://backstage.taboola.com/backstage/` API endpoints
-- **Error Handling**: Process API responses and handle errors gracefully
-
-#### 3. Tool Implementations
-- **Campaign Management**: Create, update, and manage campaigns
-- **Performance Reporting**: Retrieve and analyze campaign data
-- **Campaign Items**: Manage campaign creative items and assets
-
-## Available Tools
-
-Based on the [Realize API](https://developers.taboola.com/backstage-api/reference/welcome), the following tools are available:
-
-### Authentication & Token Management
-- `get_auth_token` - Authenticate with client credentials
-- `get_token_details` - Retrieve token information and validity
-
-### Account Management
-- `search_accounts` - **[REQUIRED FIRST]** Search for accounts to get account_id values needed for other tools (read-only)
-
-### Campaign Management
-> **⚠️ Workflow Required**: Use `search_accounts` first to get account_id values for these tools
-- `get_all_campaigns` - Get all campaigns for an account (read-only)
-- `get_campaign` - Get specific campaign details (read-only)
-
-### Campaign Items
-> **⚠️ Workflow Required**: Use `search_accounts` first to get account_id values for these tools
-- `get_campaign_items` - Get all items for a campaign (read-only)
-- `get_campaign_item` - Get specific campaign item details (read-only)
-
-### Reports
-> **⚠️ Workflow Required**: Use `search_accounts` first to get account_id values for these tools
-> 
-> **📄 Pagination Support**: All reporting tools now support pagination with `page` and `page_size` parameters (defaults: page=1, page_size=20, max=100) to prevent overwhelming responses and improve system reliability.
-> 
-> **📊 Sort Support**: Most reporting tools now support sorting with `sort_field` and `sort_direction` parameters for improved data analysis. Available sort fields: `clicks`, `spent`, `impressions`. Sort directions: `ASC` (ascending) or `DESC` (descending, default).
-- `get_top_campaign_content_report` - Get top performing campaign content report with sorting and pagination support (read-only)
-- `get_campaign_breakdown_report` - Get campaign breakdown report with sorting and pagination support and hardcoded dimension (read-only)
-- `get_campaign_site_day_breakdown_report` - Get campaign site day breakdown report with sorting and pagination support and hardcoded dimension (read-only)
-- `get_campaign_history_report` - Get campaign history report with pagination support (read-only)
-
-## Enhanced CSV Response Format
-
-> **🚀 Ultra-Compact CSV Output**: All **report tools** now return data in CSV format for maximum efficiency and reduced response sizes. Campaign and other tools maintain structured JSON format.
-
-### Key Features
-- **📊 Compact Headers**: Each response includes concise summary with record counts and pagination info
-- **📈 CSV Data Format**: Standard CSV with clear column headers, perfect for data analysis and processing
-- **🔄 Smart Pagination**: Clear indicators when more data is available and how to access it
-- **⚠️ Size Optimization**: Automatic truncation with intelligent record limiting (up to 100 records)
-- **🎯 Agent-Friendly**: Responses designed to prevent retry loops and maximize data density
-
-### CSV Response Structure Example
-```
-🏆 **Campaign Breakdown Report CSV** - Account: ABC123 | Period: 2024-01-01 to 2024-01-31
-
-📊 Records: 250 | Total: 1500 | Page: 1 | Size: 250 | ⚠️ More data available - use pagination
-
-campaign_id,campaign_name,impressions,clicks,ctr,spent,cpc,conversions
-123456,"Summer Sale 2024",15000,750,0.05,125.50,0.167,25
-234567,"Winter Promo",8500,420,0.049,85.75,0.204,18
-345678,"Brand Awareness",22000,890,0.040,178.90,0.201,32
-456789,"Product Launch",12500,625,0.05,156.25,0.25,28
-567890,"Holiday Special",9800,490,0.05,98.00,0.20,22
-```
-
-### CSV Format Benefits
-- **🗜️ Massive Size Reduction**: CSV format reduces response sizes by 60-80% compared to JSON
-- **📋 Easy Processing**: Standard CSV format works seamlessly with spreadsheets, databases, and AI tools
-- **🔍 Clear Structure**: Column headers make data interpretation immediate and unambiguous
-- **⚡ Fast Parsing**: CSV parsing is faster and more reliable than complex JSON structures
-- **💾 Efficient Transfer**: Smaller responses prevent MCP protocol limits and timeout issues
-- **✂️ Smart Truncation**: When size limits are reached, responses are truncated at row boundaries maintaining valid CSV structure
-- **📊 Optimized Pagination**: Report-specific limits (default: 20, max: 100 records) for manageable response sizes
-
-### Format by Tool Type
-- **📊 Report Tools**: CSV format for large datasets (campaign reports, analytics data)
-  - Default page size: 20 records per request
-  - Maximum page size: 100 records per request
-  - Smart row-boundary truncation for large responses
-- **📋 Campaign Tools**: Structured JSON format for campaign and item details
-  - No explicit pagination limits (uses default formatting)
-- **🔍 Account Tools**: JSON format for account search and details
-
-### Benefits for AI Agents
-- **No More Retry Loops**: Appropriate format for each tool type prevents agents from repeatedly calling the same tool
-- **Immediate Data Access**: CSV for large datasets, structured JSON for detailed objects
-- **Actionable Insights**: Clear format selection optimized for each use case
-- **Error Prevention**: Size optimization and appropriate structure prevent MCP protocol issues
-
-## Read-Only Benefits
-
-1. **Safety**: No risk of accidental data modification or deletion
-2. **Flexibility**: Raw JSON responses adapt to API changes
-3. **Simplicity**: Less complexity without write operations
-4. **Production-Ready**: Safe for immediate production deployment
-5. **AI-Friendly**: Perfect for analysis, reporting, and insights
-
-## Technology Stack
-
-- **Python 3.10+** - Primary programming language (3.11+ recommended)
-- **MCP SDK** - Model Context Protocol implementation
-- **httpx** - Async HTTP client for Realize API calls
-- **Pydantic** - Data validation and serialization (minimal usage)
-- **python-dotenv** - Environment configuration
-
-## Project Structure
-
-```
-realize_mcp/
-├── src/
-│   ├── realize_server.py        # Main MCP server
-│   ├── config.py                # Configuration management
-│   ├── tools/                   # MCP tool implementations
-│   │   ├── registry.py          # Centralized tool registry
-│   │   ├── auth_handlers.py     # Authentication tools
-│   │   ├── account_handlers.py  # Account management tools
-│   │   ├── campaign_handlers.py # Campaign & items tools
-│   │   ├── report_handlers.py   # Reporting tools
-│   │   └── utils.py             # Utility functions
-│   ├── realize/                 # Realize API client
-│   │   ├── auth.py              # Authentication handling
-│   │   └── client.py            # API client wrapper
-│   └── models/
-│       └── realize.py           # Token model (minimal)
-├── tests/                       # Comprehensive test suite
-│   ├── test_production.py       # Production readiness tests
-│   └── test_integration.py      # Integration tests
-├── requirements.txt             # Python dependencies
-└── README.md                    # This file
-```
-
-## Installation
-
-### Prerequisites
-- Python 3.10 or higher (3.11+ recommended)
-- Access to Taboola Realize API credentials
-- MCP-compatible AI assistant
-
-### Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/taboola/realize-mcp.git
-   cd realize-mcp
-   ```
-
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Configure environment variables**
-   Set your Realize API credentials as environment variables:
-   ```bash
-   export REALIZE_CLIENT_ID="your_client_id_here"
-   export REALIZE_CLIENT_SECRET="your_client_secret_here"
-   ```
-
-4. **Run the server**
-   ```bash
-   python src/realize_server.py
-   ```
-
-## MCP Server Configuration
+## Quick Start
 
 ### Cursor IDE Setup
 
-To use Realize MCP with Cursor, add the following configuration to your Cursor settings:
-
-1. **Open Cursor Settings** (⌘/Ctrl + ,)
-2. **Navigate to Features > Model Context Protocol**
-3. **Add the following server configuration**:
+Add to Cursor Settings → Features → Model Context Protocol:
 
 ```json
 {
   "mcpServers": {
     "realize-mcp": {
-      "command": "python",
-      "args": ["{absolute_path}/realize_mcp/src/realize_server.py"],
+      "command": "python", 
+      "args": ["/absolute/path/to/realize-mcp/src/realize_server.py"],
       "env": {
-        "REALIZE_CLIENT_ID": "your_client_id_here",
-        "REALIZE_CLIENT_SECRET": "your_client_secret_here"
+        "REALIZE_CLIENT_ID": "your_client_id",
+        "REALIZE_CLIENT_SECRET": "your_client_secret"
       }
     }
   }
@@ -257,382 +29,155 @@ To use Realize MCP with Cursor, add the following configuration to your Cursor s
 
 ### Claude Desktop Setup
 
-For Claude Desktop, add this to your `claude_desktop_config.json`:
+Add to your `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "realize-mcp": {
       "command": "python",
-      "args": ["{absolute_path}/realize_mcp/src/realize_server.py"],
+      "args": ["/absolute/path/to/realize-mcp/src/realize_server.py"],
       "env": {
-        "REALIZE_CLIENT_ID": "your_client_id_here",
-        "REALIZE_CLIENT_SECRET": "your_client_secret_here"
+        "REALIZE_CLIENT_ID": "your_client_id",
+        "REALIZE_CLIENT_SECRET": "your_client_secret"
       }
     }
   }
 }
 ```
 
-### Configuration Notes
-
-- **Replace `/absolute/path/to/realize_mcp/`** with the actual absolute path to your project directory
-- **Replace credential placeholders** with your actual Taboola API credentials
-- **Restart your AI assistant** after adding the configuration
-- **Verify connection** by asking the assistant to list your campaigns
-
-## Configuration
-
-### Environment Variables
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `REALIZE_CLIENT_ID` | Realize API client ID | Yes |
-| `REALIZE_CLIENT_SECRET` | Realize API client secret | Yes |
-
-> **Note**: The server makes HTTPS requests to `https://backstage.taboola.com` for all API operations. This base URL is configured internally and does not require user configuration.
-
-## Usage Examples
-
-> **⚠️ IMPORTANT WORKFLOW**: All campaign and report operations require account_id values from `search_accounts` tool first. Do NOT use numeric IDs directly.
-
-### 1. Account Resolution Workflow (REQUIRED FIRST STEP)
-
-This is the **mandatory first step** for all campaign and report operations:
-
-```
-User: "Show campaigns for Marketing Corp"
-AI Assistant: 
-  Step 1: Uses search_accounts("Marketing Corp")
-  Response: 🎯 ACCOUNT SEARCH RESULTS
-            📋 ACCOUNT_ID VALUES FOR OTHER TOOLS:
-              1. account_id: 'mktg_corp_001' (Marketing Corp)
-  
-  Step 2: Uses get_all_campaigns(account_id="mktg_corp_001")
-  Result: [Campaign list for Marketing Corp]
-```
-
-### 2. Finding Accounts by Numeric ID
-
-```
-User: "Get campaigns for account 12345"
-AI Assistant:
-  Step 1: Uses search_accounts("12345") 
-  Response: 🎯 ACCOUNT SEARCH RESULTS
-            📋 ACCOUNT_ID VALUES FOR OTHER TOOLS:
-              1. account_id: 'advertiser_12345_prod' (Company Name)
-  
-  Step 2: Uses get_all_campaigns(account_id="advertiser_12345_prod")
-  Result: [Campaign list for account]
-```
-
-### 3. Campaign Management Examples
-
-```
-User: "Show campaign details for campaign 456 in Marketing Corp"
-AI Assistant:
-  Step 1: search_accounts("Marketing Corp") → account_id: 'mktg_corp_001'
-  Step 2: get_campaign(account_id="mktg_corp_001", campaign_id="456")
-```
-
-### 4. Performance Reports
-
-```
-User: "Get campaign performance report for Marketing Corp last month"
-AI Assistant:
-  Step 1: search_accounts("Marketing Corp") → account_id: 'mktg_corp_001'
-  Step 2: get_campaign_breakdown_report(
-            account_id="mktg_corp_001", 
-            start_date="2024-01-01", 
-            end_date="2024-01-31"
-          )
-```
-
-### 5. Pagination Examples
-
-**Default Pagination (Recommended)**
-```
-User: "Get campaign breakdown report for Marketing Corp"
-AI Assistant:
-  Step 1: search_accounts("Marketing Corp") → account_id: 'mktg_corp_001'
-  Step 2: get_campaign_breakdown_report(
-            account_id="mktg_corp_001", 
-            start_date="2024-01-01", 
-            end_date="2024-01-31"
-            # Uses defaults: page=1, page_size=20
-          )
-  Result: Returns first 20 records (page 1) with pagination info
-```
-
-**Top Content Report with Pagination**
-```
-User: "Get top 50 campaign content items for Marketing Corp"
-AI Assistant:
-  Step 1: search_accounts("Marketing Corp") → account_id: 'mktg_corp_001'
-  Step 2: get_top_campaign_content_report(
-            account_id="mktg_corp_001", 
-            start_date="2024-01-01", 
-            end_date="2024-01-31",
-            page=1,
-            page_size=50
-          )
-  Result: Returns first 50 top-performing content items
-```
-
-**Custom Pagination**
-```
-User: "Get the second page of campaign data with 50 records per page"
-AI Assistant:
-  get_campaign_breakdown_report(
-    account_id="mktg_corp_001",
-    start_date="2024-01-01", 
-    end_date="2024-01-31",
-    page=2,
-    page_size=50
-  )
-  Result: Returns records 51-100 (page 2, 50 per page)
-```
-
-**Large Dataset Handling**
-```
-User: "Get more detailed campaign data"
-AI Assistant:
-  get_campaign_breakdown_report(
-    account_id="mktg_corp_001",
-    start_date="2024-01-01", 
-    end_date="2024-01-31",
-    page=1,
-    page_size=100  # Up to 100 max
-  )
-      Result: Returns first 100 records with improved system reliability
-```
-
-### 6. Sorting Examples
-
-**Basic Sorting (Single Field)**
-```
-User: "Show campaigns sorted by spend, highest first"
-AI Assistant:
-  Step 1: search_accounts("Marketing Corp") → account_id: 'mktg_corp_001'
-  Step 2: get_campaign_breakdown_report(
-            account_id="mktg_corp_001",
-            start_date="2024-01-01",
-            end_date="2024-01-31",
-            sort_field="spent",
-            sort_direction="DESC"
-          )
-  Result: Returns campaigns sorted by highest spend first
-```
-
-**Sorting by Clicks**
-```
-User: "Get campaign breakdown sorted by clicks, highest first"
-AI Assistant:
-  get_campaign_breakdown_report(
-    account_id="mktg_corp_001",
-    start_date="2024-01-01",
-    end_date="2024-01-31",
-    sort_field="clicks",
-    sort_direction="DESC"
-  )
-  Result: Returns campaigns sorted by highest clicks first
-```
-
-**Combined Sorting and Pagination**
-```
-User: "Get top performing campaigns by spend, show first 50 results"
-AI Assistant:
-  get_campaign_breakdown_report(
-    account_id="mktg_corp_001",
-    start_date="2024-01-01",
-    end_date="2024-01-31",
-    sort_field="spent",
-    sort_direction="DESC",
-    page=1,
-    page_size=50
-  )
-  Result: Returns first 50 campaigns sorted by highest spend
-```
-
-**Sorting by Impressions**
-```
-User: "Show top campaign content sorted by impressions, highest first"
-AI Assistant:
-  get_top_campaign_content_report(
-    account_id="mktg_corp_001",
-    start_date="2024-01-01",
-    end_date="2024-01-31",
-    sort_field="impressions",
-    sort_direction="DESC"
-  )
-  Result: Returns top content sorted by highest impressions first
-```
-
-### 7. Error Prevention Examples
-
-❌ **WRONG**: Using numeric IDs directly
-```
-get_all_campaigns(account_id="12345")  # This will fail with helpful error
-```
-
-✅ **CORRECT**: Using account_id from search_accounts
-```
-search_accounts("12345") → extract account_id → use in other tools
-```
-
-### 8. Validation and Error Messages
-
-If you accidentally use a numeric ID, you'll get a helpful error:
-```
-Error: This appears to be a numeric account ID (12345). Please use the search_accounts tool first 
-to get the proper account_id field value. REQUIRED WORKFLOW: 
-1) search_accounts('12345') 2) Extract 'account_id' field from response 3) Use that account_id value instead
-```
-
-## Testing
-
-Run the comprehensive test suite:
+### Installation
 
 ```bash
-# Run all tests (Python 3.11+ with pytest-asyncio configured)
-python3 -m pytest tests/ -v
+# Install dependencies
+pip install -r requirements.txt
 
-# Run production tests
-python3 -m pytest tests/test_production.py -v
+# Set credentials
+export REALIZE_CLIENT_ID="your_client_id"
+export REALIZE_CLIENT_SECRET="your_client_secret"
 
-# Run integration tests  
-python3 -m pytest tests/test_integration.py -v
-
-# Run account search tests specifically
-python3 -m pytest tests/test_account_search.py -v
-
-# Run tests with coverage
-python3 -m pytest tests/ --cov=src --cov-report=html
-
-# Skip integration tests (if no API credentials)
-python3 -m pytest tests/ -v -m "not integration"
-```
-
-### Test Configuration
-
-The project includes a `pytest.ini` configuration file that:
-- Enables async test support with `asyncio_mode = auto`
-- Defines custom markers for integration tests
-- Configures test discovery and output formatting
-
-**All functionality is fully tested and working correctly.** The project is production-ready with comprehensive test coverage.
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Authentication Errors**
-   - Verify credentials are correct in environment variables
-   - Check if API access is enabled for your account
-   - Ensure credentials have proper permissions
-
-2. **Server Won't Start**
-   - Check Python version (3.10+ required, 3.11+ recommended)
-   - Verify all dependencies are installed
-   - Check for import errors
-
-3. **Tools Not Available**
-   - Restart AI assistant after configuration changes
-   - Verify MCP server path is absolute
-   - Check server logs for errors
-
-4. **JSON Response Issues**
-   - All responses are raw JSON dictionaries
-   - No model parsing means flexible field access
-   - Use `dict.get()` for safe field access in custom handlers
-
-### Debug Mode
-Enable debug logging:
-```bash
-export LOG_LEVEL=DEBUG
+# Run server
 python src/realize_server.py
 ```
 
-## Production Checklist
+## Basic Usage
 
-- [ ] Credentials configured securely
-- [ ] Server starts without errors
-- [ ] All tests pass
-- [ ] MCP client configuration added
-- [ ] AI assistant restarted
-- [ ] Basic functionality tested
-- [ ] Error handling verified
-- [ ] Monitoring configured
-- [ ] Documentation reviewed
+```
+User: "Show me campaigns for Marketing Corp"
+AI: 
+  1. Searches accounts for "Marketing Corp" 
+  2. Retrieves campaigns using the found account_id
+  3. Returns campaign list with performance metrics
+```
 
-## Development
+**Important**: All operations require getting `account_id` values from `search_accounts` first - never use numeric IDs directly.
 
-### Local Development Setup
+## Available Tools
 
-1. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+### 🔍 Account Management
+- `search_accounts` - **[REQUIRED FIRST]** Find accounts and get account_id values for other tools
 
-2. **Run tests**
-   ```bash
-   python -m pytest tests/
-   ```
+### 📊 Campaign Tools  
+- `get_all_campaigns` - List all campaigns for an account
+- `get_campaign` - Get detailed campaign information
+- `get_campaign_items` - List campaign creative items
+- `get_campaign_item` - Get specific item details
 
-3. **Start the server**
-   ```bash
-   python src/realize_server.py
-   ```
+### 📈 Reporting Tools (CSV Format)
+- `get_top_campaign_content_report` - Top performing content with sorting & pagination
+- `get_campaign_breakdown_report` - Campaign performance breakdown with sorting & pagination  
+- `get_campaign_history_report` - Historical campaign data with pagination
+- `get_campaign_site_day_breakdown_report` - Site/day performance breakdown with sorting & pagination
 
-## Security Considerations
+### 🔐 Authentication
+- `get_auth_token` - Authenticate with Realize API
+- `get_token_details` - Check token information
 
-- Store credentials securely using environment variables
-- Never commit credentials to version control
-- Use HTTPS for all API communications
-- Regularly rotate API credentials
-- Monitor API usage and access logs
-- **Safe by Design**: Read-only operations eliminate data modification risks
+## Prerequisites
 
-## Sort Field Reference
+- **Python 3.10+** (Python 3.11+ recommended)
+- **Taboola Realize API credentials** (client ID and secret)
+- **MCP-compatible client** (Claude Desktop, Cursor, VS Code, etc.)
 
-### Available Sort Fields for Reports
-The following reporting tools support sorting (`get_top_campaign_content_report`, `get_campaign_breakdown_report`, `get_campaign_site_day_breakdown_report`) with these sort fields:
+📋 **For detailed installation and configuration information, see [design.md](design.md)**
 
-- **`clicks`** - Number of clicks received
-- **`spent`** - Amount spent (most commonly used for performance analysis)
-- **`impressions`** - Number of impressions served
+## Usage Examples
 
-> **Note**: `get_campaign_history_report` does not support sorting and returns data in API default order.
+### 1. Find Account and List Campaigns
+```
+User: "Show campaigns for account 12345"
+AI Process:
+  Step 1: search_accounts("12345") → Returns account_id: "advertiser_12345_prod"
+  Step 2: get_all_campaigns(account_id="advertiser_12345_prod")
+  Result: List of campaigns with details
+```
 
-### Sort Parameters
-- **`sort_field`** - Optional field name to sort by (from the list above)
-- **`sort_direction`** - Sort direction: `ASC` (ascending) or `DESC` (descending, default)
+### 2. Get Performance Report
+```
+User: "Get campaign performance for Marketing Corp last month"
+AI Process:
+  Step 1: search_accounts("Marketing Corp") → account_id: "mktg_corp_001"  
+  Step 2: get_campaign_breakdown_report(
+    account_id="mktg_corp_001",
+    start_date="2024-01-01", 
+    end_date="2024-01-31"
+  )
+  Result: CSV report with campaign metrics
+```
 
-### Sort Behavior
-- **When `sort_field` is specified**: Data is sorted by the specified field in the specified direction
-- **When `sort_field` is not specified**: Data is returned in API default order (no sorting applied)
-- **Default direction**: `DESC` (highest values first) when sorting is enabled
-- **Integration**: Sort works seamlessly with existing pagination parameters
+### 3. Top Performing Content
+```
+User: "Show top 20 performing content items"
+AI Process:
+  get_top_campaign_content_report(
+    account_id="account_id_from_search",
+    start_date="2024-01-01",
+    end_date="2024-01-31", 
+    page_size=20,
+    sort_field="spent",
+    sort_direction="DESC"
+  )
+  Result: Top content sorted by spend
+```
 
-### Natural Language Processing
-AI agents can interpret various sorting requests:
-- "highest spend first" → `sort_field="spent", sort_direction="DESC"`
-- "most clicks first" → `sort_field="clicks", sort_direction="DESC"`
-- "best performing by impressions" → `sort_field="impressions", sort_direction="DESC"`
-- "lowest spend first" → `sort_field="spent", sort_direction="ASC"`
-- "least clicks first" → `sort_field="clicks", sort_direction="ASC"`
+## Important Workflow Notes
 
-## API Reference
+### ⚠️ Account ID Requirement
 
-For detailed API documentation, please refer to:
-- [Taboola Realize API Documentation](https://developers.taboola.com/backstage-api/reference/welcome)
-- [Taboola Realize API Java Client](https://github.com/taboola/backstage-api-java-client) (Reference implementation)
-- [MCP Protocol Specification](https://modelcontextprotocol.io/)
+**All campaign and report tools require `account_id` values from `search_accounts`:**
+
+✅ **Correct Workflow:**
+```
+1. search_accounts("company name" or "numeric_id") 
+2. Extract account_id from response
+3. Use account_id in other tools
+```
+
+❌ **Incorrect:**
+```
+get_all_campaigns(account_id="12345")  # Numeric IDs won't work
+```
+
+### 📊 Report Features
+
+- **CSV Format**: Reports return efficient CSV data with headers and pagination info
+- **Pagination**: Default page_size=20, max=100 to prevent overwhelming responses  
+- **Sorting**: Available for most reports by `clicks`, `spent`, or `impressions`
+- **Size Optimization**: Automatic truncation for large datasets
+
+📖 **For detailed technical information, see [design.md](design.md):**
+- Architecture & Design Principles
+- Advanced Features (CSV format, pagination, sorting)
+- Development Guide & Testing
+- Troubleshooting & Debug Information
+- Security Best Practices
+- Complete API Reference
+- Technology Stack Details
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) for details.
+Licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
 
 ---
 
-**Realize MCP** - Safe, read-only MCP server wrapper for Taboola's Realize API with comprehensive analysis and reporting capabilities. 
+**Realize MCP Server** - Safe, efficient, read-only access to Taboola's advertising platform through natural language. 
