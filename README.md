@@ -16,8 +16,7 @@ Add to Cursor Settings → Features → Model Context Protocol:
 {
   "mcpServers": {
     "realize-mcp": {
-      "command": "python", 
-      "args": ["/absolute/path/to/realize-mcp/src/realize_server.py"],
+      "command": "realize-mcp-server",
       "env": {
         "REALIZE_CLIENT_ID": "your_client_id",
         "REALIZE_CLIENT_SECRET": "your_client_secret"
@@ -35,8 +34,7 @@ Add to your `claude_desktop_config.json`:
 {
   "mcpServers": {
     "realize-mcp": {
-      "command": "python",
-      "args": ["/absolute/path/to/realize-mcp/src/realize_server.py"],
+      "command": "realize-mcp-server",
       "env": {
         "REALIZE_CLIENT_ID": "your_client_id",
         "REALIZE_CLIENT_SECRET": "your_client_secret"
@@ -49,15 +47,15 @@ Add to your `claude_desktop_config.json`:
 ### Installation
 
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+pip install realize-mcp
+```
 
+### Setup
+
+```bash
 # Set credentials
 export REALIZE_CLIENT_ID="your_client_id"
 export REALIZE_CLIENT_SECRET="your_client_secret"
-
-# Run server
-python src/realize_server.py
 ```
 
 ## Basic Usage
@@ -166,6 +164,7 @@ get_all_campaigns(account_id="12345")  # Numeric IDs won't work
 - **Size Optimization**: Automatic truncation for large datasets
 
 📖 **For detailed technical information, see [design.md](design.md):**
+- Installation Options (PyPI & Source)
 - Architecture & Design Principles
 - Advanced Features (CSV format, pagination, sorting)
 - Development Guide & Testing
@@ -173,6 +172,22 @@ get_all_campaigns(account_id="12345")  # Numeric IDs won't work
 - Security Best Practices
 - Complete API Reference
 - Technology Stack Details
+
+## Development & Deployment
+
+### Development Setup
+
+1. Clone the repository
+2. Install all dependencies: `pip install -r requirements.txt`
+3. All packages are compatible and checked with `pip check`
+
+**Complete dependency coverage**: The `requirements.txt` now includes ALL dependencies needed for development, testing, building, and deployment - no additional installations required.
+
+### PyPI Deployment
+
+The project includes an automated deployment script at `scripts/deploy.py` with comprehensive features for version management, building, validation, and publishing to PyPI.
+
+📖 **For detailed deployment instructions, usage examples, and configuration options, see the [PyPI Deployment section in design.md](design.md#pypi-deployment)**
 
 ## License
 

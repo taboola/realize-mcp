@@ -6,7 +6,7 @@ import sys
 import pathlib
 sys.path.append(str(pathlib.Path(__file__).parent.parent / "src"))
 from unittest.mock import Mock, patch, AsyncMock
-from realize_server import handle_list_tools, handle_call_tool
+from realize.realize_server import handle_list_tools, handle_call_tool
 
 
 class TestReadOnlyIntegration:
@@ -41,13 +41,13 @@ class TestReadOnlyIntegration:
                     f"Found write operation {tool_name} - only read operations should be available"
     
     @pytest.mark.asyncio
-    @patch('tools.auth_handlers.auth')
-    async def test_call_tool_integration(self, mock_auth):
+    @patch('tools.auth_handlers.auth.get_auth_token')
+    async def test_call_tool_integration(self, mock_get_auth_token):
         """Test tool calling integration."""
         # Mock auth token (only model used)
         mock_token = Mock()
         mock_token.expires_in = 3600
-        mock_auth.get_auth_token = AsyncMock(return_value=mock_token)
+        mock_get_auth_token.return_value = mock_token
         
         # Test auth tool call
         result = await handle_call_tool("get_auth_token", {})
@@ -65,21 +65,21 @@ class TestReadOnlyIntegration:
 
     
     @pytest.mark.asyncio
-    @patch('realize.client.client')
-    async def test_campaign_tools_integration(self, mock_client):
+    @patch('tools.campaign_handlers.client.get')
+    async def test_campaign_tools_integration(self, mock_get):
         """Test campaign tools integration with raw JSON."""
         # Mock campaign data
-        mock_client.get = AsyncMock(return_value={
+        mock_get.return_value = {
             "results": [
                 {
                     "id": "123",
-                    "name": "Integration Test Campaign",
+                    "name": "Integration Test Campaign", 
                     "status": "RUNNING",
                     "cpc": 2.50
                 }
             ],
             "metadata": {"total": 1}
-        })
+        }
         
         # Test get_all_campaigns
         result = await handle_call_tool("get_all_campaigns", {
@@ -89,11 +89,11 @@ class TestReadOnlyIntegration:
         assert "Integration Test Campaign" in result[0].text
         
         # Test get_campaign  
-        mock_client.get = AsyncMock(return_value={
+        mock_get.return_value = {
             "id": "123",
             "name": "Single Campaign",
             "status": "RUNNING"
-        })
+        }
         
         result = await handle_call_tool("get_campaign", {
             "account_id": "test_account",
@@ -103,11 +103,11 @@ class TestReadOnlyIntegration:
         assert "Single Campaign" in result[0].text
     
     @pytest.mark.asyncio
-    @patch('tools.campaign_handlers.client')
-    async def test_campaign_items_integration(self, mock_client):
+    @patch('tools.campaign_handlers.client.get')
+    async def test_campaign_items_integration(self, mock_get):
         """Test campaign items tools integration with raw JSON."""
         # Test get_campaign_items
-        mock_client.get = AsyncMock(return_value={
+        mock_get.return_value = {
             "results": [
                 {
                     "id": "item_123",
@@ -116,7 +116,7 @@ class TestReadOnlyIntegration:
                     "status": "APPROVED"
                 }
             ]
-        })
+        }
         
         result = await handle_call_tool("get_campaign_items", {
             "account_id": "test_account", 
@@ -126,12 +126,11 @@ class TestReadOnlyIntegration:
         assert "Test Campaign Item" in result[0].text
         
         # Test get_campaign_item - reset mock with new data
-        mock_client.get.reset_mock()
-        mock_client.get = AsyncMock(return_value={
+        mock_get.return_value = {
             "id": "item_123",
             "title": "Single Campaign Item",
             "status": "APPROVED"
-        })
+        }
         
         result = await handle_call_tool("get_campaign_item", {
             "account_id": "test_account",
@@ -142,12 +141,11 @@ class TestReadOnlyIntegration:
         assert "Single Campaign Item" in result[0].text
     
     @pytest.mark.asyncio
-    @patch('realize.client.client')
-    async def test_reports_integration(self, mock_client):
+    @patch('tools.report_handlers.client.get')
+    async def test_reports_integration(self, mock_get):
         """Test reporting tools integration with raw JSON."""
         # Mock report data
-        mock_client.get.return_value = asyncio.Future()
-        mock_client.get.return_value.set_result({
+        mock_get.return_value = {
             "results": [
                 {
                     "campaign_id": "123",
@@ -161,7 +159,7 @@ class TestReadOnlyIntegration:
                 "start_date": "2024-01-01",
                 "end_date": "2024-01-31"
             }
-        })
+        }
         
         # Test get_campaign_breakdown_report
         result = await handle_call_tool("get_campaign_breakdown_report", {
@@ -191,8 +189,8 @@ class TestReadOnlyIntegration:
         assert "Campaign History Report CSV" in result[0].text
     
     @pytest.mark.asyncio  
-    @patch('tools.campaign_handlers.client')
-    async def test_error_handling_integration(self, mock_client):
+    @patch('tools.campaign_handlers.client.get')
+    async def test_error_handling_integration(self, mock_get):
         """Test error handling integration across all tools."""
         # Test that all tools handle errors gracefully
         error_tools = [
@@ -202,9 +200,8 @@ class TestReadOnlyIntegration:
         ]
         
         for tool_name, args in error_tools:
-            # Reset and configure mock for each tool test
-            mock_client.get.reset_mock()
-            mock_client.get = AsyncMock(side_effect=Exception("API Error"))
+            # Configure mock for each tool test
+            mock_get.side_effect = Exception("API Error")
             
             result = await handle_call_tool(tool_name, args)
             assert len(result) == 1

@@ -165,4 +165,14 @@ logs/
 tmp/
 temp/
 *.tmp
-*.temp 
+*.temp
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Distribution / packaging (PyPI deployment)
+build/
+dist/
+*.egg-info/ 

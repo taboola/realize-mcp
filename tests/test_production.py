@@ -179,7 +179,7 @@ class TestProductionReadiness:
         """Test that all server imports work correctly."""
         # Test that main server module can be imported
         try:
-            from realize_server import server, handle_list_tools, handle_call_tool
+            from realize.realize_server import server, handle_list_tools, handle_call_tool
             assert server is not None
             assert callable(handle_list_tools)
             assert callable(handle_call_tool)

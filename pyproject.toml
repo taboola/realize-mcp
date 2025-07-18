@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "realize-mcp"
+version = "1.0.1"
+description = "MCP server for Taboola's Realize API - campaign analysis and reporting"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [
+    {name = "Vladi Manaev", email = "vladi.m@taboola.com"}
+]
+keywords = ["mcp", "taboola", "realize", "advertising", "campaigns", "ai"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.0.0",
+    "httpx>=0.25.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/taboola/realize-mcp"
+Repository = "https://github.com/taboola/realize-mcp"
+Documentation = "https://github.com/taboola/realize-mcp#readme"
+"Bug Tracker" = "https://github.com/taboola/realize-mcp/issues"
+
+[project.scripts]
+realize-mcp-server = "realize.realize_server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+realize = ["py.typed"] 

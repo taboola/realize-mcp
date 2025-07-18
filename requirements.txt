@@ -1,8 +1,19 @@
+# Core runtime dependencies
 mcp>=1.0.0
 requests>=2.31.0
 pydantic>=2.0.0
 python-dotenv>=1.0.0
+httpx>=0.25.0
+typing-extensions>=4.8.0
+
+# Testing dependencies
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
-httpx>=0.25.0
-typing-extensions>=4.8.0 
+
+# Build and deployment dependencies
+build>=1.0.0
+twine>=6.0.0
+
+# Development utilities
+setuptools>=61.0
+wheel>=0.40.0 

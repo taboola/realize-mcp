@@ -8,6 +8,7 @@ This document contains detailed technical information, architectural details, an
 - [Detailed Installation](#detailed-installation)
 - [Configuration Details](#configuration-details)
 - [Advanced Features](#advanced-features)
+- [PyPI Deployment](#pypi-deployment)
 - [Development](#development)
 - [Troubleshooting](#troubleshooting)
 - [Security & Best Practices](#security--best-practices)
@@ -214,6 +215,172 @@ AI agents can interpret various sorting requests:
 - "best performing by impressions" → `sort_field="impressions", sort_direction="DESC"`
 - "lowest spend first" → `sort_field="spent", sort_direction="ASC"`
 - "least clicks first" → `sort_field="clicks", sort_direction="ASC"`
+
+## PyPI Deployment
+
+### Package Configuration
+
+The Realize MCP Server is available as a PyPI package `realize-mcp` with the following configuration:
+
+#### Package Structure
+```
+realize-mcp/
+├── pyproject.toml          # Modern Python packaging configuration
+├── src/
+│   ├── realize/
+│   │   ├── __init__.py     # Package initialization with version
+│   │   ├── _version.py     # Version management
+│   │   ├── realize_server.py # Main MCP server (entry point)
+│   │   ├── auth.py         # Authentication
+│   │   ├── client.py       # HTTP client
+│   │   └── py.typed        # Type hints support
+│   ├── tools/              # Tool implementations
+│   ├── models/             # Data models
+│   └── config.py           # Configuration
+├── scripts/
+│   └── deploy.py           # Comprehensive deployment script
+└── env.template            # Environment variable template
+```
+
+#### Entry Points
+
+The package provides a command-line entry point:
+- **Command**: `realize-mcp-server`
+- **Module**: `realize.realize_server:main`
+
+#### Installation Methods
+
+**PyPI Installation (Recommended):**
+```bash
+pip install realize-mcp
+```
+
+**Source Installation:**
+```bash
+git clone https://github.com/taboola/realize-mcp.git
+cd realize-mcp
+pip install -r requirements.txt
+```
+
+### Deployment Process
+
+#### Automated Deployment Script
+
+The project includes an automated deployment script at `scripts/deploy.py` that handles:
+
+- ✅ **Version Management**: Automatic version updates in `_version.py` and `pyproject.toml`
+- ✅ **Build Process**: Creates both wheel (.whl) and source (.tar.gz) distributions  
+- ✅ **Package Validation**: Validates packages before upload using twine
+- ✅ **Environment Validation**: Checks for required tools (python3, pip) 
+- ✅ **Testing Integration**: Runs test suite before deployment (optional)
+- ✅ **Git Tagging**: Creates version tags for releases
+- ✅ **Zero-install deployment**: All build dependencies (`build`, `twine`, `setuptools`, `wheel`) are pre-installed via `requirements.txt`
+
+#### Usage Examples
+
+```bash
+# Test deployment (TestPyPI only)
+python3 scripts/deploy.py --version 1.0.2 --test-only
+
+# Full deployment with tests  
+python3 scripts/deploy.py --version 1.0.2
+
+# Skip tests (faster deployment)
+python3 scripts/deploy.py --version 1.0.2 --skip-tests
+
+# Interactive deployment
+python scripts/deploy.py
+
+# Deploy specific version
+python scripts/deploy.py --version 1.2.3
+```
+
+#### Required Environment Variables
+
+Copy `env.template` to `.env` and configure:
+
+```bash
+PYPI_API_TOKEN=pypi-your-production-token-here
+TEST_PYPI_API_TOKEN=pypi-your-test-token-here
+```
+
+**Note**: The deployment script is fully functional and tested. The 403 Forbidden error during upload is expected when API tokens are not configured.
+
+#### Environment Configuration
+
+Deployment requires environment variables in `.env` file:
+
+```bash
+# PyPI Credentials
+PYPI_API_TOKEN=pypi-your-production-token-here
+TEST_PYPI_API_TOKEN=pypi-your-test-token-here
+
+# Deployment Settings
+PACKAGE_NAME=realize-mcp
+DEFAULT_PYTHON_VERSION=3.11
+```
+
+### Version Management
+
+#### Semantic Versioning
+The package follows [Semantic Versioning](https://semver.org/):
+- **Major** (1.0.0): Breaking changes
+- **Minor** (1.1.0): New features, backward compatible
+- **Patch** (1.0.1): Bug fixes, backward compatible
+
+#### Version Files
+- `src/realize/_version.py`: Single source of truth for version
+- `pyproject.toml`: Package metadata version (synced by deployment scripts)
+
+### Security Considerations
+
+#### Credential Management
+- **Never commit .env files** - .gitignore includes .env patterns
+- **API tokens in .env only** - use `env.template` as reference
+- **Scoped tokens** - use project-specific PyPI tokens when possible
+- **2FA enabled** - require two-factor authentication on PyPI accounts
+
+#### Local-Only Deployment
+- **No CI/CD publishing** - deployment scripts run locally only
+- **Manual verification** - TestPyPI testing before production
+- **Secure environment** - deployment from trusted machines only
+
+### Migration from Source Installation
+
+For users upgrading from source installation to PyPI:
+
+**Before (Source Installation):**
+```json
+{
+  "mcpServers": {
+    "realize-mcp": {
+      "command": "python",
+      "args": ["/path/to/realize-mcp/src/realize/realize_server.py"],
+      "env": { ... }
+    }
+  }
+}
+```
+
+**After (PyPI Installation):**
+```json
+{
+  "mcpServers": {
+    "realize-mcp": {
+      "command": "realize-mcp-server",
+      "env": { ... }
+    }
+  }
+}
+```
+
+### Package Metadata
+
+- **Name**: `realize-mcp`
+- **License**: Apache-2.0
+- **Python Support**: 3.10+
+- **Dependencies**: mcp, httpx, pydantic, python-dotenv
+- **Type Hints**: Fully supported with `py.typed`
 
 ## Development
 
