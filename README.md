@@ -5,6 +5,10 @@ A Model Context Protocol (MCP) server that provides read-only access to Taboola'
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python](https://img.shields.io/badge/Python-3.10+-green.svg)](https://python.org)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-orange.svg)](https://modelcontextprotocol.io/)
+[![Latest Version][mdversion-button]][md-pypi]
+
+[mdversion-button]: https://img.shields.io/pypi/v/realize-mcp.svg
+[md-pypi]: https://pypi.org/project/realize-mcp/
 
 ## Quick Start
 
