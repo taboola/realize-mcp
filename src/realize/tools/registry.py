@@ -3,6 +3,17 @@
 # Tool Registry - Add new tools here
 TOOL_REGISTRY = {
     # Authentication & Token Tools
+    "browser_authenticate": {
+        "description": "Authenticate with Realize API using browser-based OAuth2 flow (read-only). Opens a browser for Taboola SSO login. No client credentials needed. Token stored in memory only.",
+        "schema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        },
+        "handler": "browser_auth_handlers.browser_authenticate",
+        "category": "authentication"
+    },
+    
     "get_auth_token": {
         "description": "Authenticate with Realize API using client credentials (read-only)",
         "schema": {
