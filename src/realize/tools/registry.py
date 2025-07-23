@@ -14,6 +14,17 @@ TOOL_REGISTRY = {
         "category": "authentication"
     },
     
+    "clear_auth_token": {
+        "description": "Remove stored authentication token from memory, forcing user to reauthenticate. Use this when you need to switch accounts or clear credentials.",
+        "schema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        },
+        "handler": "browser_auth_handlers.clear_auth_token",
+        "category": "authentication"
+    },
+    
     "get_auth_token": {
         "description": "Authenticate with Realize API using client credentials (read-only)",
         "schema": {
@@ -348,7 +359,16 @@ TOOL_REGISTRY = {
 def get_all_tools():
     """Get all registered tools."""
     import copy
-    return copy.deepcopy(TOOL_REGISTRY)
+    from realize.config import config
+    
+    tools = copy.deepcopy(TOOL_REGISTRY)
+    
+    # Remove get_auth_token if client credentials are not configured
+    if (not config.realize_client_id or config.realize_client_id == "your_client_id" or
+        not config.realize_client_secret or config.realize_client_secret == "your_client_secret"):
+        tools.pop("get_auth_token", None)
+    
+    return tools
 
 
 def get_tools_by_category(category: str):

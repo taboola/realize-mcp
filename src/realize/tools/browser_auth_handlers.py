@@ -257,3 +257,37 @@ async def handle_process(request):
         auth_result = {"success": False, "error": str(e)}
         auth_event.set()
         return web.json_response({"status": "error", "message": "Failed to process authentication"}, status=500)
+
+
+async def clear_auth_token() -> List[types.TextContent]:
+    """Remove stored authentication token, forcing user to reauthenticate."""
+    try:
+        from realize.auth import auth, BrowserAuth
+        
+        if isinstance(auth, BrowserAuth):
+            # Clear the token from the auth instance
+            auth.clear_token()
+            logger.info("Successfully cleared browser authentication token")
+            
+            return [
+                types.TextContent(
+                    type="text",
+                    text="Authentication token has been removed from memory. You will need to authenticate again for future API requests."
+                )
+            ]
+        else:
+            return [
+                types.TextContent(
+                    type="text",
+                    text="No browser authentication token found to remove."
+                )
+            ]
+            
+    except Exception as e:
+        logger.error(f"Failed to clear authentication token: {e}")
+        return [
+            types.TextContent(
+                type="text",
+                text=f"Failed to remove authentication token: {str(e)}"
+            )
+        ]

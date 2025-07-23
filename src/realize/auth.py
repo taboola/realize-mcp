@@ -93,6 +93,11 @@ class BrowserAuth(AuthBase):
         )
         logger.info("Browser auth token set successfully")
     
+    def clear_token(self):
+        """Clear the stored authentication token."""
+        self.token = None
+        logger.info("Browser auth token cleared")
+    
     async def get_auth_token(self) -> Token:
         """Get OAuth token - for browser auth, this raises an error as token must be set via browser flow."""
         if not self.token:
