@@ -5,6 +5,8 @@ import asyncio
 import secrets
 import urllib.parse
 import os
+import signal
+import atexit
 from typing import List, Optional
 from aiohttp import web
 import mcp.types as types
@@ -22,11 +24,53 @@ PORT = 3456
 oauth_state = None
 auth_result = None
 auth_event = None
+current_runner = None  # Track active server for cleanup
+
+
+def cleanup_server():
+    """Cleanup function for signal handlers and atexit."""
+    global current_runner
+    if current_runner:
+        try:
+            # Create a new event loop if needed (for signal handlers)
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            if not loop.is_running():
+                loop.run_until_complete(current_runner.cleanup())
+            else:
+                # If loop is running, schedule cleanup
+                loop.create_task(current_runner.cleanup())
+            
+            logger.info("Cleaned up OAuth server on process exit")
+            current_runner = None
+        except Exception as e:
+            logger.error(f"Error during server cleanup: {e}")
+
+
+def setup_cleanup_handlers():
+    """Setup signal handlers and atexit callback for cleanup."""
+    # Register cleanup for normal exit
+    atexit.register(cleanup_server)
+    
+    # Register signal handlers for graceful shutdown
+    def signal_handler(signum, frame):
+        logger.info(f"Received signal {signum}, cleaning up OAuth server")
+        cleanup_server()
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
 
 async def browser_authenticate() -> List[types.TextContent]:
     """Initiate browser-based OAuth2 authentication flow."""
-    global oauth_state, auth_result, auth_event
+    global oauth_state, auth_result, auth_event, current_runner
+    
+    # Setup cleanup handlers
+    setup_cleanup_handlers()
     
     # Reset global state
     oauth_state = None
@@ -55,6 +99,7 @@ async def browser_authenticate() -> List[types.TextContent]:
         
         # Start server
         runner = web.AppRunner(app)
+        current_runner = runner  # Track for cleanup
         await runner.setup()
         
         try:
@@ -62,11 +107,12 @@ async def browser_authenticate() -> List[types.TextContent]:
             await site.start()
         except OSError as e:
             await runner.cleanup()  # Cleanup runner if site start fails
+            current_runner = None  # Clear tracking
             if "Address already in use" in str(e):
                 return [
                     types.TextContent(
                         type="text",
-                        text="Authentication server port is already in use. Please try again in a moment."
+                        text="Authentication server port 3456 is already in use. This might be from a previous authentication session. Please wait 30 seconds and try again, or restart your terminal to force cleanup."
                     )
                 ]
             raise
@@ -80,7 +126,7 @@ async def browser_authenticate() -> List[types.TextContent]:
                 return [
                     types.TextContent(
                         type="text",
-                        text=f"Please open this URL in your browser to authenticate:\n{auth_url}"
+                        text=f"Could not open browser automatically. Please copy and paste this URL into your browser to authenticate:\n\n{auth_url}\n\nYou have 15 minutes to complete the authentication."
                     )
                 ]
             
@@ -88,17 +134,18 @@ async def browser_authenticate() -> List[types.TextContent]:
             
             # Wait for callback (with timeout)
             try:
-                await asyncio.wait_for(auth_event.wait(), timeout=300)  # 5 minute timeout
+                await asyncio.wait_for(auth_event.wait(), timeout=900)  # 15 minute timeout
             except asyncio.TimeoutError:
                 return [
                     types.TextContent(
                         type="text",
-                        text="Authentication timed out. Please try again."
+                        text="Authentication timed out after 15 minutes. Please try again."
                     )
                 ]
         finally:
             # Always cleanup server, even if there's an error
             await runner.cleanup()
+            current_runner = None  # Clear tracking
             logger.info("Cleaned up OAuth callback server")
         
         # Process result
@@ -132,7 +179,7 @@ async def browser_authenticate() -> List[types.TextContent]:
             return [
                 types.TextContent(
                     type="text",
-                    text=f"Authentication failed: {error_msg}"
+                    text=f"Authentication failed: {error_msg}. Please try running the authentication command again."
                 )
             ]
             
@@ -141,7 +188,7 @@ async def browser_authenticate() -> List[types.TextContent]:
         return [
             types.TextContent(
                 type="text",
-                text=f"Browser authentication failed: {str(e)}"
+                text=f"Browser authentication failed due to an unexpected error: {str(e)}. Please try again or check your network connection."
             )
         ]
 
