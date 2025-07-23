@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Realize MCP - Authentication</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 400px;
+        }
+        .success {
+            color: #4CAF50;
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        .error {
+            color: #f44336;
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+        }
+        p {
+            color: #666;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="container">
+        <div id="content">
+            <p>Processing authentication...</p>
+        </div>
+    </div>
+    <script>
+        async function processAuth() {
+            // Extract token from fragment
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            const queryParams = new URLSearchParams(window.location.search);
+            
+            // Check for error in query params (OAuth error responses come in query string)
+            const error = queryParams.get('error');
+            // State comes from fragment for success, query for errors
+            const state = error ? queryParams.get('state') : params.get('state');
+            
+            let authData = {};
+            let status = '';
+            
+            if (error) {
+                // Error case
+                authData = {
+                    error: error,
+                    state: state
+                };
+                status = 'error';
+            } else if (params.get('access_token')) {
+                // Success case - token in fragment
+                authData = {
+                    access_token: params.get('access_token'),
+                    expires_in: params.get('expires_in'),
+                    state: state
+                };
+                status = 'success';
+            } else {
+                // No token or error found
+                authData = {
+                    error: 'no_token_received'
+                };
+                status = 'error';
+            }
+            
+            try {
+                // Send tokens via POST to avoid exposing in URL
+                const response = await fetch(`/oauth/process?status=${status}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(authData)
+                });
+                
+                const result = await response.json();
+                const content = document.getElementById('content');
+                
+                if (response.ok && result.status === 'success') {
+                    content.innerHTML = `
+                        <div class="success">✓</div>
+                        <h1>Authentication Successful!</h1>
+                        <p>You can now close this browser window and return to your terminal.</p>
+                    `;
+                    // Try to close window after 2 seconds
+                    setTimeout(() => {
+                        window.close();
+                    }, 2000);
+                } else {
+                    const errorMsg = result.message || 'Authentication failed';
+                    content.innerHTML = `
+                        <div class="error">✗</div>
+                        <h1>Authentication Failed</h1>
+                        <p>Error: ${errorMsg}</p>
+                        <p>Please close this window and try again.</p>
+                    `;
+                }
+            } catch (err) {
+                // Network or other error
+                console.error('Failed to process authentication:', err);
+                const content = document.getElementById('content');
+                content.innerHTML = `
+                    <div class="error">✗</div>
+                    <h1>Connection Error</h1>
+                    <p>Failed to communicate with the authentication server.</p>
+                    <p>Error: ${err.message}</p>
+                    <p>Please close this window and try again.</p>
+                `;
+            }
+        }
+        
+        // Process authentication on page load
+        processAuth();
+    </script>
+</body>
+</html>

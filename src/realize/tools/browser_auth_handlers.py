@@ -4,6 +4,7 @@ import webbrowser
 import asyncio
 import secrets
 import urllib.parse
+import os
 from typing import List, Optional
 from aiohttp import web
 import mcp.types as types
@@ -50,6 +51,7 @@ async def browser_authenticate() -> List[types.TextContent]:
         # Create aiohttp app for callback
         app = web.Application()
         app.router.add_get('/oauth/callback', handle_callback)
+        app.router.add_post('/oauth/process', handle_process)
         
         # Start server
         runner = web.AppRunner(app)
@@ -59,6 +61,7 @@ async def browser_authenticate() -> List[types.TextContent]:
             site = web.TCPSite(runner, 'localhost', PORT)
             await site.start()
         except OSError as e:
+            await runner.cleanup()  # Cleanup runner if site start fails
             if "Address already in use" in str(e):
                 return [
                     types.TextContent(
@@ -70,32 +73,33 @@ async def browser_authenticate() -> List[types.TextContent]:
         
         logger.info(f"Started OAuth callback server on port {PORT}")
         
-        # Open browser
-        if not webbrowser.open(auth_url):
-            logger.warning("Failed to open browser automatically")
-            return [
-                types.TextContent(
-                    type="text",
-                    text=f"Please open this URL in your browser to authenticate:\n{auth_url}"
-                )
-            ]
-        
-        logger.info("Opened browser for authentication")
-        
-        # Wait for callback (with timeout)
         try:
-            await asyncio.wait_for(auth_event.wait(), timeout=300)  # 5 minute timeout
-        except asyncio.TimeoutError:
+            # Open browser
+            if not webbrowser.open(auth_url):
+                logger.warning("Failed to open browser automatically")
+                return [
+                    types.TextContent(
+                        type="text",
+                        text=f"Please open this URL in your browser to authenticate:\n{auth_url}"
+                    )
+                ]
+            
+            logger.info("Opened browser for authentication")
+            
+            # Wait for callback (with timeout)
+            try:
+                await asyncio.wait_for(auth_event.wait(), timeout=300)  # 5 minute timeout
+            except asyncio.TimeoutError:
+                return [
+                    types.TextContent(
+                        type="text",
+                        text="Authentication timed out. Please try again."
+                    )
+                ]
+        finally:
+            # Always cleanup server, even if there's an error
             await runner.cleanup()
-            return [
-                types.TextContent(
-                    type="text",
-                    text="Authentication timed out. Please try again."
-                )
-            ]
-        
-        # Cleanup server
-        await runner.cleanup()
+            logger.info("Cleaned up OAuth callback server")
         
         # Process result
         if auth_result and auth_result.get("success"):
@@ -143,132 +147,66 @@ async def browser_authenticate() -> List[types.TextContent]:
 
 
 async def handle_callback(request):
-    """Handle OAuth callback from browser."""
+    """Handle OAuth callback from browser - serves the HTML page."""
+    # Load HTML content from external file
+    html_file_path = os.path.join(os.path.dirname(__file__), 'assets', 'oauth_callback.html')
+    try:
+        with open(html_file_path, 'r') as f:
+            html_content = f.read()
+    except Exception as e:
+        logger.error(f"Failed to load OAuth callback HTML: {e}")
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <body>
+            <h1>Error</h1>
+            <p>Failed to load authentication page. Please try again.</p>
+        </body>
+        </html>
+        """
+    
+    return web.Response(text=html_content, content_type='text/html')
+
+
+async def handle_process(request):
+    """Handle OAuth token processing via POST."""
     global oauth_state, auth_result, auth_event
     
-    # Extract fragment from URL (for implicit flow, token comes in fragment)
-    # Since fragments aren't sent to server, we use JavaScript to extract and send as query params
-    html_content = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Realize MCP - Authentication</title>
-        <style>
-            body {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                margin: 0;
-                background-color: #f5f5f5;
-            }
-            .container {
-                text-align: center;
-                padding: 40px;
-                background: white;
-                border-radius: 8px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                max-width: 400px;
-            }
-            .success {
-                color: #4CAF50;
-                font-size: 48px;
-                margin-bottom: 20px;
-            }
-            .error {
-                color: #f44336;
-                font-size: 48px;
-                margin-bottom: 20px;
-            }
-            h1 {
-                margin: 0 0 10px 0;
-                font-size: 24px;
-            }
-            p {
-                color: #666;
-                margin: 10px 0;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container" id="container">
-            <div id="content">
-                <p>Processing authentication...</p>
-            </div>
-        </div>
-        <script>
-            // Extract token from fragment
-            const hash = window.location.hash.substring(1);
-            const params = new URLSearchParams(hash);
-            const queryParams = new URLSearchParams(window.location.search);
-            
-            // Get state from query params (if error) or from hash params
-            const state = queryParams.get('state') || params.get('state');
-            const error = queryParams.get('error');
-            
-            if (error) {
-                // Error case - redirect was to query params
-                window.location.href = `/oauth/callback?processed=true&error=${encodeURIComponent(error)}&state=${encodeURIComponent(state)}`;
-            } else if (params.get('access_token')) {
-                // Success case - token in fragment
-                const token = params.get('access_token');
-                const expiresIn = params.get('expires_in');
-                window.location.href = `/oauth/callback?processed=true&access_token=${encodeURIComponent(token)}&expires_in=${encodeURIComponent(expiresIn)}&state=${encodeURIComponent(state)}`;
-            } else if (!queryParams.get('processed')) {
-                // No token or error found
-                window.location.href = '/oauth/callback?processed=true&error=no_token_received';
-            }
-            
-            // If we're already processed, show the result
-            if (queryParams.get('processed')) {
-                const content = document.getElementById('content');
-                if (queryParams.get('access_token')) {
-                    content.innerHTML = `
-                        <div class="success">✓</div>
-                        <h1>Authentication Successful!</h1>
-                        <p>You can now close this browser window and return to your terminal.</p>
-                    `;
-                    // Try to close window after 2 seconds
-                    setTimeout(() => {
-                        window.close();
-                    }, 2000);
-                } else {
-                    const errorMsg = queryParams.get('error') || 'Unknown error';
-                    content.innerHTML = `
-                        <div class="error">✗</div>
-                        <h1>Authentication Failed</h1>
-                        <p>Error: ${errorMsg}</p>
-                        <p>Please close this window and try again.</p>
-                    `;
-                }
-            }
-        </script>
-    </body>
-    </html>
-    """
-    
-    # Check if this is the processed callback with params
-    if request.query.get('processed'):
+    try:
+        # Get JSON data from request body
+        data = await request.json()
+        
         # Validate state
-        state = request.query.get('state')
+        state = data.get('state')
         if state != oauth_state:
             auth_result = {"success": False, "error": "Invalid state parameter"}
-        elif request.query.get('access_token'):
+            auth_event.set()
+            return web.json_response({"status": "error", "message": "Invalid state parameter"}, status=400)
+        
+        # Check for access token
+        if data.get('access_token'):
             # Success
             auth_result = {
                 "success": True,
-                "access_token": request.query.get('access_token'),
-                "expires_in": int(request.query.get('expires_in', 3600))
+                "access_token": data.get('access_token'),
+                "expires_in": int(data.get('expires_in', 3600))
             }
+            # Signal completion
+            auth_event.set()
+            return web.json_response({"status": "success", "message": "Authentication successful"})
         else:
             # Error
+            error_msg = data.get('error', 'No access token received')
             auth_result = {
                 "success": False,
-                "error": request.query.get('error', 'Unknown error')
+                "error": error_msg
             }
-        
-        # Signal completion
+            # Signal completion
+            auth_event.set()
+            return web.json_response({"status": "error", "message": error_msg}, status=400)
+            
+    except Exception as e:
+        logger.error(f"Error processing OAuth callback: {e}")
+        auth_result = {"success": False, "error": str(e)}
         auth_event.set()
-    
-    return web.Response(text=html_content, content_type='text/html')
+        return web.json_response({"status": "error", "message": "Failed to process authentication"}, status=500)
