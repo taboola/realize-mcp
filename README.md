@@ -41,6 +41,8 @@ export REALIZE_CLIENT_SECRET="your_client_secret"
 
 **Cursor IDE**
 
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-light.svg)](https://cursor.com/install-mcp?name=realize-mcp&config=JTdCJTIyY29tbWFuZCUyMiUzQSUyMnJlYWxpemUtbWNwLXNlcnZlciUyMiU3RA%3D%3D)
+
 Add to Cursor Settings → Features → Model Context Protocol:
 
 ```json
