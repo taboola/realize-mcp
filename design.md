@@ -25,6 +25,7 @@ This document contains detailed technical information, architectural details, an
 - ✅ Converted ALL 15 remaining relative imports in realize_server.py to absolute imports
 - ✅ MCP Inspector can now successfully list and execute tools
 - ✅ No more import errors when starting the MCP server
+- ✅ Added browser-based authentication support
 
 **v1.0.4+** - Enhanced package structure and import system:
 - ✅ Migrated most imports to use full path imports instead of relative imports 
@@ -43,6 +44,7 @@ pip install --upgrade realize-mcp
 
 ### Code Organization Enhancement
 - **Recent Update (January 2025)** - Moved data models closer to authentication logic for cleaner import paths and better module organization
+- **Browser Authentication** - Added OAuth2 browser-based authentication flow that doesn't require API credentials
 
 ## Architecture
 
@@ -74,9 +76,11 @@ pip install --upgrade realize-mcp
 - **Error Handling**: Process API responses and handle errors gracefully
 
 #### 3. Tool Implementations
-- **Campaign Management**: Create, update, and manage campaigns
-- **Performance Reporting**: Retrieve and analyze campaign data
-- **Campaign Items**: Manage campaign creative items and assets
+- **Authentication**: Browser-based OAuth2 and client credentials support
+- **Account Management**: Search and access account information
+- **Campaign Management**: List and retrieve campaign details (read-only)
+- **Performance Reporting**: Retrieve and analyze campaign data in CSV format
+- **Campaign Items**: List and retrieve campaign creative items (read-only)
 
 ## Detailed Installation
 
@@ -93,13 +97,21 @@ pip install -r requirements.txt
 
 ### 3. Configure Credentials
 
-**Option A: Environment Variables**
+**Option A: Browser Authentication (Recommended)**
+- No credentials needed - configure MCP without credentials
+- Use the `browser_authenticate` tool when you start
+
+**Option B: API Credentials via MCP Config**
+- Add credentials directly to your MCP client configuration
+- Best for automated workflows
+
+**Option C: Environment Variables**
 ```bash
 export REALIZE_CLIENT_ID="your_client_id"
 export REALIZE_CLIENT_SECRET="your_client_secret"
 ```
 
-**Option B: .env File**
+**Option D: .env File**
 ```bash
 # Create .env file
 echo "REALIZE_CLIENT_ID=your_client_id" > .env
@@ -108,7 +120,7 @@ echo "REALIZE_CLIENT_SECRET=your_client_secret" >> .env
 
 ### 4. Test Installation
 ```bash
-python src/realize_server.py
+python src/realize/realize_server.py
 ```
 
 ### 5. Verify Installation
@@ -142,9 +154,9 @@ Server listening on stdio transport
 {
   "mcpServers": {
     "realize-mcp": {
-      "command": "python",
-      "args": ["/absolute/path/to/realize-mcp/src/realize_server.py"],
+      "command": "realize-mcp-server",
       "env": {
+        // For Option B only - add your credentials here
         "REALIZE_CLIENT_ID": "your_client_id",
         "REALIZE_CLIENT_SECRET": "your_client_secret"
       }
@@ -160,8 +172,10 @@ Server listening on stdio transport
 
 #### VS Code
 ```bash
-code --add-mcp '{"name":"realize-mcp","command":"python","args":["/path/to/realize-mcp/src/realize_server.py"],"env":{"REALIZE_CLIENT_ID":"your_id","REALIZE_CLIENT_SECRET":"your_secret"}}'
+code --add-mcp '{"name":"realize-mcp","command":"realize-mcp-server","env":{"REALIZE_CLIENT_ID":"your_id","REALIZE_CLIENT_SECRET":"your_secret"}}'
 ```
+
+*Note: For Options A & C, omit the `env` section entirely.*
 
 ## Advanced Features
 
@@ -260,12 +274,12 @@ realize-mcp/
 │   │   ├── __init__.py     # Package initialization with version
 │   │   ├── _version.py     # Version management
 │   │   ├── realize_server.py # Main MCP server (entry point)
-│   │   ├── auth.py         # Authentication
+│   │   ├── auth.py         # Authentication logic
 │   │   ├── client.py       # HTTP client
-│   │   └── py.typed        # Type hints support
-│   ├── tools/              # Tool implementations
-│   ├── models/             # Data models
-│   └── config.py           # Configuration
+│   │   ├── config.py       # Configuration management
+│   │   ├── models.py       # Data models
+│   │   ├── py.typed        # Type hints support
+│   │   └── tools/          # Tool implementations
 ├── scripts/
 │   └── deploy.py           # Comprehensive deployment script
 └── env.template            # Environment variable template
@@ -417,13 +431,15 @@ The Realize MCP Server includes comprehensive testing to ensure reliability acro
 
 ### Test Coverage
 
-- **100 total tests**, **all passing** (removed redundant and placeholder tests)
+- **116 total tests**, **all passing** (comprehensive test coverage completed)
 - **MCP Protocol Compliance**: Tests for proper MCP tool registration, argument handling, and response formatting
 - **Deployment Scenarios**: Tests for source installation, pip installation, and entry point functionality  
 - **Tool Registration**: Comprehensive validation of tool discovery, schema validation, and handler imports
 - **Error Handling**: Network errors, malformed inputs, authentication failures, and edge cases
 - **Environment Configuration**: Environment variable handling, .env file support, and configuration validation
 - **Performance & Memory**: Large response handling, concurrent operations, and memory leak prevention
+- **Browser Authentication**: Complete browser OAuth2 flow testing and integration
+- **Production Readiness**: Comprehensive production deployment validation
 
 ### Test Architecture
 
@@ -441,6 +457,7 @@ The test suite is organized into focused categories:
 - ✅ CLI entry point validation
 - ✅ Package metadata verification
 - ✅ Environment configuration testing
+- ✅ Python version compatibility (3.10+)
 
 #### `test_tool_registration.py` - Tool Registry
 - ✅ Tool discovery edge cases
@@ -448,22 +465,35 @@ The test suite is organized into focused categories:
 - ✅ Category organization and consistency
 - ✅ Description quality validation
 
-#### `test_environment.py` - Configuration
-- ✅ Environment variable handling
-- ✅ .env file support and fallbacks
-- ✅ Configuration validation and defaults
-- ✅ Logging setup verification
-
 #### `test_error_handling.py` - Error Resilience
 - ✅ Network errors (timeouts, 4xx/5xx responses)
 - ✅ Malformed inputs and edge cases
 - ✅ Authentication failures and recovery
 - ✅ Concurrent operations and memory handling
 
+#### `test_production.py` - Production Readiness
+- ✅ All tools properly registered and functional
+- ✅ Read-only operation validation
+- ✅ Tool categories and schema compliance
+- ✅ Authentication flow testing (both credential and browser)
+- ✅ API client error handling
+
+#### `test_integration.py` - Integration Testing
+- ✅ End-to-end workflow testing
+- ✅ Tool interaction and data flow
+- ✅ Realistic usage scenarios
+- ✅ Browser authentication integration
+
+#### `test_browser_auth.py` - Browser Authentication
+- ✅ OAuth2 browser flow testing
+- ✅ Token management and storage
+- ✅ Error handling and recovery
+- ✅ Integration with MCP tools
+
 ### Running Tests
 
 ```bash
-# Run all tests (should show 100 passed, 0 skipped)
+# Run all tests (should show 116 passed)
 python3 -m pytest tests/ -v
 
 # Run specific test categories
@@ -471,7 +501,9 @@ python3 -m pytest tests/test_mcp_protocol.py -v          # MCP protocol complian
 python3 -m pytest tests/test_deployment.py -v           # Deployment scenarios  
 python3 -m pytest tests/test_error_handling.py -v       # Error handling
 python3 -m pytest tests/test_tool_registration.py -v    # Tool registration
-python3 -m pytest tests/test_environment.py -v          # Configuration
+python3 -m pytest tests/test_production.py -v           # Production readiness
+python3 -m pytest tests/test_integration.py -v          # Integration testing
+python3 -m pytest tests/test_browser_auth.py -v         # Browser authentication
 
 # Run with coverage reporting
 python3 -m pytest tests/ --cov=src --cov-report=html
@@ -490,6 +522,8 @@ The testing suite validates that the MCP server works correctly in all scenarios
 ✅ **Error Resilience**: Graceful handling of network failures, malformed inputs, and edge cases  
 ✅ **Configuration Flexibility**: Works with/without .env files and environment variables  
 ✅ **MCP Compliance**: Proper MCP protocol implementation with correct types and schemas  
+✅ **Authentication Methods**: Both credential-based and browser OAuth2 authentication  
+✅ **Production Deployment**: Comprehensive validation for production use  
 
 ### Addressing Previous Issues
 
@@ -498,94 +532,9 @@ This comprehensive testing directly addresses the reliability issues mentioned b
 - **"Sometimes shows zero tools"** → Fixed import resolution and added tool discovery tests
 - **"Sometimes works but access errors"** → Added comprehensive error handling tests  
 - **"PyPI deployment issues"** → Added deployment scenario tests and package validation
-- **"Better testing coverage"** → Created 100 tests covering all edge cases and deployment scenarios
-
-The test suite ensures consistent behavior across different deployment environments and prevents the inconsistent behavior that was previously experienced.
-
-### Test Coverage
-
-- **100 total tests**, **all passing** (removed redundant and placeholder tests)
-- **MCP Protocol Compliance**: Tests for proper MCP tool registration, argument handling, and response formatting
-- **Deployment Scenarios**: Tests for source installation, pip installation, and entry point functionality  
-- **Tool Registration**: Comprehensive validation of tool discovery, schema validation, and handler imports
-- **Error Handling**: Network errors, malformed inputs, authentication failures, and edge cases
-- **Environment Configuration**: Environment variable handling, .env file support, and configuration validation
-- **Performance & Memory**: Large response handling, concurrent operations, and memory leak prevention
-
-### Test Architecture
-
-The test suite is organized into focused categories:
-
-#### `test_mcp_protocol.py` - MCP Protocol Compliance
-- ✅ Proper MCP types (Tool, TextContent) validation
-- ✅ Tool discovery and schema validation  
-- ✅ Server initialization and capabilities
-- ✅ Error handling in MCP context
-- ✅ Protocol compliance verification
-
-#### `test_deployment.py` - Deployment Scenarios  
-- ✅ Source vs installed package behavior
-- ✅ CLI entry point validation
-- ✅ Package metadata verification
-- ✅ Environment configuration testing
-
-#### `test_tool_registration.py` - Tool Registry
-- ✅ Tool discovery edge cases
-- ✅ Schema validation and handler imports
-- ✅ Category organization and consistency
-- ✅ Description quality validation
-
-#### `test_environment.py` - Configuration
-- ✅ Environment variable handling
-- ✅ .env file support and fallbacks
-- ✅ Configuration validation and defaults
-- ✅ Logging setup verification
-
-#### `test_error_handling.py` - Error Resilience
-- ✅ Network errors (timeouts, 4xx/5xx responses)
-- ✅ Malformed inputs and edge cases
-- ✅ Authentication failures and recovery
-- ✅ Concurrent operations and memory handling
-
-### Running Tests
-
-```bash
-# Run all tests (should show 100 passed, 0 skipped)
-python3 -m pytest tests/ -v
-
-# Run specific test categories
-python3 -m pytest tests/test_mcp_protocol.py -v          # MCP protocol compliance
-python3 -m pytest tests/test_deployment.py -v           # Deployment scenarios  
-python3 -m pytest tests/test_error_handling.py -v       # Error handling
-python3 -m pytest tests/test_tool_registration.py -v    # Tool registration
-python3 -m pytest tests/test_environment.py -v          # Configuration
-
-# Run with coverage reporting
-python3 -m pytest tests/ --cov=src --cov-report=html
-
-# Run tests in parallel (faster)
-python3 -m pytest tests/ -n auto
-```
-
-### Test Quality Standards
-
-The testing suite validates that the MCP server works correctly in all scenarios:
-
-✅ **Package Installation**: Both development (`pip install -e .`) and production installs  
-✅ **Import Resolution**: Proper module imports when installed vs running from source  
-✅ **Tool Discovery**: All 11 tools properly registered and discoverable via MCP  
-✅ **Error Resilience**: Graceful handling of network failures, malformed inputs, and edge cases  
-✅ **Configuration Flexibility**: Works with/without .env files and environment variables  
-✅ **MCP Compliance**: Proper MCP protocol implementation with correct types and schemas  
-
-### Addressing Previous Issues
-
-This comprehensive testing directly addresses the reliability issues mentioned by users:
-
-- **"Sometimes shows zero tools"** → Fixed import resolution and added tool discovery tests
-- **"Sometimes works but access errors"** → Added comprehensive error handling tests  
-- **"PyPI deployment issues"** → Added deployment scenario tests and package validation
-- **"Better testing coverage"** → Created 100 tests covering all edge cases and deployment scenarios
+- **"Better testing coverage"** → Created 116 tests covering all edge cases and deployment scenarios
+- **"Authentication inconsistencies"** → Added comprehensive auth testing for both methods
+- **"Browser auth support"** → Complete browser OAuth2 testing and integration
 
 The test suite ensures consistent behavior across different deployment environments and prevents the inconsistent behavior that was previously experienced.
 
@@ -594,38 +543,48 @@ The test suite ensures consistent behavior across different deployment environme
 ### Project Structure
 ```
 src/
-├── realize_server.py        # Main MCP server
-├── config.py               # Configuration management  
-├── tools/                  # Tool implementations
-│   ├── registry.py         # Tool registry
-│   ├── auth_handlers.py    # Authentication tools
-│   ├── account_handlers.py # Account management
-│   ├── campaign_handlers.py# Campaign tools
-│   └── report_handlers.py  # Reporting tools
-├── realize/               # API client
-│   ├── auth.py           # Authentication
-│   └── client.py         # HTTP client
-└── models/
-    └── realize.py        # Data models
+├── realize/
+│   ├── __init__.py         # Package initialization with version
+│   ├── _version.py         # Version management
+│   ├── realize_server.py   # Main MCP server (entry point)
+│   ├── auth.py             # Authentication logic
+│   ├── client.py           # HTTP client
+│   ├── config.py           # Configuration management
+│   ├── models.py           # Data models
+│   ├── py.typed            # Type hints support
+│   └── tools/              # Tool implementations
+│       ├── __init__.py
+│       ├── registry.py         # Tool registry
+│       ├── auth_handlers.py    # Authentication tools (credential & browser OAuth)
+│       ├── account_handlers.py # Account management
+│       ├── campaign_handlers.py# Campaign tools
+│       ├── report_handlers.py  # Reporting tools
+│       ├── utils.py            # Utility functions
+│       └── assets/             # Static assets
+│           └── oauth_callback.html  # OAuth callback page
 ```
 
 ### Running Tests
 
 #### Test Categories
 ```bash
-# All tests
+# All tests (should show 116 passed)
 python -m pytest tests/ -v
 
 # Specific test categories  
-python -m pytest tests/test_production.py -v
-python -m pytest tests/test_integration.py -v
-python -m pytest tests/test_account_search.py -v
+python -m pytest tests/test_production.py -v          # Production readiness
+python -m pytest tests/test_integration.py -v         # Integration testing
+python -m pytest tests/test_browser_auth.py -v        # Browser authentication
+python -m pytest tests/test_mcp_protocol.py -v        # MCP protocol compliance
+python -m pytest tests/test_deployment.py -v          # Deployment scenarios
+python -m pytest tests/test_error_handling.py -v      # Error handling
+python -m pytest tests/test_tool_registration.py -v   # Tool registration
 
 # With coverage
 python -m pytest tests/ --cov=src --cov-report=html
 
-# Skip integration tests (if no API credentials)
-python -m pytest tests/ -v -m "not integration"
+# Run tests in parallel (faster)
+python -m pytest tests/ -n auto
 ```
 
 #### Test Configuration
@@ -635,7 +594,7 @@ The project includes a `pytest.ini` configuration file that:
 - Defines custom markers for integration tests
 - Configures test discovery and output formatting
 
-**All functionality is fully tested and working correctly.** The project is production-ready with comprehensive test coverage.
+**All functionality is fully tested and working correctly.** The project is production-ready with comprehensive test coverage including browser authentication and all deployment scenarios.
 
 ### Development Setup
 
@@ -681,7 +640,7 @@ pip install -r requirements.txt
 
 # Run server with debug logging
 export LOG_LEVEL=DEBUG
-python src/realize_server.py
+python src/realize/realize_server.py
 
 # Run tests with various options
 python -m pytest tests/ -v                    # All tests
@@ -713,7 +672,7 @@ pip install -r requirements.txt
 pip install -e .
 
 # Verify everything works
-python3 -m pytest tests/ -v  # Should show: 100 passed, 0 skipped
+python3 -m pytest tests/ -v  # Should show: 116 passed, 0 skipped
 realize-mcp-server --help    # Should show command help
 ```
 
@@ -902,7 +861,7 @@ print(f'Found {len(get_all_tools())} tools')
 Enable detailed logging for troubleshooting:
 ```bash
 export LOG_LEVEL=DEBUG
-python src/realize_server.py
+python src/realize/realize_server.py
 ```
 
 Debug mode provides:
@@ -970,6 +929,7 @@ Common log patterns to look for:
 - **httpx** - Modern async HTTP client for Realize API calls
 - **Pydantic** - Data validation and serialization (minimal usage for flexibility)
 - **python-dotenv** - Environment configuration management
+- **aiohttp** - Async HTTP server for browser authentication flow
 
 ### Development Dependencies
 
@@ -1025,6 +985,7 @@ Common log patterns to look for:
 
 #### Authentication
 - `POST /oauth/token` - Get access token using client credentials
+- Browser OAuth2 Flow - Uses Taboola SSO at `https://authentication.taboola.com`
 
 #### Account Management
 - `GET /users/current/account` - Get account information

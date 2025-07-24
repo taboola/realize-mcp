@@ -19,9 +19,9 @@ class TestProductionReadiness:
         """Test that all expected read-only tools are registered."""
         tools = get_all_tools()
         
-        # Check minimum required read-only tools
+        # Check minimum required read-only tools (excluding dynamic auth tools)
         required_tools = [
-            'get_auth_token', 'get_token_details',
+            'get_token_details',  # Universal auth tool
             'search_accounts',
             'get_all_campaigns', 'get_campaign',
             'get_campaign_items', 'get_campaign_item',
@@ -31,6 +31,10 @@ class TestProductionReadiness:
         
         for tool in required_tools:
             assert tool in tools, f"Required read-only tool {tool} not found in registry"
+        
+        # Check that at least one auth tool is available (either credential or browser based)
+        auth_tools = [name for name in tools.keys() if name in ['get_auth_token', 'browser_authenticate', 'clear_auth_token']]
+        assert len(auth_tools) > 0, "No authentication tools found"
     
     def test_no_write_operations(self):
         """Test that no write operations are included for safety."""
@@ -69,8 +73,16 @@ class TestProductionReadiness:
             
             # Verify description indicates read-only
             description = tool_config['description'].lower()
-            assert 'read-only' in description or 'get' in description, \
-                f"Tool {tool_name} should be clearly marked as read-only"
+            
+            # Special cases - tools that are inherently read-only but don't use typical read verbs
+            special_read_only_tools = {
+                'clear_auth_token': True,  # Token management (clearing stored tokens, not deleting from server)
+                'browser_authenticate': True  # Authentication flow (read-only from API perspective)
+            }
+            
+            if tool_name not in special_read_only_tools:
+                assert 'read-only' in description or 'get' in description, \
+                    f"Tool {tool_name} should be clearly marked as read-only"
             
             # Check schema structure supports flexible JSON
             schema = tool_config['schema']
@@ -82,21 +94,43 @@ class TestProductionReadiness:
     @patch('realize.auth.httpx.AsyncClient')
     async def test_authentication_flow(self, mock_client):
         """Test authentication flow works correctly with Token model."""
-        # Mock successful auth response
-        mock_response = Mock()
-        mock_response.json.return_value = {
-            'access_token': 'test_token',
-            'token_type': 'Bearer',
-            'expires_in': 3600
-        }
-        mock_response.raise_for_status.return_value = None
+        from realize.auth import RealizeAuth, BrowserAuth, auth
+        from realize.models import Token
         
-        mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
-        
-        # Test token retrieval (only model used)
-        token = await auth.get_auth_token()
-        assert token.access_token == 'test_token'
-        assert token.expires_in == 3600
+        if isinstance(auth, RealizeAuth):
+            # Test credential-based authentication
+            mock_response = Mock()
+            mock_response.json.return_value = {
+                'access_token': 'test_token',
+                'token_type': 'Bearer',
+                'expires_in': 3600
+            }
+            mock_response.raise_for_status.return_value = None
+            
+            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
+            
+            # Test token retrieval
+            token = await auth.get_auth_token()
+            assert token.access_token == 'test_token'
+            assert token.expires_in == 3600
+            
+        elif isinstance(auth, BrowserAuth):
+            # Test browser-based authentication flow
+            # For browser auth, we need to set a token first
+            test_token = Token(
+                access_token='browser_test_token',
+                token_type='Bearer', 
+                expires_in=3600
+            )
+            auth.token = test_token
+            
+            # Now get_auth_token should return the set token
+            token = await auth.get_auth_token()
+            assert token.access_token == 'browser_test_token'
+            assert token.expires_in == 3600
+            
+            # Clear the token for cleanup
+            auth.token = None
     
     def test_configuration_validation(self):
         """Test that configuration validation works."""
@@ -108,8 +142,12 @@ class TestProductionReadiness:
     
     @pytest.mark.asyncio
     @patch('realize.client.httpx.AsyncClient')
-    async def test_api_client_read_only_json_handling(self, mock_client):
+    @patch('realize.auth.auth.get_auth_header')
+    async def test_api_client_read_only_json_handling(self, mock_auth_header, mock_client):
         """Test API client returns raw JSON dictionaries for read operations."""
+        # Mock authentication
+        mock_auth_header.return_value = {"Authorization": "Bearer test_token"}
+        
         # Mock successful API response
         mock_response = Mock()
         mock_response.json.return_value = {
@@ -137,8 +175,12 @@ class TestProductionReadiness:
     
     @pytest.mark.asyncio
     @patch('realize.client.httpx.AsyncClient')
-    async def test_api_client_error_handling(self, mock_client):
+    @patch('realize.auth.auth.get_auth_header')
+    async def test_api_client_error_handling(self, mock_auth_header, mock_client):
         """Test API client error handling."""
+        # Mock authentication
+        mock_auth_header.return_value = {"Authorization": "Bearer test_token"}
+        
         # Mock HTTP error
         from httpx import HTTPStatusError
         mock_response = Mock()

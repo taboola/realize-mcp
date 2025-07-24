@@ -53,13 +53,25 @@ async def handle_call_tool(
     
     try:
         # Dynamic handler import and execution
-        if handler_path == "auth_handlers.get_auth_token":
+        if handler_path == "auth_handlers.browser_authenticate":
+            from realize.tools.auth_handlers import browser_authenticate
+            return await browser_authenticate()
+        
+        elif handler_path == "auth_handlers.clear_auth_token":
+            from realize.tools.auth_handlers import clear_auth_token
+            return await clear_auth_token()
+        
+        elif handler_path == "auth_handlers.get_auth_token":
             from realize.tools.auth_handlers import get_auth_token
             return await get_auth_token()
             
         elif handler_path == "auth_handlers.get_token_details":
             from realize.tools.auth_handlers import get_token_details
             return await get_token_details()
+            
+        elif handler_path == "auth_handlers.is_token_valid":
+            from realize.tools.auth_handlers import is_token_valid
+            return await is_token_valid()
             
         elif handler_path == "account_handlers.search_accounts":
             from realize.tools.account_handlers import search_accounts

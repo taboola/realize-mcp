@@ -1,30 +1,43 @@
 """Centralized registry for all MCP tools."""
+from realize.config import config
 
 # Tool Registry - Add new tools here
 TOOL_REGISTRY = {
     # Authentication & Token Tools
-    "get_auth_token": {
-        "description": "Authenticate with Realize API using client credentials (read-only)",
+
+    "clear_auth_token": {
+        "description": "Remove stored authentication token from memory, forcing user to reauthenticate. Use this when you need to switch accounts or clear credentials.",
         "schema": {
             "type": "object",
             "properties": {},
             "required": []
         },
-        "handler": "auth_handlers.get_auth_token",
+        "handler": "auth_handlers.clear_auth_token",
         "category": "authentication"
     },
-    
+
     "get_token_details": {
         "description": "Get details about current authentication token (read-only)",
         "schema": {
-            "type": "object", 
+            "type": "object",
             "properties": {},
             "required": []
         },
         "handler": "auth_handlers.get_token_details",
         "category": "authentication"
     },
-    
+
+    "is_token_valid": {
+        "description": "Quickly check if there is a valid authentication token in memory without making API calls. Returns JSON with 'valid' (boolean), 'auth_type' (client_credentials/browser), and 'expires_in' (seconds). Use this to decide whether to authenticate before making API calls.",
+        "schema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        },
+        "handler": "auth_handlers.is_token_valid",
+        "category": "authentication"
+    },
+
     # Account Management Tools
     "search_accounts": {
         "description": "Search for accounts by numeric ID or text query to get account_id values needed for other tools (read-only). Returns account data including 'account_id' field (camelCase string) required for campaign and report operations. WORKFLOW: Use this tool FIRST to get account_id values, then use those values with other tools.",
@@ -54,7 +67,7 @@ TOOL_REGISTRY = {
         "handler": "account_handlers.search_accounts",
         "category": "accounts"
     },
-    
+
     # Campaign Management Tools (READ-ONLY)
     "get_all_campaigns": {
         "description": "Get all campaigns for an account (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
@@ -82,7 +95,7 @@ TOOL_REGISTRY = {
                     "description": "Account ID (string from search_accounts response 'account_id' field - NOT numeric ID). Workflow: 1) search_accounts('query') 2) Use 'account_id' from results"
                 },
                 "campaign_id": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Campaign ID to get details for"
                 }
             },
@@ -99,11 +112,11 @@ TOOL_REGISTRY = {
             "type": "object",
             "properties": {
                 "account_id": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Account ID (string from search_accounts response 'account_id' field - NOT numeric ID). Workflow: 1) search_accounts('query') 2) Use 'account_id' from results"
                 },
                 "campaign_id": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Campaign ID"
                 }
             },
@@ -119,15 +132,15 @@ TOOL_REGISTRY = {
             "type": "object",
             "properties": {
                 "account_id": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Account ID (string from search_accounts response 'account_id' field - NOT numeric ID). Workflow: 1) search_accounts('query') 2) Use 'account_id' from results"
                 },
                 "campaign_id": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Campaign ID"
                 },
                 "item_id": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Item ID to get details for"
                 }
             },
@@ -145,15 +158,15 @@ TOOL_REGISTRY = {
             "type": "object",
             "properties": {
                 "account_id": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Account ID (string from search_accounts response 'account_id' field - NOT numeric ID). Workflow: 1) search_accounts('query') 2) Use 'account_id' from results"
                 },
                 "start_date": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Start date (YYYY-MM-DD)"
                 },
                 "end_date": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "End date (YYYY-MM-DD)"
                 },
                 "page": {
@@ -193,15 +206,15 @@ TOOL_REGISTRY = {
             "type": "object",
             "properties": {
                 "account_id": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Account ID (string from search_accounts response 'account_id' field - NOT numeric ID). Workflow: 1) search_accounts('query') 2) Use 'account_id' from results"
                 },
                 "start_date": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Start date (YYYY-MM-DD)"
                 },
                 "end_date": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "End date (YYYY-MM-DD)"
                 },
                 "page": {
@@ -230,19 +243,19 @@ TOOL_REGISTRY = {
             "type": "object",
             "properties": {
                 "account_id": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Account ID (string from search_accounts response 'account_id' field - NOT numeric ID). Workflow: 1) search_accounts('query') 2) Use 'account_id' from results"
                 },
                 "start_date": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Start date (YYYY-MM-DD)"
                 },
                 "end_date": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "End date (YYYY-MM-DD)"
                 },
                 "filters": {
-                    "type": "object", 
+                    "type": "object",
                     "description": "Optional filters (flexible JSON object)",
                     "additionalProperties": {"type": "string"}
                 },
@@ -283,19 +296,19 @@ TOOL_REGISTRY = {
             "type": "object",
             "properties": {
                 "account_id": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Account ID (string from search_accounts response 'account_id' field - NOT numeric ID). Workflow: 1) search_accounts('query') 2) Use 'account_id' from results"
                 },
                 "start_date": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Start date (YYYY-MM-DD)"
                 },
                 "end_date": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "End date (YYYY-MM-DD)"
                 },
                 "filters": {
-                    "type": "object", 
+                    "type": "object",
                     "description": "Optional filters (flexible JSON object)",
                     "additionalProperties": {"type": "string"}
                 },
@@ -328,26 +341,51 @@ TOOL_REGISTRY = {
         },
         "handler": "report_handlers.get_campaign_site_day_breakdown_report",
         "category": "reports"
-    },
-
-
+    }
 }
+
+if (config.realize_client_id and config.realize_client_id.strip() and
+        config.realize_client_id != "your_client_id" and
+        config.realize_client_secret and config.realize_client_secret.strip() and
+        config.realize_client_secret != "your_client_secret"):
+    TOOL_REGISTRY["get_auth_token"] = {
+        "description": "Authenticate with Realize API using client credentials (read-only)",
+        "schema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        },
+        "handler": "auth_handlers.get_auth_token",
+        "category": "authentication"
+    }
+else:
+    TOOL_REGISTRY["browser_authenticate"] = {
+        "description": "Authenticate with Realize API using browser-based OAuth2 flow (read-only). Opens a browser for Taboola SSO login. No client credentials needed. Token stored in memory only.",
+        "schema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        },
+        "handler": "auth_handlers.browser_authenticate",
+        "category": "authentication"
+    }
 
 
 def get_all_tools():
     """Get all registered tools."""
     import copy
+
     return copy.deepcopy(TOOL_REGISTRY)
 
 
 def get_tools_by_category(category: str):
     """Get tools filtered by category."""
     import copy
-    return {name: copy.deepcopy(tool) for name, tool in TOOL_REGISTRY.items() 
+    return {name: copy.deepcopy(tool) for name, tool in TOOL_REGISTRY.items()
             if tool.get("category") == category}
 
 
 def get_tool_categories():
     """Get list of all available categories."""
-    return list(set(tool.get("category", "uncategorized") 
-                   for tool in TOOL_REGISTRY.values())) 
+    return list(set(tool.get("category", "uncategorized")
+                    for tool in TOOL_REGISTRY.values()))

@@ -22,12 +22,16 @@ class TestReadOnlyIntegration:
         # Check that we have tools
         assert len(tools) > 0
         
-        # Check that essential read-only tools are present
+        # Check that essential read-only tools are present (excluding auth which is dynamic)
         tool_names = [tool.name for tool in tools]
-        essential_tools = ['get_auth_token', 'search_accounts', 'get_all_campaigns']
+        essential_tools = ['search_accounts', 'get_all_campaigns', 'get_token_details']
         
         for tool in essential_tools:
             assert tool in tool_names, f"Essential read-only tool {tool} missing"
+        
+        # Check that we have at least one auth tool (either credential or browser based)
+        auth_tools = [name for name in tool_names if name in ['get_auth_token', 'browser_authenticate', 'clear_auth_token']]
+        assert len(auth_tools) > 0, "No authentication tools found"
     
     @pytest.mark.asyncio
     async def test_no_write_tools_available(self):
@@ -43,18 +47,56 @@ class TestReadOnlyIntegration:
                     f"Found write operation {tool_name} - only read operations should be available"
     
     @pytest.mark.asyncio
-    @patch('realize.tools.auth_handlers.auth.get_auth_token')
-    async def test_call_tool_integration(self, mock_get_auth_token):
+    async def test_call_tool_integration(self):
         """Test tool calling integration."""
-        # Mock auth token (only model used)
-        mock_token = Mock()
-        mock_token.expires_in = 3600
-        mock_get_auth_token.return_value = mock_token
+        # Get available tools to test with the correct auth method
+        tools = await handle_list_tools()
+        tool_names = [tool.name for tool in tools]
         
-        # Test auth tool call
-        result = await handle_call_tool("get_auth_token", {})
-        assert len(result) == 1
-        assert "Successfully authenticated" in result[0].text
+        # Test with available auth tool
+        if "get_auth_token" in tool_names:
+            # Test credential-based auth
+            with patch('realize.tools.auth_handlers.auth.get_auth_token') as mock_get_auth_token:
+                mock_token = Mock()
+                mock_token.expires_in = 3600
+                mock_get_auth_token.return_value = mock_token
+                
+                result = await handle_call_tool("get_auth_token", {})
+                assert len(result) == 1
+                assert "Successfully authenticated" in result[0].text
+                
+        elif "browser_authenticate" in tool_names:
+            # Test browser-based auth - mock the browser auth process
+            with patch('realize.tools.auth_handlers.webbrowser.open', return_value=True), \
+                 patch('realize.tools.auth_handlers.web.AppRunner') as mock_runner, \
+                 patch('realize.tools.auth_handlers.web.TCPSite') as mock_site, \
+                 patch('realize.tools.auth_handlers.asyncio.wait_for') as mock_wait:
+                
+                # Mock successful authentication flow
+                mock_runner_instance = Mock()
+                mock_runner_instance.setup = AsyncMock()
+                mock_runner_instance.cleanup = AsyncMock()
+                mock_runner.return_value = mock_runner_instance
+                
+                mock_site_instance = Mock()
+                mock_site_instance.start = AsyncMock()
+                mock_site.return_value = mock_site_instance
+                
+                mock_wait.return_value = None
+                
+                # Simulate successful auth result
+                import realize.tools.auth_handlers as handlers
+                handlers.auth_result = {
+                    "success": True,
+                    "access_token": "test_token",
+                    "expires_in": 3600
+                }
+                
+                result = await handle_call_tool("browser_authenticate", {})
+                assert len(result) == 1
+                assert "successfully authenticated" in result[0].text.lower() or "authentication" in result[0].text.lower()
+        else:
+            pytest.fail("No authentication tools available for testing")
     
     @pytest.mark.asyncio
     async def test_invalid_tool_call(self):
@@ -247,6 +289,182 @@ class TestReadOnlyIntegration:
         for category in expected_categories:
             assert category in category_counts, f"No tools found in category: {category}"
             assert category_counts[category] > 0, f"Category {category} has no tools"
+    
+    @pytest.mark.asyncio
+    @patch('realize.tools.account_handlers.client.get')
+    async def test_account_tools_integration(self, mock_get):
+        """Test account tools integration with raw JSON."""
+        # Test search_accounts
+        mock_get.return_value = {
+            "results": [
+                {
+                    "account_id": "acc_123",
+                    "name": "Integration Test Account",
+                    "type": "advertiser",
+                    "currency": "USD"
+                },
+                {
+                    "account_id": "acc_456", 
+                    "name": "Another Test Account",
+                    "type": "advertiser",
+                    "currency": "EUR"
+                }
+            ],
+            "metadata": {"total": 2}
+        }
+        
+        result = await handle_call_tool("search_accounts", {"query": "Test Account"})
+        assert len(result) == 1
+        assert "Integration Test Account" in result[0].text
+        assert "Another Test Account" in result[0].text
+        assert "acc_123" in result[0].text
+    
+    @pytest.mark.asyncio
+    @patch('realize.tools.report_handlers.client.get')
+    async def test_site_day_breakdown_report_integration(self, mock_get):
+        """Test site day breakdown report integration."""
+        # Test get_campaign_site_day_breakdown_report
+        mock_get.return_value = {
+            "results": [
+                {
+                    "date": "2024-01-01",
+                    "site_id": "site_123",
+                    "site_name": "example.com",
+                    "campaign_id": "camp_123",
+                    "impressions": 1500,
+                    "clicks": 75,
+                    "ctr": 0.05,
+                    "cost": 187.50
+                }
+            ],
+            "metadata": {
+                "start_date": "2024-01-01",
+                "end_date": "2024-01-31",
+                "breakdown_by": ["site", "day"]
+            }
+        }
+        
+        result = await handle_call_tool("get_campaign_site_day_breakdown_report", {
+            "account_id": "test_account",
+            "start_date": "2024-01-01",
+            "end_date": "2024-01-31"
+        })
+        assert len(result) == 1
+        assert "Site Day Breakdown Report CSV" in result[0].text
+    
+    @pytest.mark.asyncio
+    async def test_workflow_integration(self):
+        """Test realistic workflow: search accounts → get campaigns → get campaign items."""
+        # Mock account search
+        with patch('realize.tools.account_handlers.client.get') as mock_accounts:
+            mock_accounts.return_value = {
+                "results": [{"account_id": "workflow_acc_123", "name": "Workflow Test Account"}]
+            }
+            
+            # Step 1: Search for accounts
+            account_result = await handle_call_tool("search_accounts", {"query": "Workflow"})
+            assert len(account_result) == 1
+            assert "workflow_acc_123" in account_result[0].text
+        
+        # Mock campaign listing
+        with patch('realize.tools.campaign_handlers.client.get') as mock_campaigns:
+            mock_campaigns.return_value = {
+                "results": [
+                    {
+                        "id": "workflow_camp_123",
+                        "name": "Workflow Test Campaign",
+                        "status": "RUNNING"
+                    }
+                ]
+            }
+            
+            # Step 2: Get campaigns for the account
+            campaign_result = await handle_call_tool("get_all_campaigns", {
+                "account_id": "workflow_acc_123"
+            })
+            assert len(campaign_result) == 1
+            assert "Workflow Test Campaign" in campaign_result[0].text
+        
+        # Mock campaign items
+        with patch('realize.tools.campaign_handlers.client.get') as mock_items:
+            mock_items.return_value = {
+                "results": [
+                    {
+                        "id": "workflow_item_123",
+                        "campaign_id": "workflow_camp_123",
+                        "title": "Workflow Test Item",
+                        "status": "APPROVED"
+                    }
+                ]
+            }
+            
+            # Step 3: Get campaign items
+            item_result = await handle_call_tool("get_campaign_items", {
+                "account_id": "workflow_acc_123",
+                "campaign_id": "workflow_camp_123"
+            })
+            assert len(item_result) == 1
+            assert "Workflow Test Item" in item_result[0].text
+    
+    @pytest.mark.asyncio
+    async def test_browser_auth_workflow_integration(self):
+        """Test browser authentication workflow integration."""
+        # Get available tools
+        tools = await handle_list_tools()
+        tool_names = [tool.name for tool in tools]
+        
+        if "browser_authenticate" not in tool_names:
+            pytest.skip("Browser authentication not available in current config")
+        
+        # Test browser auth → token details → clear token workflow
+        with patch('realize.tools.auth_handlers.webbrowser.open', return_value=True), \
+             patch('realize.tools.auth_handlers.web.AppRunner') as mock_runner, \
+             patch('realize.tools.auth_handlers.web.TCPSite') as mock_site, \
+             patch('realize.tools.auth_handlers.asyncio.wait_for') as mock_wait:
+            
+            # Mock successful authentication setup
+            mock_runner_instance = Mock()
+            mock_runner_instance.setup = AsyncMock()
+            mock_runner_instance.cleanup = AsyncMock()
+            mock_runner.return_value = mock_runner_instance
+            
+            mock_site_instance = Mock()
+            mock_site_instance.start = AsyncMock()
+            mock_site.return_value = mock_site_instance
+            
+            # Mock wait_for to immediately set the auth result and signal completion
+            async def mock_wait_for_success(event_wait, timeout):
+                import realize.tools.auth_handlers as handlers
+                handlers.auth_result = {
+                    "success": True,
+                    "access_token": "workflow_browser_token",
+                    "expires_in": 3600
+                }
+                return None  # No timeout
+            
+            mock_wait.side_effect = mock_wait_for_success
+            
+            # Step 1: Authenticate via browser
+            auth_result = await handle_call_tool("browser_authenticate", {})
+            assert len(auth_result) == 1
+            assert "successfully authenticated" in auth_result[0].text.lower()
+        
+        # Step 2: Get token details
+        with patch('realize.tools.auth_handlers.auth.get_token_details') as mock_details:
+            mock_details.return_value = {
+                "token": "workflow_browser_token",
+                "expires_in": 3600,
+                "account_id": "browser_test_acc"
+            }
+            
+            details_result = await handle_call_tool("get_token_details", {})
+            assert len(details_result) == 1
+            assert "workflow_browser_token" in details_result[0].text
+        
+        # Step 3: Clear token
+        clear_result = await handle_call_tool("clear_auth_token", {})
+        assert len(clear_result) == 1
+        assert "removed" in clear_result[0].text.lower() or "cleared" in clear_result[0].text.lower()
 
 
 if __name__ == "__main__":

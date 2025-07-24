@@ -12,9 +12,38 @@ A Model Context Protocol (MCP) server that provides read-only access to Taboola'
 
 ## Quick Start
 
-### Cursor IDE Setup
+### 1. Install
 
-Add to Cursor Settings → Features → Model Context Protocol:
+```bash
+pip install realize-mcp
+```
+
+### 2. Choose Your Authentication Method
+
+**Option A: Browser Authentication** (Recommended - No credentials needed)
+- Configure MCP without credentials
+- Use the `browser_authenticate` tool when you start
+
+**Option B: API Credentials in MCP Config**
+- Add credentials directly to your MCP client configuration
+- Best for automated workflows
+
+**Option C: API Credentials via Environment Variables**
+- Export credentials as environment variables
+- Useful for shared configurations or CI/CD
+
+```bash
+export REALIZE_CLIENT_ID="your_client_id"
+export REALIZE_CLIENT_SECRET="your_client_secret"
+```
+
+### 3. Configure Your MCP Client
+
+**Cursor IDE**
+
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-light.svg)](https://cursor.com/install-mcp?name=realize-mcp&config=JTdCJTIyY29tbWFuZCUyMiUzQSUyMnJlYWxpemUtbWNwLXNlcnZlciUyMiU3RA%3D%3D)
+
+Or (manually) add to Cursor Settings → Features → Model Context Protocol:
 
 ```json
 {
@@ -22,6 +51,7 @@ Add to Cursor Settings → Features → Model Context Protocol:
     "realize-mcp": {
       "command": "realize-mcp-server",
       "env": {
+        // For Option B only - add your credentials here
         "REALIZE_CLIENT_ID": "your_client_id",
         "REALIZE_CLIENT_SECRET": "your_client_secret"
       }
@@ -30,7 +60,7 @@ Add to Cursor Settings → Features → Model Context Protocol:
 }
 ```
 
-### Claude Desktop Setup
+**Claude Desktop**
 
 Add to your `claude_desktop_config.json`:
 
@@ -40,6 +70,7 @@ Add to your `claude_desktop_config.json`:
     "realize-mcp": {
       "command": "realize-mcp-server",
       "env": {
+        // For Option B only - add your credentials here
         "REALIZE_CLIENT_ID": "your_client_id",
         "REALIZE_CLIENT_SECRET": "your_client_secret"
       }
@@ -48,18 +79,13 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
-### Installation
+*Note: For Options A & C, omit the `env` section entirely.*
 
-```bash
-pip install realize-mcp
+### 4. Start Using
+
 ```
-
-### Setup
-
-```bash
-# Set credentials
-export REALIZE_CLIENT_ID="your_client_id"
-export REALIZE_CLIENT_SECRET="your_client_secret"
+User: "Show me campaigns for Marketing Corp"
+AI: I'll search for that account and retrieve the campaigns.
 ```
 
 ## Basic Usage
@@ -92,14 +118,16 @@ AI:
 - `get_campaign_site_day_breakdown_report` - Site/day performance breakdown with sorting & pagination
 
 ### 🔐 Authentication
-- `get_auth_token` - Authenticate with Realize API
-- `get_token_details` - Check token information
+- `get_auth_token` - Authenticate using client credentials (only available when credentials are configured)
+- `browser_authenticate` - Interactive browser authentication via Taboola SSO
+- `get_token_details` - Check current authentication token information
+- `clear_auth_token` - Clear stored browser authentication token
 
 ## Prerequisites
 
 - **Python 3.10+** (Python 3.11+ recommended)
-- **Taboola Realize API credentials** (client ID and secret)
 - **MCP-compatible client** (Claude Desktop, Cursor, VS Code, etc.)
+- **Taboola Realize API credentials** (optional - can use browser authentication instead)
 
 ## Usage Examples
 
