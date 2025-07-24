@@ -44,4 +44,4 @@ realize-mcp-server = "realize.realize_server:cli_main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-realize = ["py.typed"] 
+realize = ["py.typed", "tools/assets/**/*"] 

@@ -25,6 +25,7 @@ This document contains detailed technical information, architectural details, an
 - ✅ Converted ALL 15 remaining relative imports in realize_server.py to absolute imports
 - ✅ MCP Inspector can now successfully list and execute tools
 - ✅ No more import errors when starting the MCP server
+- ✅ Added browser-based authentication support
 
 **v1.0.4+** - Enhanced package structure and import system:
 - ✅ Migrated most imports to use full path imports instead of relative imports 
@@ -43,6 +44,7 @@ pip install --upgrade realize-mcp
 
 ### Code Organization Enhancement
 - **Recent Update (January 2025)** - Moved data models closer to authentication logic for cleaner import paths and better module organization
+- **Browser Authentication** - Added OAuth2 browser-based authentication flow that doesn't require API credentials
 
 ## Architecture
 
@@ -74,9 +76,11 @@ pip install --upgrade realize-mcp
 - **Error Handling**: Process API responses and handle errors gracefully
 
 #### 3. Tool Implementations
-- **Campaign Management**: Create, update, and manage campaigns
-- **Performance Reporting**: Retrieve and analyze campaign data
-- **Campaign Items**: Manage campaign creative items and assets
+- **Authentication**: Browser-based OAuth2 and client credentials support
+- **Account Management**: Search and access account information
+- **Campaign Management**: List and retrieve campaign details (read-only)
+- **Performance Reporting**: Retrieve and analyze campaign data in CSV format
+- **Campaign Items**: List and retrieve campaign creative items (read-only)
 
 ## Detailed Installation
 
@@ -93,13 +97,21 @@ pip install -r requirements.txt
 
 ### 3. Configure Credentials
 
-**Option A: Environment Variables**
+**Option A: Browser Authentication (Recommended)**
+- No credentials needed - configure MCP without credentials
+- Use the `browser_authenticate` tool when you start
+
+**Option B: API Credentials via MCP Config**
+- Add credentials directly to your MCP client configuration
+- Best for automated workflows
+
+**Option C: Environment Variables**
 ```bash
 export REALIZE_CLIENT_ID="your_client_id"
 export REALIZE_CLIENT_SECRET="your_client_secret"
 ```
 
-**Option B: .env File**
+**Option D: .env File**
 ```bash
 # Create .env file
 echo "REALIZE_CLIENT_ID=your_client_id" > .env
@@ -108,7 +120,7 @@ echo "REALIZE_CLIENT_SECRET=your_client_secret" >> .env
 
 ### 4. Test Installation
 ```bash
-python src/realize_server.py
+python src/realize/realize_server.py
 ```
 
 ### 5. Verify Installation
@@ -142,9 +154,9 @@ Server listening on stdio transport
 {
   "mcpServers": {
     "realize-mcp": {
-      "command": "python",
-      "args": ["/absolute/path/to/realize-mcp/src/realize_server.py"],
+      "command": "realize-mcp-server",
       "env": {
+        // For Option B only - add your credentials here
         "REALIZE_CLIENT_ID": "your_client_id",
         "REALIZE_CLIENT_SECRET": "your_client_secret"
       }
@@ -160,8 +172,10 @@ Server listening on stdio transport
 
 #### VS Code
 ```bash
-code --add-mcp '{"name":"realize-mcp","command":"python","args":["/path/to/realize-mcp/src/realize_server.py"],"env":{"REALIZE_CLIENT_ID":"your_id","REALIZE_CLIENT_SECRET":"your_secret"}}'
+code --add-mcp '{"name":"realize-mcp","command":"realize-mcp-server","env":{"REALIZE_CLIENT_ID":"your_id","REALIZE_CLIENT_SECRET":"your_secret"}}'
 ```
+
+*Note: For Options A & C, omit the `env` section entirely.*
 
 ## Advanced Features
 
@@ -260,12 +274,12 @@ realize-mcp/
 │   │   ├── __init__.py     # Package initialization with version
 │   │   ├── _version.py     # Version management
 │   │   ├── realize_server.py # Main MCP server (entry point)
-│   │   ├── auth.py         # Authentication
+│   │   ├── auth.py         # Authentication logic
 │   │   ├── client.py       # HTTP client
-│   │   └── py.typed        # Type hints support
-│   ├── tools/              # Tool implementations
-│   ├── models/             # Data models
-│   └── config.py           # Configuration
+│   │   ├── config.py       # Configuration management
+│   │   ├── models.py       # Data models
+│   │   ├── py.typed        # Type hints support
+│   │   └── tools/          # Tool implementations
 ├── scripts/
 │   └── deploy.py           # Comprehensive deployment script
 └── env.template            # Environment variable template
@@ -486,7 +500,7 @@ The testing suite validates that the MCP server works correctly in all scenarios
 
 ✅ **Package Installation**: Both development (`pip install -e .`) and production installs  
 ✅ **Import Resolution**: Proper module imports when installed vs running from source  
-✅ **Tool Discovery**: All 11 tools properly registered and discoverable via MCP  
+✅ **Tool Discovery**: All 12 tools properly registered and discoverable via MCP  
 ✅ **Error Resilience**: Graceful handling of network failures, malformed inputs, and edge cases  
 ✅ **Configuration Flexibility**: Works with/without .env files and environment variables  
 ✅ **MCP Compliance**: Proper MCP protocol implementation with correct types and schemas  
@@ -594,19 +608,26 @@ The test suite ensures consistent behavior across different deployment environme
 ### Project Structure
 ```
 src/
-├── realize_server.py        # Main MCP server
-├── config.py               # Configuration management  
-├── tools/                  # Tool implementations
-│   ├── registry.py         # Tool registry
-│   ├── auth_handlers.py    # Authentication tools
-│   ├── account_handlers.py # Account management
-│   ├── campaign_handlers.py# Campaign tools
-│   └── report_handlers.py  # Reporting tools
-├── realize/               # API client
-│   ├── auth.py           # Authentication
-│   └── client.py         # HTTP client
-└── models/
-    └── realize.py        # Data models
+├── realize/
+│   ├── __init__.py         # Package initialization with version
+│   ├── _version.py         # Version management
+│   ├── realize_server.py   # Main MCP server (entry point)
+│   ├── auth.py             # Authentication logic
+│   ├── client.py           # HTTP client
+│   ├── config.py           # Configuration management
+│   ├── models.py           # Data models
+│   ├── py.typed            # Type hints support
+│   └── tools/              # Tool implementations
+│       ├── __init__.py
+│       ├── registry.py         # Tool registry
+│       ├── auth_handlers.py    # Authentication tools
+│       ├── browser_auth_handlers.py  # Browser OAuth authentication
+│       ├── account_handlers.py # Account management
+│       ├── campaign_handlers.py# Campaign tools
+│       ├── report_handlers.py  # Reporting tools
+│       ├── utils.py            # Utility functions
+│       └── assets/             # Static assets
+│           └── oauth_callback.html  # OAuth callback page
 ```
 
 ### Running Tests
@@ -681,7 +702,7 @@ pip install -r requirements.txt
 
 # Run server with debug logging
 export LOG_LEVEL=DEBUG
-python src/realize_server.py
+python src/realize/realize_server.py
 
 # Run tests with various options
 python -m pytest tests/ -v                    # All tests
@@ -902,7 +923,7 @@ print(f'Found {len(get_all_tools())} tools')
 Enable detailed logging for troubleshooting:
 ```bash
 export LOG_LEVEL=DEBUG
-python src/realize_server.py
+python src/realize/realize_server.py
 ```
 
 Debug mode provides:
@@ -970,6 +991,7 @@ Common log patterns to look for:
 - **httpx** - Modern async HTTP client for Realize API calls
 - **Pydantic** - Data validation and serialization (minimal usage for flexibility)
 - **python-dotenv** - Environment configuration management
+- **aiohttp** - Async HTTP server for browser authentication flow
 
 ### Development Dependencies
 
@@ -1025,6 +1047,7 @@ Common log patterns to look for:
 
 #### Authentication
 - `POST /oauth/token` - Get access token using client credentials
+- Browser OAuth2 Flow - Uses Taboola SSO at `https://authentication.taboola.com`
 
 #### Account Management
 - `GET /users/current/account` - Get account information

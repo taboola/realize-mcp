@@ -4,16 +4,6 @@ from realize.config import config
 # Tool Registry - Add new tools here
 TOOL_REGISTRY = {
     # Authentication & Token Tools
-    "browser_authenticate": {
-        "description": "Authenticate with Realize API using browser-based OAuth2 flow (read-only). Opens a browser for Taboola SSO login. No client credentials needed. Token stored in memory only.",
-        "schema": {
-            "type": "object",
-            "properties": {},
-            "required": []
-        },
-        "handler": "browser_auth_handlers.browser_authenticate",
-        "category": "authentication"
-    },
 
     "clear_auth_token": {
         "description": "Remove stored authentication token from memory, forcing user to reauthenticate. Use this when you need to switch accounts or clear credentials.",
@@ -343,10 +333,9 @@ TOOL_REGISTRY = {
     }
 }
 
-# Remove get_auth_token if client credentials are not configured
-if (config.realize_client_id and config.realize_client_id.strip() and 
+if (config.realize_client_id and config.realize_client_id.strip() and
         config.realize_client_id != "your_client_id" and
-        config.realize_client_secret and config.realize_client_secret.strip() and 
+        config.realize_client_secret and config.realize_client_secret.strip() and
         config.realize_client_secret != "your_client_secret"):
     TOOL_REGISTRY["get_auth_token"] = {
         "description": "Authenticate with Realize API using client credentials (read-only)",
@@ -356,6 +345,17 @@ if (config.realize_client_id and config.realize_client_id.strip() and
             "required": []
         },
         "handler": "auth_handlers.get_auth_token",
+        "category": "authentication"
+    }
+else:
+    TOOL_REGISTRY["browser_authenticate"] = {
+        "description": "Authenticate with Realize API using browser-based OAuth2 flow (read-only). Opens a browser for Taboola SSO login. No client credentials needed. Token stored in memory only.",
+        "schema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        },
+        "handler": "browser_auth_handlers.browser_authenticate",
         "category": "authentication"
     }
 
