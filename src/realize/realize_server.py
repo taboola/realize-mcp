@@ -69,6 +69,10 @@ async def handle_call_tool(
             from realize.tools.auth_handlers import get_token_details
             return await get_token_details()
             
+        elif handler_path == "auth_handlers.is_token_valid":
+            from realize.tools.auth_handlers import is_token_valid
+            return await is_token_valid()
+            
         elif handler_path == "account_handlers.search_accounts":
             from realize.tools.account_handlers import search_accounts
             return await search_accounts(arguments.get("query"))

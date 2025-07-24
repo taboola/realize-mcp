@@ -27,6 +27,17 @@ TOOL_REGISTRY = {
         "category": "authentication"
     },
 
+    "is_token_valid": {
+        "description": "Quickly check if there is a valid authentication token in memory without making API calls. Returns JSON with 'valid' (boolean), 'auth_type' (client_credentials/browser), and 'expires_in' (seconds). Use this to decide whether to authenticate before making API calls.",
+        "schema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        },
+        "handler": "auth_handlers.is_token_valid",
+        "category": "authentication"
+    },
+
     # Account Management Tools
     "search_accounts": {
         "description": "Search for accounts by numeric ID or text query to get account_id values needed for other tools (read-only). Returns account data including 'account_id' field (camelCase string) required for campaign and report operations. WORKFLOW: Use this tool FIRST to get account_id values, then use those values with other tools.",

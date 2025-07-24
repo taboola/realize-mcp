@@ -333,4 +333,78 @@ async def clear_auth_token() -> List[types.TextContent]:
                 type="text",
                 text=f"Failed to remove authentication token: {str(e)}"
             )
+        ]
+
+
+async def is_token_valid() -> List[types.TextContent]:
+    """Check if there is a valid authentication token in memory (read-only)."""
+    try:
+        from realize.auth import auth, BrowserAuth, RealizeAuth
+        
+        # Determine auth type
+        if isinstance(auth, BrowserAuth):
+            auth_type = "browser"
+        elif isinstance(auth, RealizeAuth):
+            auth_type = "client_credentials"
+        else:
+            auth_type = "unknown"
+        
+        # Check if token exists
+        if not auth.token:
+            return [
+                types.TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "valid": False,
+                        "auth_type": auth_type,
+                        "reason": "No token in memory"
+                    }, indent=2)
+                )
+            ]
+        
+        # Check if token is expired
+        is_expired = auth._is_token_expired()
+        
+        if is_expired:
+            return [
+                types.TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "valid": False,
+                        "auth_type": auth_type,
+                        "expired": True,
+                        "reason": "Token is expired"
+                    }, indent=2)
+                )
+            ]
+        
+        # Calculate time until expiration
+        from datetime import datetime, timedelta
+        expiry_time = auth.token.created_at + timedelta(seconds=auth.token.expires_in)
+        time_until_expiry = expiry_time - datetime.now()
+        seconds_until_expiry = int(time_until_expiry.total_seconds())
+        
+        return [
+            types.TextContent(
+                type="text",
+                text=json.dumps({
+                    "valid": True,
+                    "auth_type": auth_type,
+                    "expires_in": seconds_until_expiry,
+                    "expired": False
+                }, indent=2)
+            )
+        ]
+        
+    except Exception as e:
+        logger.error(f"Failed to check token validity: {e}")
+        return [
+            types.TextContent(
+                type="text",
+                text=json.dumps({
+                    "valid": False,
+                    "error": str(e),
+                    "reason": "Error checking token"
+                }, indent=2)
+            )
         ] 
