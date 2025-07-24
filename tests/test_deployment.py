@@ -181,13 +181,18 @@ class TestPackageMetadata:
     
     def test_package_metadata_complete(self):
         """Test that package metadata is complete."""
-        import toml
+        try:
+            import tomllib
+            with open(pathlib.Path(__file__).parent.parent / "pyproject.toml", 'rb') as f:
+                pyproject = tomllib.load(f)
+        except ImportError:
+            # Fallback for Python < 3.11
+            import tomli
+            with open(pathlib.Path(__file__).parent.parent / "pyproject.toml", 'rb') as f:
+                pyproject = tomli.load(f)
         
         pyproject_path = pathlib.Path(__file__).parent.parent / "pyproject.toml"
         assert pyproject_path.exists(), "pyproject.toml not found"
-        
-        with open(pyproject_path, 'r') as f:
-            pyproject = toml.load(f)
         
         # Check required fields
         assert 'project' in pyproject
@@ -214,12 +219,16 @@ class TestPackageMetadata:
     
     def test_version_consistency(self):
         """Test that version is consistent across files."""
-        import toml
+        try:
+            import tomllib
+        except ImportError:
+            # Fallback for Python < 3.11
+            import tomli as tomllib
         
         # Get version from pyproject.toml
         pyproject_path = pathlib.Path(__file__).parent.parent / "pyproject.toml"
-        with open(pyproject_path, 'r') as f:
-            pyproject = toml.load(f)
+        with open(pyproject_path, 'rb') as f:
+            pyproject = tomllib.load(f)
         pyproject_version = pyproject['project']['version']
         
         # Get version from _version.py if it exists

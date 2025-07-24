@@ -45,24 +45,39 @@ class TestMCPProtocolCompliance:
     @pytest.mark.asyncio
     async def test_call_tool_returns_proper_mcp_types(self):
         """Test that call_tool returns proper MCP TextContent types."""
-        # Test with a simple auth tool
-        with patch('realize.tools.auth_handlers.auth.get_auth_token') as mock_auth:
-            mock_token = Mock()
-            mock_token.expires_in = 3600
-            mock_auth.return_value = mock_token
-            
-            result = await handle_call_tool("get_auth_token", {})
-            
-            # Should return a list of TextContent
-            assert isinstance(result, list)
-            assert len(result) > 0
-            
-            for content in result:
-                assert isinstance(content, types.TextContent)
-                assert hasattr(content, 'type')
-                assert hasattr(content, 'text')
-                assert content.type == 'text'
-                assert isinstance(content.text, str)
+        # Get available tools to test with the correct auth method
+        tools = await handle_list_tools()
+        tool_names = [tool.name for tool in tools]
+        
+        # Test with available auth tool
+        if "get_auth_token" in tool_names:
+            # Test credential-based auth
+            with patch('realize.tools.auth_handlers.auth.get_auth_token') as mock_auth:
+                mock_token = Mock()
+                mock_token.expires_in = 3600
+                mock_auth.return_value = mock_token
+                
+                result = await handle_call_tool("get_auth_token", {})
+                
+        elif "get_token_details" in tool_names:
+            # Test with get_token_details (available in both auth modes)
+            with patch('realize.tools.auth_handlers.auth.get_token_details') as mock_details:
+                mock_details.return_value = {"token": "test", "expires_in": 3600}
+                
+                result = await handle_call_tool("get_token_details", {})
+        else:
+            pytest.fail("No suitable authentication tools available for testing")
+        
+        # Should return a list of TextContent
+        assert isinstance(result, list)
+        assert len(result) > 0
+        
+        for content in result:
+            assert isinstance(content, types.TextContent)
+            assert hasattr(content, 'type')
+            assert hasattr(content, 'text')
+            assert content.type == 'text'
+            assert isinstance(content.text, str)
     
     @pytest.mark.asyncio
     async def test_invalid_tool_name_handling(self):
@@ -73,27 +88,61 @@ class TestMCPProtocolCompliance:
     @pytest.mark.asyncio
     async def test_none_arguments_handling(self):
         """Test handling of None arguments."""
-        with patch('realize.tools.auth_handlers.auth.get_auth_token') as mock_auth:
-            mock_token = Mock()
-            mock_token.expires_in = 3600
-            mock_auth.return_value = mock_token
+        # Get available tools to test with the correct auth method
+        tools = await handle_list_tools()
+        tool_names = [tool.name for tool in tools]
+        
+        # Test with available auth tool that doesn't require arguments
+        if "get_auth_token" in tool_names:
+            # Test credential-based auth
+            with patch('realize.tools.auth_handlers.auth.get_auth_token') as mock_auth:
+                mock_token = Mock()
+                mock_token.expires_in = 3600
+                mock_auth.return_value = mock_token
+                
+                result = await handle_call_tool("get_auth_token", None)
+                
+        elif "get_token_details" in tool_names:
+            # Test with get_token_details (available in both auth modes)
+            with patch('realize.tools.auth_handlers.auth.get_token_details') as mock_details:
+                mock_details.return_value = {"token": "test", "expires_in": 3600}
+                
+                result = await handle_call_tool("get_token_details", None)
+        else:
+            pytest.fail("No suitable authentication tools available for testing")
             
-            # Should work with None arguments for tools that don't require them
-            result = await handle_call_tool("get_auth_token", None)
-            assert isinstance(result, list)
-            assert len(result) > 0
+        # Should work with None arguments for tools that don't require them
+        assert isinstance(result, list)
+        assert len(result) > 0
     
     @pytest.mark.asyncio
     async def test_empty_arguments_handling(self):
         """Test handling of empty arguments dict."""
-        with patch('realize.tools.auth_handlers.auth.get_auth_token') as mock_auth:
-            mock_token = Mock()
-            mock_token.expires_in = 3600
-            mock_auth.return_value = mock_token
+        # Get available tools to test with the correct auth method
+        tools = await handle_list_tools()
+        tool_names = [tool.name for tool in tools]
+        
+        # Test with available auth tool
+        if "get_auth_token" in tool_names:
+            # Test credential-based auth
+            with patch('realize.tools.auth_handlers.auth.get_auth_token') as mock_auth:
+                mock_token = Mock()
+                mock_token.expires_in = 3600
+                mock_auth.return_value = mock_token
+                
+                result = await handle_call_tool("get_auth_token", {})
+                
+        elif "get_token_details" in tool_names:
+            # Test with get_token_details (available in both auth modes)
+            with patch('realize.tools.auth_handlers.auth.get_token_details') as mock_details:
+                mock_details.return_value = {"token": "test", "expires_in": 3600}
+                
+                result = await handle_call_tool("get_token_details", {})
+        else:
+            pytest.fail("No suitable authentication tools available for testing")
             
-            result = await handle_call_tool("get_auth_token", {})
-            assert isinstance(result, list)
-            assert len(result) > 0
+        assert isinstance(result, list)
+        assert len(result) > 0
 
 
 class TestToolDiscovery:
@@ -188,15 +237,28 @@ class TestServerInitialization:
         # Test that list_tools handler works
         tools = await handle_list_tools()
         assert len(tools) > 0
+        tool_names = [tool.name for tool in tools]
         
-        # Test that call_tool handler works
-        with patch('realize.tools.auth_handlers.auth.get_auth_token') as mock_auth:
-            mock_token = Mock()
-            mock_token.expires_in = 3600
-            mock_auth.return_value = mock_token
-            
-            result = await handle_call_tool("get_auth_token", {})
-            assert len(result) > 0
+        # Test that call_tool handler works with available auth tool
+        if "get_auth_token" in tool_names:
+            # Test credential-based auth
+            with patch('realize.tools.auth_handlers.auth.get_auth_token') as mock_auth:
+                mock_token = Mock()
+                mock_token.expires_in = 3600
+                mock_auth.return_value = mock_token
+                
+                result = await handle_call_tool("get_auth_token", {})
+                assert len(result) > 0
+                
+        elif "get_token_details" in tool_names:
+            # Test with get_token_details (available in both auth modes)
+            with patch('realize.tools.auth_handlers.auth.get_token_details') as mock_details:
+                mock_details.return_value = {"token": "test", "expires_in": 3600}
+                
+                result = await handle_call_tool("get_token_details", {})
+                assert len(result) > 0
+        else:
+            pytest.fail("No suitable authentication tools available for testing")
 
 
 class TestErrorHandling:

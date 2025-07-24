@@ -12,7 +12,7 @@ TOOL_REGISTRY = {
             "properties": {},
             "required": []
         },
-        "handler": "browser_auth_handlers.clear_auth_token",
+        "handler": "auth_handlers.clear_auth_token",
         "category": "authentication"
     },
 
@@ -355,7 +355,7 @@ else:
             "properties": {},
             "required": []
         },
-        "handler": "browser_auth_handlers.browser_authenticate",
+        "handler": "auth_handlers.browser_authenticate",
         "category": "authentication"
     }
 
