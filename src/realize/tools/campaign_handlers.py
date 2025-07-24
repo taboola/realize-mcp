@@ -95,7 +95,7 @@ async def get_campaign_items(arguments: dict = None) -> List[types.TextContent]:
             )]
         
         # Make API request to get campaign items - returns raw JSON dict
-        response = await client.get(f"/{account_id}/campaigns/{campaign_id}/campaign_items")
+        response = await client.get(f"/{account_id}/campaigns/{campaign_id}/items")
         
         return [types.TextContent(
             type="text",
@@ -132,7 +132,7 @@ async def get_campaign_item(arguments: dict = None) -> List[types.TextContent]:
             )]
         
         # Make API request to get campaign item details - returns raw JSON dict
-        response = await client.get(f"/{account_id}/campaigns/{campaign_id}/campaign_items/{item_id}")
+        response = await client.get(f"/{account_id}/campaigns/{campaign_id}/items/{item_id}")
         
         return [types.TextContent(
             type="text",

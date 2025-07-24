@@ -55,8 +55,16 @@
             
             // Check for error in query params (OAuth error responses come in query string)
             const error = queryParams.get('error');
-            // State comes from fragment for success, query for errors
-            const state = error ? queryParams.get('state') : params.get('state');
+            
+            // Extract state - handle both formats
+            let state = null;
+            if (error) {
+                // Error case - state in query params
+                state = queryParams.get('state');
+            } else {
+                // Success case - check __default__ first (only exists in buggy format), then fallback to state
+                state = params.get('__default__') || params.get('state');
+            }
             
             let authData = {};
             let status = '';

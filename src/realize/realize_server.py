@@ -57,6 +57,10 @@ async def handle_call_tool(
             from realize.tools.browser_auth_handlers import browser_authenticate
             return await browser_authenticate()
         
+        elif handler_path == "browser_auth_handlers.clear_auth_token":
+            from realize.tools.browser_auth_handlers import clear_auth_token
+            return await clear_auth_token()
+        
         elif handler_path == "auth_handlers.get_auth_token":
             from realize.tools.auth_handlers import get_auth_token
             return await get_auth_token()
