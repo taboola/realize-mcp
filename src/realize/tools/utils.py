@@ -171,34 +171,43 @@ def format_large_response_with_csv_truncation(data: Dict[str, Any], max_size_cha
     return result
 
 
+# Important fields that should always be displayed regardless of length
+FORCE_DISPLAY_FIELDS = {
+    'url', 'thumbnail_url', 'video_url', 'tracking_code',
+    'description', 'title', 'name', 'branding_text'
+}
+
+
 def format_response(data: Dict[str, Any], max_records_display: int = 10) -> str:
     """
     Format API response data for display with intelligent truncation and summary.
     Handles both collection responses (with results array) and single item responses.
-    
+
     Args:
         data: Raw API response data
         max_records_display: Maximum number of detailed records to show
-        
+
     Returns:
         Formatted string with summary, sample data, and pagination info
     """
     if not isinstance(data, dict):
         return json.dumps(data, indent=2, ensure_ascii=False)
-    
+
     # Check if this is a collection response (has results array)
     results = data.get("results", [])
     metadata = data.get("metadata", {})
-    
+
     # If no results array, treat this as a single item response
     if "results" not in data:
         formatted_parts = []
         formatted_parts.append(f"📋 **ITEM DETAILS:**")
-        
+
         # Display key-value pairs for single item
         for key, value in data.items():
-            if isinstance(value, (int, float, str, bool)) and len(str(value)) < 100:
-                formatted_parts.append(f"   • {key}: {value}")
+            if isinstance(value, (int, float, str, bool)):
+                # Always show important fields, otherwise apply length limit
+                if key in FORCE_DISPLAY_FIELDS or len(str(value)) < 100:
+                    formatted_parts.append(f"   • {key}: {value}")
             elif isinstance(value, (dict, list)):
                 # For complex nested data, show first few items or summarize
                 if isinstance(value, list) and len(value) <= 3:
@@ -207,17 +216,17 @@ def format_response(data: Dict[str, Any], max_records_display: int = 10) -> str:
                     formatted_parts.append(f"   • {key}: {value}")
                 else:
                     formatted_parts.append(f"   • {key}: [Complex data - {type(value).__name__}]")
-        
+
         return "\n".join(formatted_parts)
-    
+
     # Handle collection responses (with results array)
     formatted_parts = []
-    
+
     # Summary section
     if results:
         formatted_parts.append(f"📊 **SUMMARY:**")
         formatted_parts.append(f"   • Total records in response: {len(results)}")
-        
+
         if metadata:
             if "total" in metadata:
                 formatted_parts.append(f"   • Total available: {metadata['total']}")
@@ -225,16 +234,18 @@ def format_response(data: Dict[str, Any], max_records_display: int = 10) -> str:
                 formatted_parts.append(f"   • Current page: {metadata['page']}")
             if "page_size" in metadata:
                 formatted_parts.append(f"   • Page size: {metadata['page_size']}")
-        
+
         # Data preview section
         formatted_parts.append(f"\n📈 **DATA PREVIEW ({min(len(results), max_records_display)} of {len(results)} records):**")
-        
+
         for i, record in enumerate(results[:max_records_display]):
             formatted_parts.append(f"\n   Record {i+1}:")
             # Show key metrics for report data
             for key, value in record.items():
-                if isinstance(value, (int, float, str)) and len(str(value)) < 100:
-                    formatted_parts.append(f"     • {key}: {value}")
+                if isinstance(value, (int, float, str, bool)):
+                    # Always show important fields, otherwise apply length limit
+                    if key in FORCE_DISPLAY_FIELDS or len(str(value)) < 100:
+                        formatted_parts.append(f"     • {key}: {value}")
         
         if len(results) > max_records_display:
             formatted_parts.append(f"\n   ... and {len(results) - max_records_display} more records")
