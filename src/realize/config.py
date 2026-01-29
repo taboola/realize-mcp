@@ -1,36 +1,58 @@
 """Configuration management for Realize MCP server."""
-import os
-from typing import Optional
-from pydantic import field_validator
+from typing import Literal, Optional
+from pydantic import ConfigDict, model_validator
 from pydantic_settings import BaseSettings
 
 
 class Config(BaseSettings):
     """Configuration settings for Realize MCP server."""
-    
-    realize_client_id: str = "your_client_id"
-    realize_client_secret: str = "your_client_secret"
+
+    # === Transport selection ===
+    mcp_transport: Literal["stdio", "sse"] = "stdio"
+
+    # === Shared settings ===
     realize_base_url: str = "https://backstage.taboola.com/backstage"
     log_level: str = "INFO"
-    
-    @field_validator('realize_client_id')
-    @classmethod
-    def validate_client_id(cls, v):
-        if not v:
-            raise ValueError("REALIZE_CLIENT_ID is required")
-        return v
-    
-    @field_validator('realize_client_secret')
-    @classmethod
-    def validate_client_secret(cls, v):
-        if not v:
-            raise ValueError("REALIZE_CLIENT_SECRET is required")
-        return v
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
-        extra = "ignore"  # Ignore extra environment variables not defined in model
+
+    # === Stdio mode (required when mcp_transport="stdio") ===
+    realize_client_id: Optional[str] = None
+    realize_client_secret: Optional[str] = None
+
+    # === SSE mode (required when mcp_transport="sse") ===
+    mcp_server_url: Optional[str] = None
+    mcp_server_port: int = 8000
+    oauth_server_url: Optional[str] = None
+    oauth_dcr_client_id: Optional[str] = None
+    oauth_dcr_client_secret: Optional[str] = None
+    oauth_scopes: str = "all"
+    oauth_refresh_buffer_seconds: int = 60
+
+    @model_validator(mode='after')
+    def validate_transport_requirements(self):
+        """Validate required fields based on transport mode."""
+        if self.mcp_transport == "stdio":
+            # stdio requires Realize credentials for Client Credentials flow
+            if not self.realize_client_id or not self.realize_client_secret:
+                raise ValueError(
+                    "REALIZE_CLIENT_ID and REALIZE_CLIENT_SECRET are required for stdio transport"
+                )
+        elif self.mcp_transport == "sse":
+            # SSE requires OAuth 2.1 configuration
+            if not self.mcp_server_url:
+                raise ValueError("MCP_SERVER_URL is required for SSE transport")
+            if not self.oauth_server_url:
+                raise ValueError("OAUTH_SERVER_URL is required for SSE transport")
+            if not self.oauth_dcr_client_id or not self.oauth_dcr_client_secret:
+                raise ValueError(
+                    "OAUTH_DCR_CLIENT_ID and OAUTH_DCR_CLIENT_SECRET are required for SSE transport"
+                )
+        return self
+
+    model_config = ConfigDict(
+        env_file=".env",
+        case_sensitive=False,
+        extra="ignore",
+    )
 
 
 # Pagination configuration

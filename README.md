@@ -14,6 +14,8 @@ A Model Context Protocol (MCP) server that provides read-only access to Taboola'
 
 ### Cursor IDE Setup
 
+#### stdio Transport (Default)
+
 Add to Cursor Settings → Features → Model Context Protocol:
 
 ```json
@@ -25,6 +27,44 @@ Add to Cursor Settings → Features → Model Context Protocol:
         "REALIZE_CLIENT_ID": "your_client_id",
         "REALIZE_CLIENT_SECRET": "your_client_secret"
       }
+    }
+  }
+}
+```
+
+#### SSE Transport (OAuth 2.1)
+
+For SSE transport with OAuth 2.1, configure the SSE URL directly:
+
+**Configure in Cursor Settings → Features → Model Context Protocol**:
+```json
+{
+  "mcpServers": {
+    "realize-mcp": {
+      "url": "https://your-mcp-server.example.com/sse"
+    }
+  }
+}
+```
+
+**OAuth 2.1 Flow**: When you first use the server, Cursor will:
+- Discover OAuth endpoints via `/.well-known/oauth-protected-resource`
+- Prompt you to authenticate via browser (OAuth 2.1 with PKCE)
+- Store your access token for subsequent requests
+
+**Alternative (if direct URL doesn't work)**: Some Cursor versions may require using `mcp-remote` as a bridge:
+```json
+{
+  "mcpServers": {
+    "realize-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/mcp-remote",
+        "https://your-server.com/sse",
+        "--transport",
+        "sse"
+      ]
     }
   }
 }
@@ -94,6 +134,42 @@ AI:
 ### 🔐 Authentication
 - `get_auth_token` - Authenticate with Realize API
 - `get_token_details` - Check token information
+
+## Transport Modes
+
+The server supports two transport modes:
+
+### stdio Transport (Default)
+
+Standard MCP transport for local clients like Claude Desktop and Cursor. Uses server-side Client Credentials for Taboola API authentication.
+
+```bash
+# Default - stdio transport
+realize-mcp-server
+```
+
+### SSE Transport with OAuth 2.1
+
+HTTP-based Server-Sent Events transport with OAuth 2.1 authentication. Each client authenticates with their own credentials, and tokens are passed through to Taboola API.
+
+```bash
+# Enable SSE transport
+MCP_TRANSPORT=sse \
+MCP_SERVER_URL=https://your-mcp-server.example.com \
+OAUTH_SERVER_URL=https://auth.taboola.com \
+OAUTH_DCR_CLIENT_ID=your_dcr_client_id \
+OAUTH_DCR_CLIENT_SECRET=your_dcr_client_secret \
+realize-mcp-server
+```
+
+**SSE Endpoints:**
+- `GET /.well-known/oauth-protected-resource` - RFC 9728 metadata
+- `GET /.well-known/oauth-authorization-server` - RFC 8414 metadata (proxied)
+- `POST /register` - RFC 7591 Dynamic Client Registration
+- `POST /oauth/token` - Token endpoint (proxied to auth server)
+- `GET /sse` - SSE connection endpoint (requires Bearer token)
+
+See [docs/OAUTH21_SETUP.md](docs/OAUTH21_SETUP.md) for detailed SSE setup instructions.
 
 ## Prerequisites
 
