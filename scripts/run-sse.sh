@@ -13,14 +13,14 @@ set -e
 # Transport mode
 export MCP_TRANSPORT="sse"
 
-# Public URL of this MCP server (ngrok URL)
-export MCP_SERVER_URL="https://luciana-unangular-geminally.ngrok-free.dev"
+# Public URL of this MCP server (ngrok URL) - replace with your ngrok URL
+export MCP_SERVER_URL="${MCP_SERVER_URL:-https://your-subdomain.ngrok-free.dev}"
 
 # Taboola Backstage API (where MCP tools make API calls)
-export REALIZE_BASE_URL="http://qa-chris-hall-pr-94305-1961-backstage.on-demand.svc.kube.la.taboolasyndication.com/backstage"
+export REALIZE_BASE_URL="${REALIZE_BASE_URL:-https://backstage.taboola.com/backstage}"
 
 # Upstream OAuth authorization server
-export OAUTH_SERVER_URL="http://qa-chris-hall-pr-94305-1961-authentication.on-demand.svc.kube.la.taboolasyndication.com:10290/authentication"
+export OAUTH_SERVER_URL="${OAUTH_SERVER_URL:-https://authentication.taboola.com/authentication}"
 
 # Port for SSE server
 export OAUTH_SERVER_PORT="8000"
