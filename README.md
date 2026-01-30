@@ -16,7 +16,7 @@ A Model Context Protocol (MCP) server that provides read-only access to Taboola'
 
 Standard MCP transport for local clients. The server runs on your machine and uses server-side credentials for Taboola API authentication.
 
-### Installation
+### Server Installation
 
 ```bash
 pip install realize-mcp
@@ -62,9 +62,7 @@ pip install realize-mcp
 
 HTTP-based Server-Sent Events (SSE) transport supporting multiple users via OAuth 2.1
 
-### Server Deployment
-
-SSE transport requires cloning the repository (the startup script is not included in the pip package):
+### Server Installation
 
 ```bash
 git clone https://github.com/taboola/realize-mcp.git
