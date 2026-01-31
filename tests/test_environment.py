@@ -71,31 +71,32 @@ class TestEnvironmentVariables:
             importlib.reload(realize.config)
     
     def test_missing_env_vars_handled_gracefully(self):
-        """Test that missing environment variables are handled gracefully."""
+        """Test that missing environment variables raise validation error for stdio transport."""
         # Remove all realize-related env vars temporarily
         original_env = {}
         realize_vars = [key for key in os.environ.keys() if key.startswith('REALIZE_')]
-        
+
         for key in realize_vars:
             original_env[key] = os.environ[key]
             del os.environ[key]
-        
+
         try:
-            # Should still be able to import config
+            # Should raise validation error without credentials for stdio transport
             import importlib
             import realize.config
-            importlib.reload(realize.config)
-            from realize.config import config
-            
-            # Should have some defaults
-            assert hasattr(config, 'realize_base_url')
-            assert config.realize_base_url is not None
-            
+            from pydantic_core import ValidationError
+
+            with pytest.raises(ValidationError) as exc_info:
+                importlib.reload(realize.config)
+
+            # Error should mention missing credentials
+            assert "REALIZE_CLIENT_ID" in str(exc_info.value) or "REALIZE_CLIENT_SECRET" in str(exc_info.value)
+
         finally:
             # Restore environment
             for key, value in original_env.items():
                 os.environ[key] = value
-            
+
             # Reload config
             importlib.reload(realize.config)
     
