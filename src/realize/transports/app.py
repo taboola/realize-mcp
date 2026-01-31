@@ -5,6 +5,7 @@ Based on working implementation from mcp-oauth21-test.
 import logging
 
 from starlette.applications import Starlette
+from starlette.responses import JSONResponse
 from starlette.routing import Route, Mount
 
 from ..oauth.routes import (
@@ -19,6 +20,11 @@ from ..oauth.token import TokenProxy
 from .sse_server import create_sse_endpoint, sse_transport
 
 logger = logging.getLogger(__name__)
+
+
+async def health_handler(request):
+    """Health check endpoint for Kubernetes probes."""
+    return JSONResponse({"status": "healthy", "service": "realize-mcp"})
 
 
 def create_app() -> Starlette:
@@ -39,6 +45,8 @@ def create_app() -> Starlette:
 
     # Define routes - matching working mcp-oauth21-test pattern
     routes = [
+        # Health check endpoint for Kubernetes probes
+        Route("/health", health_handler, methods=["GET"]),
         # OAuth 2.1 metadata endpoints
         Route(
             "/.well-known/oauth-protected-resource",

@@ -100,6 +100,7 @@ export MCP_SERVER_URL=https://your-mcp-server.example.com
 - `POST /token` - Alternative token endpoint
 - `GET /sse` - SSE connection endpoint (requires Bearer token)
 - `POST /messages` - MCP protocol message handling
+- `GET /health` - Health check endpoint for Kubernetes probes
 
 ---
 
