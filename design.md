@@ -108,7 +108,7 @@ echo "REALIZE_CLIENT_SECRET=your_client_secret" >> .env
 
 ### 4. Test Installation
 ```bash
-python src/realize_server.py
+python src/realize/realize_server.py
 ```
 
 ### 5. Verify Installation
@@ -156,7 +156,57 @@ Server listening on stdio transport
 #### Cursor IDE  
 **Location:** Cursor Settings → Features → Model Context Protocol
 
-**Configuration:** Same JSON structure as Claude Desktop
+**stdio Transport Configuration:**
+```json
+{
+  "mcpServers": {
+    "realize-mcp": {
+      "command": "realize-mcp-server",
+      "env": {
+        "REALIZE_CLIENT_ID": "your_client_id",
+        "REALIZE_CLIENT_SECRET": "your_client_secret"
+      }
+    }
+  }
+}
+```
+
+**SSE Transport Configuration (OAuth 2.1):**
+
+For SSE transport, configure the SSE URL directly:
+
+```json
+{
+  "mcpServers": {
+    "realize-mcp": {
+      "url": "https://your-mcp-server.example.com/sse"
+    }
+  }
+}
+```
+
+**OAuth 2.1 Authentication**: On first use, Cursor will:
+- Discover OAuth endpoints via `/.well-known/oauth-protected-resource`
+- Open browser for user authentication (OAuth 2.1 with PKCE)
+- Store access token for subsequent API calls
+
+**Alternative (if direct URL doesn't work)**: Some Cursor versions may require using `mcp-remote` as a bridge:
+```json
+{
+  "mcpServers": {
+    "realize-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/mcp-remote",
+        "https://your-mcp-server.example.com/sse",
+        "--transport",
+        "sse"
+      ]
+    }
+  }
+}
+```
 
 #### VS Code
 ```bash

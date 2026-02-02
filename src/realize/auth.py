@@ -1,70 +1,151 @@
 """Authentication handler for Realize API."""
+import asyncio
 import logging
+from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import timedelta
 import httpx
 from realize.config import config
-from realize.models import Token
+from realize.models import Token, utc_now
 
 logger = logging.getLogger(__name__)
 
 
-class RealizeAuth:
-    """Handles authentication with Realize API."""
-    
+class AuthProvider(ABC):
+    """Abstract base class for authentication providers.
+
+    Implementations provide authorization headers for API requests.
+    """
+
+    @abstractmethod
+    async def get_auth_header(self, session_id: Optional[str] = None) -> Optional[Dict[str, str]]:
+        """Get authorization header for API requests.
+
+        Args:
+            session_id: Optional session ID for session-aware providers.
+                       Ignored by providers that don't use sessions.
+
+        Returns:
+            Dict with Authorization header, or None if no valid auth available.
+        """
+        pass
+
+
+class ClientCredentialsAuth(AuthProvider):
+    """OAuth 2.0 Client Credentials authentication provider.
+
+    Uses server credentials to obtain tokens for machine-to-machine API calls.
+    This is used for stdio transport where the server authenticates with its own credentials.
+    Thread-safe with asyncio lock to prevent concurrent refresh attempts.
+    """
+
     def __init__(self):
         self.token: Optional[Token] = None
         self.base_url = config.realize_base_url
-    
+        self._refresh_lock = asyncio.Lock()
+
     async def get_auth_token(self) -> Token:
         """Get OAuth token using client credentials."""
         url = f"{self.base_url}/oauth/token"
-        
+
         data = {
             "client_id": config.realize_client_id,
             "client_secret": config.realize_client_secret,
             "grant_type": "client_credentials"
         }
-        
+
         async with httpx.AsyncClient() as client:
             response = await client.post(url, data=data)
             response.raise_for_status()
-            
+
             token_data = response.json()
-            self.token = Token(**token_data, created_at=datetime.now())
-            
-            logger.info("Successfully obtained auth token")
+            self.token = Token(**token_data, created_at=utc_now())
+
+            logger.debug("Successfully obtained auth token")
             return self.token
-    
+
     async def get_token_details(self) -> Dict[str, Any]:
         """Get details about current token - returns raw JSON response."""
-        if not self.token:
-            await self.get_auth_token()
-        
+        async with self._refresh_lock:
+            if not self.token:
+                await self.get_auth_token()
+            access_token = self.token.access_token
+
         url = f"{self.base_url}/api/1.0/token-details"
-        headers = {"Authorization": f"Bearer {self.token.access_token}"}
-        
+        headers = {"Authorization": f"Bearer {access_token}"}
+
         async with httpx.AsyncClient() as client:
             response = await client.get(url, headers=headers)
             response.raise_for_status()
-            
+
             return response.json()
-    
-    async def get_auth_header(self) -> dict:
-        """Get authorization header for API requests."""
-        if not self.token or self._is_token_expired():
-            await self.get_auth_token()
-        
-        return {"Authorization": f"Bearer {self.token.access_token}"}
-    
+
+    async def get_auth_header(self, session_id: Optional[str] = None) -> Dict[str, str]:
+        """Get authorization header for API requests.
+
+        Args:
+            session_id: Ignored - this provider uses global credentials.
+
+        Returns:
+            Dict with Authorization header.
+        """
+        # Use lock to prevent concurrent refresh attempts
+        async with self._refresh_lock:
+            if not self.token or self._is_token_expired():
+                await self.get_auth_token()
+            return {"Authorization": f"Bearer {self.token.access_token}"}
+
     def _is_token_expired(self) -> bool:
         """Check if current token is expired."""
         if not self.token or not self.token.created_at:
             return True
-        
+
         expiry_time = self.token.created_at + timedelta(seconds=self.token.expires_in)
-        return datetime.now() >= expiry_time
+        return utc_now() >= expiry_time
 
 
-# Global auth instance
-auth = RealizeAuth() 
+# Backward compatibility alias
+RealizeAuth = ClientCredentialsAuth
+
+
+class SSETokenAuth(AuthProvider):
+    """Auth provider for SSE transport using Bearer token from OAuth flow.
+
+    Retrieves the Bearer token from the current async context via get_session_token().
+    Each SSE connection sets its token in the context, providing per-request isolation.
+    """
+
+    async def get_auth_header(self, session_id: Optional[str] = None) -> Optional[Dict[str, str]]:
+        """Get authorization header using Bearer token from current context.
+
+        Args:
+            session_id: Ignored - token is retrieved from the async context.
+
+        Returns:
+            Dict with Authorization header, or None if no token in context.
+        """
+        from realize.oauth.context import get_session_token
+
+        token = get_session_token()
+        if not token:
+            logger.warning("No SSE token in current context")
+            return None
+
+        return {"Authorization": f"Bearer {token}"}
+
+
+# Global auth instances
+_client_credentials_auth = ClientCredentialsAuth()
+_sse_token_auth = SSETokenAuth()
+
+
+def get_auth_provider() -> AuthProvider:
+    """Get the appropriate auth provider based on transport mode."""
+    if config.mcp_transport == "sse":
+        return _sse_token_auth
+    return _client_credentials_auth
+
+
+# Global auth instance (defaults to client credentials for backward compatibility)
+auth = _client_credentials_auth
+ 

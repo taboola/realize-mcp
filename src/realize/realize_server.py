@@ -112,13 +112,10 @@ async def handle_call_tool(
         ]
 
 
+async def run_stdio_server():
+    """Run MCP server with stdio transport."""
+    logger.info("Starting Realize MCP Server with stdio transport...")
 
-
-async def main():
-    """Main server entry point."""
-    logger.info("Starting Realize MCP Server...")
-    
-    # Run the server using stdio transport
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,
@@ -132,6 +129,32 @@ async def main():
                 ),
             ),
         )
+
+
+async def run_sse_server():
+    """Run MCP server with SSE transport and OAuth 2.1."""
+    import uvicorn
+    from realize.transports.app import create_app
+
+    logger.info(f"Starting Realize MCP Server with SSE transport on port {config.mcp_server_port}...")
+
+    app = create_app()
+    uvicorn_config = uvicorn.Config(
+        app,
+        host="0.0.0.0",
+        port=config.mcp_server_port,
+        log_level=config.log_level.lower(),
+    )
+    server_instance = uvicorn.Server(uvicorn_config)
+    await server_instance.serve()
+
+
+async def main():
+    """Main server entry point with transport selection."""
+    if config.mcp_transport == "sse":
+        await run_sse_server()
+    else:
+        await run_stdio_server()
 
 
 def cli_main():
