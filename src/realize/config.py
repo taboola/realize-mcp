@@ -12,7 +12,7 @@ class Config(BaseSettings):
 
     # === Shared settings ===
     realize_base_url: str = "https://backstage.taboola.com/backstage"
-    log_level: str = "INFO"
+    log_level: str = "DEBUG"
 
     # === Stdio mode (required when mcp_transport="stdio") ===
     realize_client_id: Optional[str] = None
