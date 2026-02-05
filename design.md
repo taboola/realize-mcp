@@ -127,7 +127,7 @@ Server listening on stdio transport
 |----------|-------------|----------|---------|
 | `REALIZE_CLIENT_ID` | Your Taboola Realize API client ID | Yes | None |
 | `REALIZE_CLIENT_SECRET` | Your Taboola Realize API client secret | Yes | None |
-| `LOG_LEVEL` | Logging level (DEBUG, INFO, WARNING, ERROR) | No | INFO |
+| `LOG_LEVEL` | Logging level (DEBUG, INFO, WARNING, ERROR) | No | DEBUG |
 
 ### MCP Client Configuration
 
