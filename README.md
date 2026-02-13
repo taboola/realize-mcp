@@ -104,26 +104,92 @@ export MCP_SERVER_URL=https://your-mcp-server.example.com
 
 ---
 
-## Available Tools
+## Tools Reference
 
-### Account Management
-- `search_accounts` - **[REQUIRED FIRST]** Find accounts and get account_id values for other tools (page_size max 10)
-
-### Campaign Tools
-- `get_all_campaigns` - List all campaigns for an account
-- `get_campaign` - Get detailed campaign information
-- `get_campaign_items` - List campaign creative items
-- `get_campaign_item` - Get specific item details
-
-### Reporting Tools (CSV Format)
-- `get_top_campaign_content_report` - Top performing content with sorting & pagination
-- `get_campaign_breakdown_report` - Campaign performance breakdown with sorting & pagination
-- `get_campaign_history_report` - Historical campaign data with pagination
-- `get_campaign_site_day_breakdown_report` - Site/day performance breakdown with sorting & pagination
+> All 12 tools are **read-only**. No create/update/delete operations.
 
 ### Authentication
-- `get_auth_token` - Authenticate with Realize API
-- `get_token_details` - Check token information
+
+**`get_auth_token`** — Authenticate with Realize API using client credentials.
+No parameters. Requires `REALIZE_CLIENT_ID` and `REALIZE_CLIENT_SECRET` env vars.
+
+**`get_token_details`** — Get details about the current authentication token.
+No parameters. Requires a valid token from `get_auth_token`.
+
+### Account Management
+
+**`search_accounts`** — Search accounts by numeric ID or text query. **Call this first** to get `account_id` values needed by all other tools.
+
+```
+query       (string, required)            Cannot be empty. Numeric = exact ID; text = fuzzy name
+page        (integer, default: 1)         min: 1
+page_size   (integer, default: 10)        min: 1, max: 10 (hard cap)
+```
+
+### Campaign Management
+
+All campaign tools require `account_id` (string from `search_accounts`), not a raw numeric ID.
+No pagination — all results returned in a single response.
+
+**`get_all_campaigns`** — List all campaigns for an account.
+
+```
+account_id  (string, required)
+```
+
+**`get_campaign`** — Get specific campaign details.
+
+```
+account_id  (string, required)
+campaign_id (string, required)
+```
+
+**`get_campaign_items`** — Get all items/creatives for a campaign.
+
+```
+account_id  (string, required)
+campaign_id (string, required)
+```
+
+**`get_campaign_item`** — Get a specific campaign item's details.
+
+```
+account_id  (string, required)
+campaign_id (string, required)
+item_id     (string, required)
+```
+
+### Reporting (CSV Format)
+
+All report tools return CSV with a summary header. Every report requires these parameters:
+
+```
+account_id  (string, required)            From search_accounts
+start_date  (string, required)            Format: YYYY-MM-DD
+end_date    (string, required)            Format: YYYY-MM-DD
+page        (integer, default: 1)         min: 1
+page_size   (integer, default: 20)        min: 1, max: 100
+```
+
+Some reports also support sorting and filtering:
+
+```
+sort_field      (string, optional)        Allowed: clicks, spent, impressions
+sort_direction  (string, default: DESC)   Allowed: ASC, DESC
+filters         (object, optional)        JSON object with string values only
+```
+
+**`get_top_campaign_content_report`** — Top performing campaign content.
+Supports: shared params + sort.
+
+**`get_campaign_breakdown_report`** — Campaign performance breakdown.
+Supports: shared params + sort + filters.
+
+**`get_campaign_history_report`** — Historical campaign data.
+Supports: shared params only (no sort, no filters).
+
+**`get_campaign_site_day_breakdown_report`** — Site/day performance breakdown.
+Supports: shared params + sort + filters.
 
 ---
 
