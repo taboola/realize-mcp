@@ -138,24 +138,28 @@ class TestProductionReadiness:
     @pytest.mark.asyncio
     @patch('realize.client.httpx.AsyncClient')
     async def test_api_client_error_handling(self, mock_client):
-        """Test API client error handling."""
-        # Mock HTTP error
+        """Test API client returns descriptive error on 401."""
         from httpx import HTTPStatusError
+        from realize.client import RealizeClient
+
+        # Use a mock auth provider to bypass real token fetch
+        mock_auth = AsyncMock()
+        mock_auth.get_auth_header.return_value = {"Authorization": "Bearer expired-token"}
+        test_client = RealizeClient(auth_provider=mock_auth)
+
+        # Mock API response as 401 (expired token)
         mock_response = Mock()
         mock_response.status_code = 401
-        mock_response.raise_for_status.side_effect = HTTPStatusError(
-            "401 Unauthorized", request=Mock(), response=mock_response
-        )
-        
-        # Create an async context manager mock that raises error
-        mock_context = Mock()
-        mock_context.request = AsyncMock(return_value=mock_response)
-        mock_client.return_value.__aenter__ = AsyncMock(return_value=mock_context)
-        mock_client.return_value.__aexit__ = AsyncMock(return_value=None)
-        
-        # Test error handling
-        with pytest.raises(HTTPStatusError):
-            await client.get("/test-endpoint")
+        mock_response.request = Mock()
+        mock_api_instance = AsyncMock()
+        mock_api_instance.request.return_value = mock_response
+        mock_api_instance.__aenter__.return_value = mock_api_instance
+        mock_api_instance.__aexit__.return_value = None
+        mock_client.return_value = mock_api_instance
+
+        # Should raise HTTPStatusError with descriptive message
+        with pytest.raises(HTTPStatusError, match="expired or invalid"):
+            await test_client.get("/test-endpoint")
     
     def test_environment_variables(self):
         """Test that environment variables are properly configured."""

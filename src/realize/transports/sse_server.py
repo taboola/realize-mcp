@@ -1,7 +1,8 @@
 """Server-Sent Events endpoint for MCP protocol with OAuth 2.1.
 
 Uses the mcp SDK's SseServerTransport for proper MCP protocol handling.
-Based on working implementation from mcp-oauth21-test.
+Stateless: extracts Bearer token from Authorization header per-request,
+sets it in async context for the duration of the connection, discards on disconnect.
 """
 import logging
 from typing import Callable
@@ -14,7 +15,6 @@ from mcp.server.models import InitializationOptions
 
 from ..config import config
 from ..oauth.context import set_session_token, clear_session_token
-from ..oauth.session import SessionManager
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +22,8 @@ logger = logging.getLogger(__name__)
 sse_transport = SseServerTransport("/messages/")
 
 
-def create_sse_endpoint(session_manager: SessionManager) -> Callable:
-    """Create SSE endpoint handler with access to session manager for token validation.
-
-    Args:
-        session_manager: SessionManager to validate tokens against
+def create_sse_endpoint() -> Callable:
+    """Create SSE endpoint handler.
 
     Returns:
         Async handler function for GET /sse
@@ -35,8 +32,9 @@ def create_sse_endpoint(session_manager: SessionManager) -> Callable:
     async def sse_endpoint(request: Request) -> Response:
         """SSE endpoint for MCP over HTTP with OAuth 2.1.
 
-        This is a Starlette route handler that validates Bearer token
-        and establishes SSE connection for MCP protocol.
+        Stateless: extracts Bearer token from Authorization header,
+        sets it in async context for downstream API calls, clears on disconnect.
+        Token validation is delegated to the downstream Realize API.
         """
         # Check for Bearer token
         auth_header = request.headers.get("Authorization", "")
@@ -51,20 +49,16 @@ def create_sse_endpoint(session_manager: SessionManager) -> Callable:
             )
 
         token = auth_header[7:]
-
-        # Validate token was issued through our OAuth flow
-        session_id = await session_manager.find_session_by_token(token)
-        if session_id is None:
-            # Token not found in session manager - not issued through our OAuth flow
-            logger.info("Bearer token not found in session manager - returning 401 to trigger OAuth flow")
+        if not token:
+            logger.info("Empty Bearer token in SSE request - returning 401")
             return Response(
                 status_code=401,
                 headers={
-                    "WWW-Authenticate": f'Bearer resource_metadata="{config.mcp_server_url}/.well-known/oauth-protected-resource", error="invalid_token", error_description="Token not recognized"'
+                    "WWW-Authenticate": f'Bearer resource_metadata="{config.mcp_server_url}/.well-known/oauth-protected-resource"'
                 }
             )
 
-        logger.info(f"SSE connection established with valid Bearer token (session: {session_id})")
+        logger.info("SSE connection established with Bearer token")
         # Set token in contextvar (isolated to this async context)
         set_session_token(token)
 
@@ -90,7 +84,7 @@ def create_sse_endpoint(session_manager: SessionManager) -> Callable:
         finally:
             # Cleanup token from context when connection ends
             clear_session_token()
-            logger.debug(f"Client session disconnected {session_id}")
+            logger.debug("Client SSE connection disconnected")
 
         # Return empty response after SSE ends (required to avoid NoneType error)
         return Response()

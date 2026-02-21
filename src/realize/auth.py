@@ -18,12 +18,8 @@ class AuthProvider(ABC):
     """
 
     @abstractmethod
-    async def get_auth_header(self, session_id: Optional[str] = None) -> Optional[Dict[str, str]]:
+    async def get_auth_header(self) -> Optional[Dict[str, str]]:
         """Get authorization header for API requests.
-
-        Args:
-            session_id: Optional session ID for session-aware providers.
-                       Ignored by providers that don't use sessions.
 
         Returns:
             Dict with Authorization header, or None if no valid auth available.
@@ -80,11 +76,8 @@ class ClientCredentialsAuth(AuthProvider):
 
             return response.json()
 
-    async def get_auth_header(self, session_id: Optional[str] = None) -> Dict[str, str]:
+    async def get_auth_header(self) -> Dict[str, str]:
         """Get authorization header for API requests.
-
-        Args:
-            session_id: Ignored - this provider uses global credentials.
 
         Returns:
             Dict with Authorization header.
@@ -115,11 +108,8 @@ class SSETokenAuth(AuthProvider):
     Each SSE connection sets its token in the context, providing per-request isolation.
     """
 
-    async def get_auth_header(self, session_id: Optional[str] = None) -> Optional[Dict[str, str]]:
+    async def get_auth_header(self) -> Optional[Dict[str, str]]:
         """Get authorization header using Bearer token from current context.
-
-        Args:
-            session_id: Ignored - token is retrieved from the async context.
 
         Returns:
             Dict with Authorization header, or None if no token in context.

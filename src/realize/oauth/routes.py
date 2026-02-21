@@ -10,7 +10,6 @@ from ..config import config
 from .metadata import get_protected_resource_metadata, proxy_authorization_server_metadata
 from .dcr import handle_client_registration, DCRError
 from .token import TokenProxy
-from .session import get_session_id_from_request
 
 logger = logging.getLogger(__name__)
 
@@ -78,10 +77,11 @@ def create_token_handler(token_proxy: TokenProxy) -> Callable:
     """
 
     async def token_handler(request: Request) -> JSONResponse:
-        """Handle POST /oauth/token - proxy to upstream auth server."""
-        # Get session ID from request
-        session_id = get_session_id_from_request(request)
+        """Handle POST /oauth/token - proxy to upstream auth server.
 
+        Stateless: proxies the request to upstream and returns the response
+        directly to the client. No server-side token storage.
+        """
         # Get form data
         try:
             form = await request.form()
@@ -95,7 +95,6 @@ def create_token_handler(token_proxy: TokenProxy) -> Callable:
         # Proxy to upstream
         response_data, status_code = await token_proxy.proxy_token_request(
             form_data=form_data,
-            session_id=session_id,
         )
 
         return JSONResponse(response_data, status_code=status_code)

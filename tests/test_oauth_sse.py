@@ -1,4 +1,4 @@
-"""Tests for SSE transport with OAuth 2.1."""
+"""Tests for SSE transport with OAuth 2.1 (stateless)."""
 import pathlib
 import sys
 sys.path.append(str(pathlib.Path(__file__).parent.parent / "src"))
@@ -9,13 +9,10 @@ from starlette.testclient import TestClient
 
 from realize.transports.app import create_app
 from realize.transports.sse_server import create_sse_endpoint, sse_transport
-from realize.oauth.session import InMemorySessionManager, is_valid_session_id
-from realize.oauth.token import TokenProxy
-from realize.models import OAuth21Token, utc_now
 
 
 class TestSSEEndpoint:
-    """Tests for SSE endpoint function."""
+    """Tests for SSE endpoint function (stateless)."""
 
     def test_returns_401_without_authorization_header(self):
         """Test SSE returns 401 when no Authorization header present."""
@@ -25,8 +22,7 @@ class TestSSEEndpoint:
             from starlette.applications import Starlette
             from starlette.routing import Route
 
-            session_manager = InMemorySessionManager()
-            sse_endpoint = create_sse_endpoint(session_manager)
+            sse_endpoint = create_sse_endpoint()
 
             app = Starlette(routes=[
                 Route("/sse", sse_endpoint, methods=["GET"]),
@@ -47,8 +43,7 @@ class TestSSEEndpoint:
             from starlette.applications import Starlette
             from starlette.routing import Route
 
-            session_manager = InMemorySessionManager()
-            sse_endpoint = create_sse_endpoint(session_manager)
+            sse_endpoint = create_sse_endpoint()
 
             app = Starlette(routes=[
                 Route("/sse", sse_endpoint, methods=["GET"]),
@@ -59,141 +54,24 @@ class TestSSEEndpoint:
 
             assert response.status_code == 401
 
-    def test_returns_401_with_unrecognized_bearer_token(self):
-        """Test SSE returns 401 when Bearer token is not in session manager."""
+    def test_returns_401_with_empty_bearer_token(self):
+        """Test SSE returns 401 when Bearer token is empty."""
         with patch("realize.transports.sse_server.config") as mock_config:
             mock_config.mcp_server_url = "https://mcp.example.com"
 
             from starlette.applications import Starlette
             from starlette.routing import Route
 
-            session_manager = InMemorySessionManager()
-            sse_endpoint = create_sse_endpoint(session_manager)
+            sse_endpoint = create_sse_endpoint()
 
             app = Starlette(routes=[
                 Route("/sse", sse_endpoint, methods=["GET"]),
             ])
 
             client = TestClient(app)
-            # Send an unknown token - should be rejected
-            response = client.get("/sse", headers={"Authorization": "Bearer unknown_token"})
+            response = client.get("/sse", headers={"Authorization": "Bearer "})
 
             assert response.status_code == 401
-            assert "invalid_token" in response.headers.get("WWW-Authenticate", "")
-
-    @pytest.mark.asyncio
-    async def test_accepts_valid_token_from_session_manager(self):
-        """Test SSE accepts Bearer token that exists in session manager."""
-        session_manager = InMemorySessionManager()
-
-        # Store a token in session manager (simulating token exchange)
-        token = OAuth21Token(
-            access_token="valid_test_token",
-            token_type="Bearer",
-            expires_in=3600,
-            created_at=utc_now(),
-        )
-        await session_manager.set_token("test-session", token)
-
-        # Verify the token can be found
-        session_id = await session_manager.find_session_by_token("valid_test_token")
-        assert session_id == "test-session"
-
-
-class TestSessionValidation:
-    """Tests for session ID validation."""
-
-    def test_valid_uuid_formats(self):
-        """Test valid UUID formats are accepted."""
-        assert is_valid_session_id("550e8400-e29b-41d4-a716-446655440000")
-        assert is_valid_session_id("550e8400e29b41d4a716446655440000")  # Without dashes
-        assert is_valid_session_id("550E8400-E29B-41D4-A716-446655440000")  # Uppercase
-
-    def test_invalid_formats_rejected(self):
-        """Test invalid formats are rejected."""
-        assert not is_valid_session_id("")
-        assert not is_valid_session_id("invalid")
-        assert not is_valid_session_id("'; DROP TABLE users; --")
-        assert not is_valid_session_id("../../../etc/passwd")
-
-
-class TestInMemorySessionManager:
-    """Tests for InMemorySessionManager."""
-
-    @pytest.fixture
-    def session_manager(self):
-        return InMemorySessionManager(max_sessions=5)
-
-    @pytest.fixture
-    def sample_token(self):
-        return OAuth21Token(
-            access_token="test_token",
-            token_type="Bearer",
-            expires_in=3600,
-            created_at=utc_now(),
-        )
-
-    @pytest.mark.asyncio
-    async def test_set_and_get_token(self, session_manager, sample_token):
-        """Test storing and retrieving a token."""
-        await session_manager.set_token("session-1", sample_token)
-        retrieved = await session_manager.get_token("session-1")
-
-        assert retrieved is not None
-        assert retrieved.access_token == "test_token"
-
-    @pytest.mark.asyncio
-    async def test_find_session_by_token(self, session_manager, sample_token):
-        """Test finding session by token value."""
-        await session_manager.set_token("session-1", sample_token)
-
-        # Should find the session
-        found = await session_manager.find_session_by_token("test_token")
-        assert found == "session-1"
-
-        # Should not find non-existent token
-        not_found = await session_manager.find_session_by_token("nonexistent")
-        assert not_found is None
-
-    @pytest.mark.asyncio
-    async def test_max_sessions_enforcement(self, session_manager, sample_token):
-        """Test that max sessions limit is enforced."""
-        # Fill up to max
-        for i in range(5):
-            token = OAuth21Token(
-                access_token=f"token_{i}",
-                expires_in=3600,
-                created_at=utc_now(),
-            )
-            await session_manager.set_token(f"session-{i}", token)
-
-        assert session_manager.session_count == 5
-
-        # Add one more - should evict oldest
-        new_token = OAuth21Token(
-            access_token="new_token",
-            expires_in=3600,
-            created_at=utc_now(),
-        )
-        await session_manager.set_token("session-new", new_token)
-
-        assert session_manager.session_count == 5
-
-    @pytest.mark.asyncio
-    async def test_cleanup_expired(self, session_manager):
-        """Test cleanup of expired sessions."""
-        # Create a token that will be "old"
-        old_token = OAuth21Token(
-            access_token="old_token",
-            expires_in=3600,
-            created_at=utc_now(),
-        )
-        await session_manager.set_token("old-session", old_token)
-
-        # Cleanup with 0 max age should remove everything
-        removed = await session_manager.cleanup_expired(max_age_seconds=0)
-        assert removed == 1
-        assert session_manager.session_count == 0
 
 
 class TestCreateApp:
@@ -240,8 +118,6 @@ class TestCreateApp:
         # This will fail because no upstream, but endpoint should exist
         with patch("realize.oauth.token.config") as mock_token_config:
             mock_token_config.oauth_server_url = "https://auth.example.com"
-            mock_token_config.oauth_dcr_client_id = "test"
-            mock_token_config.oauth_dcr_client_secret = "test"
 
             with patch("realize.oauth.token.httpx.AsyncClient") as mock_client:
                 mock_instance = AsyncMock()

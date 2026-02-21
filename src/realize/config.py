@@ -25,7 +25,6 @@ class Config(BaseSettings):
     oauth_dcr_client_id: Optional[str] = None
     oauth_dcr_client_secret: Optional[str] = None
     oauth_scopes: str = "all"
-    oauth_refresh_buffer_seconds: int = 60
 
     @model_validator(mode='after')
     def validate_transport_requirements(self):
