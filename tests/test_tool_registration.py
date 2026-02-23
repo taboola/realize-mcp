@@ -75,7 +75,8 @@ class TestToolRegistryEdgeCases:
             'auth_handlers.',
             'account_handlers.',
             'campaign_handlers.',
-            'report_handlers.'
+            'report_handlers.',
+            'dynamic_report_handlers.'
         ]
         
         for tool_name, tool_config in tools.items():
@@ -95,7 +96,7 @@ class TestToolRegistryEdgeCases:
         categories = get_tool_categories()
         
         # Should have all expected categories
-        expected_categories = ['authentication', 'accounts', 'campaigns', 'campaign_items', 'reports']
+        expected_categories = ['authentication', 'accounts', 'campaigns', 'campaign_items', 'reports', 'dynamic_reports']
         
         for expected in expected_categories:
             assert expected in categories, f"Expected category {expected} not found"
@@ -165,6 +166,9 @@ class TestToolHandlerImports:
                 elif handler_path.startswith('report_handlers.'):
                     module_name = 'realize.tools.report_handlers'
                     function_name = handler_path.split('.', 1)[1]
+                elif handler_path.startswith('dynamic_report_handlers.'):
+                    module_name = 'realize.tools.dynamic_report_handlers'
+                    function_name = handler_path.split('.', 1)[1]
                 else:
                     pytest.fail(f"Unknown handler pattern for tool {tool_name}: {handler_path}")
                 
@@ -186,9 +190,10 @@ class TestToolHandlerImports:
         """Test that all handler modules exist and can be imported."""
         expected_modules = [
             'realize.tools.auth_handlers',
-            'realize.tools.account_handlers', 
+            'realize.tools.account_handlers',
             'realize.tools.campaign_handlers',
-            'realize.tools.report_handlers'
+            'realize.tools.report_handlers',
+            'realize.tools.dynamic_report_handlers'
         ]
         
         for module_name in expected_modules:
