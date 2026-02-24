@@ -153,16 +153,12 @@ class TestSSETokenAuthWithContext:
         assert results['b'] == {"Authorization": "Bearer token_B"}
 
     @pytest.mark.asyncio
-    async def test_sse_auth_session_id_ignored(self):
-        """Test that session_id parameter is ignored by SSETokenAuth."""
+    async def test_sse_auth_uses_context_token(self):
+        """Test that SSETokenAuth always reads from async context."""
         auth = SSETokenAuth()
         set_session_token("my-token")
 
-        # session_id should be ignored, always uses context
-        header1 = await auth.get_auth_header(session_id="some-session")
-        header2 = await auth.get_auth_header(session_id=None)
-        header3 = await auth.get_auth_header()
-
-        assert header1 == header2 == header3 == {"Authorization": "Bearer my-token"}
+        header = await auth.get_auth_header()
+        assert header == {"Authorization": "Bearer my-token"}
 
         clear_session_token()

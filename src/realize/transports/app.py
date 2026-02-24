@@ -15,7 +15,6 @@ from ..oauth.routes import (
     register_handler,
     create_token_handler,
 )
-from ..oauth.session import InMemorySessionManager
 from ..oauth.token import TokenProxy
 from .sse_server import create_sse_endpoint, sse_transport
 
@@ -36,12 +35,11 @@ def create_app() -> Starlette:
     logger.info("Creating SSE application with OAuth 2.1 support")
 
     # Initialize components for token proxy
-    session_manager = InMemorySessionManager()
-    token_proxy = TokenProxy(session_manager)
+    token_proxy = TokenProxy()
     token_handler = create_token_handler(token_proxy)
 
-    # Create SSE endpoint with access to session_manager for token validation
-    sse_endpoint = create_sse_endpoint(session_manager)
+    # Create SSE endpoint (stateless - no session manager needed)
+    sse_endpoint = create_sse_endpoint()
 
     # Define routes - matching working mcp-oauth21-test pattern
     routes = [

@@ -110,11 +110,11 @@ export MCP_SERVER_URL=https://your-mcp-server.example.com
 
 ### Authentication
 
-**`get_auth_token`** — Authenticate with Realize API using client credentials.
-No parameters. Requires `REALIZE_CLIENT_ID` and `REALIZE_CLIENT_SECRET` env vars.
+**`get_auth_token`** — Authenticate with Realize API.
+No parameters. In stdio mode, uses client credentials (`REALIZE_CLIENT_ID`/`REALIZE_CLIENT_SECRET`). In SSE mode, confirms the OAuth 2.1 session token is active.
 
 **`get_token_details`** — Get details about the current authentication token.
-No parameters. Requires a valid token from `get_auth_token`.
+No parameters. Works with both stdio (client credentials token) and SSE (OAuth session token).
 
 ### Account Management
 
