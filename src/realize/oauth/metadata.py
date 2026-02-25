@@ -8,33 +8,37 @@ from ..config import config
 logger = logging.getLogger(__name__)
 
 
-def get_protected_resource_metadata() -> dict:
+def get_protected_resource_metadata(base_url: str) -> dict:
     """Generate RFC 9728 Protected Resource Metadata.
 
     This describes the MCP server as a protected resource,
     indicating which authorization servers it trusts.
 
+    Args:
+        base_url: Public-facing base URL of this MCP server
+
     Returns:
         dict: Protected resource metadata per RFC 9728
     """
     return {
-        "resource": config.mcp_server_url,
-        # Point to MCP server so clients fetch our modified AS metadata
-        # (which routes /register, /token, /authorize through our proxy)
-        "authorization_servers": [config.mcp_server_url],
+        "resource": base_url,
+        "authorization_servers": [base_url],
         "bearer_methods_supported": ["header"],
         "scopes_supported": config.oauth_scopes.split(),
         "resource_documentation": "https://github.com/taboola/realize-mcp",
     }
 
 
-async def proxy_authorization_server_metadata() -> dict:
+async def proxy_authorization_server_metadata(base_url: str) -> dict:
     """Proxy and modify upstream Authorization Server Metadata (RFC 8414).
 
     Fetches metadata from the upstream authorization server, then modifies it
-    to route client registration and token requests through the MCP server.
-    This is necessary because Claude Desktop/Claude.ai may not be able to reach
-    internal authorization servers directly.
+    to route client registration through the MCP server. The upstream auth
+    server doesn't support RFC 7591 Dynamic Client Registration, so we
+    override registration_endpoint to point to our fake DCR endpoint.
+
+    Args:
+        base_url: Public-facing base URL of this MCP server
 
     Returns:
         dict: Authorization server metadata per RFC 8414
@@ -56,14 +60,8 @@ async def proxy_authorization_server_metadata() -> dict:
             m for m in methods if m != "none"
         ]
 
-    # Route endpoints through MCP server's HTTPS URL (ngrok)
-    # This is needed because:
-    # - MCP clients can't reach internal auth server for /register and /token
-    # - Some MCP clients (e.g., Cursor) refuse to open HTTP authorization URLs
-    #   so we proxy /authorize through HTTPS, which redirects browser to upstream
-    metadata["registration_endpoint"] = f"{config.mcp_server_url}/register"
-    metadata["token_endpoint"] = f"{config.mcp_server_url}/oauth/token"
-    metadata["authorization_endpoint"] = f"{config.mcp_server_url}/authorize"
+    # Only override registration_endpoint (upstream doesn't support RFC 7591)
+    metadata["registration_endpoint"] = f"{base_url}/register"
 
     logger.debug("Returning modified OAuth AS metadata")
     return metadata

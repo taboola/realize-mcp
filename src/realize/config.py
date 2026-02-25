@@ -19,7 +19,7 @@ class Config(BaseSettings):
     realize_client_secret: Optional[str] = None
 
     # === SSE mode (required when mcp_transport="sse") ===
-    mcp_server_url: Optional[str] = None
+    mcp_server_scheme: str = "https"  # Scheme for public-facing URLs; override with "http" for local dev
     mcp_server_port: int = 8000
     oauth_server_url: Optional[str] = None
     oauth_dcr_client_id: Optional[str] = None
@@ -37,8 +37,6 @@ class Config(BaseSettings):
                 )
         elif self.mcp_transport == "sse":
             # SSE requires OAuth 2.1 configuration
-            if not self.mcp_server_url:
-                raise ValueError("MCP_SERVER_URL is required for SSE transport")
             if not self.oauth_server_url:
                 raise ValueError("OAUTH_SERVER_URL is required for SSE transport")
             if not self.oauth_dcr_client_id or not self.oauth_dcr_client_secret:

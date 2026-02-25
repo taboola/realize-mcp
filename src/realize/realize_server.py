@@ -144,6 +144,7 @@ async def run_sse_server():
         host="0.0.0.0",
         port=config.mcp_server_port,
         log_level=config.log_level.lower(),
+        proxy_headers=True,  # Respect X-Forwarded-Proto when available
     )
     server_instance = uvicorn.Server(uvicorn_config)
     await server_instance.serve()

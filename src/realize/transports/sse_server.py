@@ -13,8 +13,8 @@ from mcp.server.sse import SseServerTransport
 from mcp.server import NotificationOptions
 from mcp.server.models import InitializationOptions
 
-from ..config import config
 from ..oauth.context import set_session_token, clear_session_token
+from ..oauth.routes import _get_base_url
 
 logger = logging.getLogger(__name__)
 
@@ -38,13 +38,15 @@ def create_sse_endpoint() -> Callable:
         """
         # Check for Bearer token
         auth_header = request.headers.get("Authorization", "")
+        base_url = _get_base_url(request)
+
         if not auth_header.startswith("Bearer "):
             # Return 401 to trigger OAuth flow
             logger.info("No Bearer token in SSE request - returning 401")
             return Response(
                 status_code=401,
                 headers={
-                    "WWW-Authenticate": f'Bearer resource_metadata="{config.mcp_server_url}/.well-known/oauth-protected-resource"'
+                    "WWW-Authenticate": f'Bearer resource_metadata="{base_url}/.well-known/oauth-protected-resource"'
                 }
             )
 
@@ -54,7 +56,7 @@ def create_sse_endpoint() -> Callable:
             return Response(
                 status_code=401,
                 headers={
-                    "WWW-Authenticate": f'Bearer resource_metadata="{config.mcp_server_url}/.well-known/oauth-protected-resource"'
+                    "WWW-Authenticate": f'Bearer resource_metadata="{base_url}/.well-known/oauth-protected-resource"'
                 }
             )
 
