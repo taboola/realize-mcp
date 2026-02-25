@@ -13,9 +13,6 @@ set -e
 # Transport mode
 export MCP_TRANSPORT="sse"
 
-# Public URL of this MCP server (ngrok URL) - replace with your ngrok URL
-export MCP_SERVER_URL="${MCP_SERVER_URL:-https://your-subdomain.ngrok-free.dev}"
-
 # Taboola Backstage API (where MCP tools make API calls)
 export REALIZE_BASE_URL="${REALIZE_BASE_URL:-https://backstage.taboola.com/backstage}"
 
@@ -48,9 +45,8 @@ export LOG_LEVEL="DEBUG"
 echo "========================================"
 echo "Realize MCP Server - SSE Mode"
 echo "========================================"
-echo "MCP_TRANSPORT:        $MCP_TRANSPORT"
-echo "MCP_SERVER_URL:       $MCP_SERVER_URL"
-echo "OAUTH_SERVER_URL:  $OAUTH_SERVER_URL"
+echo "MCP_TRANSPORT:          $MCP_TRANSPORT"
+echo "OAUTH_SERVER_URL:       $OAUTH_SERVER_URL"
 echo "OAUTH_SERVER_PORT:      $OAUTH_SERVER_PORT"
 echo "OAUTH_DCR_CLIENT_ID:    $OAUTH_DCR_CLIENT_ID"
 echo "OAUTH_SCOPES:           $OAUTH_SCOPES"
@@ -59,11 +55,10 @@ echo "========================================"
 echo ""
 echo "Endpoints:"
 echo "  GET  /.well-known/oauth-protected-resource"
-echo "  GET  /.well-known/oauth-authorization-server (proxied)"
-echo "  GET  /authorize (redirects to upstream auth server)"
+echo "  GET  /.well-known/oauth-authorization-server"
 echo "  POST /register"
-echo "  POST /oauth/token"
 echo "  GET  /sse"
+echo "  GET  /health"
 echo "========================================"
 echo ""
 

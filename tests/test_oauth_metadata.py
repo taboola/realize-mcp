@@ -25,15 +25,11 @@ class TestProtectedResourceMetadata:
     def test_returns_correct_structure(self):
         """Verify metadata has all required RFC 9728 fields."""
         with patch("realize.oauth.metadata.config") as mock_config:
-            mock_config.mcp_server_url = "https://mcp.example.com"
-            mock_config.oauth_server_url = "https://auth.example.com"
             mock_config.oauth_scopes = "read write admin"
 
-            metadata = get_protected_resource_metadata()
+            metadata = get_protected_resource_metadata("https://mcp.example.com")
 
             assert metadata["resource"] == "https://mcp.example.com"
-            # authorization_servers points to MCP server so clients fetch
-            # modified AS metadata (with proxied endpoints) from us
             assert metadata["authorization_servers"] == ["https://mcp.example.com"]
             assert metadata["bearer_methods_supported"] == ["header"]
             assert metadata["scopes_supported"] == ["read", "write", "admin"]
@@ -42,22 +38,18 @@ class TestProtectedResourceMetadata:
     def test_scopes_split_correctly(self):
         """Verify space-separated scopes are split into list."""
         with patch("realize.oauth.metadata.config") as mock_config:
-            mock_config.mcp_server_url = "https://mcp.example.com"
-            mock_config.oauth_server_url = "https://auth.example.com"
             mock_config.oauth_scopes = "all"
 
-            metadata = get_protected_resource_metadata()
+            metadata = get_protected_resource_metadata("https://mcp.example.com")
 
             assert metadata["scopes_supported"] == ["all"]
 
     def test_single_authorization_server(self):
         """Verify authorization_servers is a list with single entry."""
         with patch("realize.oauth.metadata.config") as mock_config:
-            mock_config.mcp_server_url = "https://mcp.example.com"
-            mock_config.oauth_server_url = "https://auth.example.com"
             mock_config.oauth_scopes = "all"
 
-            metadata = get_protected_resource_metadata()
+            metadata = get_protected_resource_metadata("https://mcp.example.com")
 
             assert isinstance(metadata["authorization_servers"], list)
             assert len(metadata["authorization_servers"]) == 1
@@ -68,7 +60,7 @@ class TestAuthorizationServerMetadataProxy:
 
     @pytest.mark.asyncio
     async def test_proxies_required_fields(self):
-        """Verify required RFC 8414 fields are included and endpoints are proxied."""
+        """Verify required RFC 8414 fields are included; only registration_endpoint is rewritten."""
         upstream_metadata = {
             "issuer": "https://auth.example.com",
             "authorization_endpoint": "https://auth.example.com/authorize",
@@ -83,7 +75,6 @@ class TestAuthorizationServerMetadataProxy:
 
         with patch("realize.oauth.metadata.config") as mock_config:
             mock_config.oauth_server_url = "https://auth.example.com"
-            mock_config.mcp_server_url = "https://mcp.example.com"
 
             with patch("realize.oauth.metadata.httpx.AsyncClient") as mock_client:
                 mock_instance = AsyncMock()
@@ -92,15 +83,15 @@ class TestAuthorizationServerMetadataProxy:
                 mock_instance.__aexit__.return_value = None
                 mock_client.return_value = mock_instance
 
-                metadata = await proxy_authorization_server_metadata()
+                metadata = await proxy_authorization_server_metadata("https://mcp.example.com")
 
                 # Required fields preserved
                 assert metadata["issuer"] == "https://auth.example.com"
                 assert metadata["response_types_supported"] == ["code"]
-                # All OAuth endpoints proxied through MCP server's HTTPS URL
-                # (authorization_endpoint is proxied because some clients refuse HTTP URLs)
-                assert metadata["authorization_endpoint"] == "https://mcp.example.com/authorize"
-                assert metadata["token_endpoint"] == "https://mcp.example.com/oauth/token"
+                # token_endpoint and authorization_endpoint pass through from upstream
+                assert metadata["authorization_endpoint"] == "https://auth.example.com/authorize"
+                assert metadata["token_endpoint"] == "https://auth.example.com/token"
+                # Only registration_endpoint is rewritten to MCP server
                 assert metadata["registration_endpoint"] == "https://mcp.example.com/register"
                 # Extra fields are preserved (not filtered)
                 assert metadata["extra_field"] == "should_be_preserved"
@@ -126,7 +117,6 @@ class TestAuthorizationServerMetadataProxy:
 
         with patch("realize.oauth.metadata.config") as mock_config:
             mock_config.oauth_server_url = "https://auth.example.com"
-            mock_config.mcp_server_url = "https://mcp.example.com"
 
             with patch("realize.oauth.metadata.httpx.AsyncClient") as mock_client:
                 mock_instance = AsyncMock()
@@ -135,10 +125,13 @@ class TestAuthorizationServerMetadataProxy:
                 mock_instance.__aexit__.return_value = None
                 mock_client.return_value = mock_instance
 
-                metadata = await proxy_authorization_server_metadata()
+                metadata = await proxy_authorization_server_metadata("https://mcp.example.com")
 
                 # Registration endpoint is overridden to MCP server
                 assert metadata["registration_endpoint"] == "https://mcp.example.com/register"
+                # token_endpoint and authorization_endpoint pass through from upstream
+                assert metadata["authorization_endpoint"] == "https://auth.example.com/authorize"
+                assert metadata["token_endpoint"] == "https://auth.example.com/token"
                 # Other optional fields preserved
                 assert metadata["scopes_supported"] == ["openid", "profile"]
                 assert metadata["grant_types_supported"] == ["authorization_code", "refresh_token"]
@@ -162,7 +155,6 @@ class TestAuthorizationServerMetadataProxy:
 
         with patch("realize.oauth.metadata.config") as mock_config:
             mock_config.oauth_server_url = "https://auth.example.com"
-            mock_config.mcp_server_url = "https://mcp.example.com"
 
             with patch("realize.oauth.metadata.httpx.AsyncClient") as mock_client:
                 mock_instance = AsyncMock()
@@ -171,7 +163,7 @@ class TestAuthorizationServerMetadataProxy:
                 mock_instance.__aexit__.return_value = None
                 mock_client.return_value = mock_instance
 
-                await proxy_authorization_server_metadata()
+                await proxy_authorization_server_metadata("https://mcp.example.com")
 
                 mock_instance.get.assert_called_once_with(
                     "https://auth.example.com/.well-known/oauth-authorization-server",
@@ -189,8 +181,6 @@ class TestMetadataRouteHandlers:
         ])
 
         with patch("realize.oauth.metadata.config") as mock_config:
-            mock_config.mcp_server_url = "https://mcp.example.com"
-            mock_config.oauth_server_url = "https://auth.example.com"
             mock_config.oauth_scopes = "all"
 
             client = TestClient(app)
@@ -221,7 +211,6 @@ class TestMetadataRouteHandlers:
 
         with patch("realize.oauth.metadata.config") as mock_config:
             mock_config.oauth_server_url = "https://auth.example.com"
-            mock_config.mcp_server_url = "https://mcp.example.com"
 
             with patch("realize.oauth.metadata.httpx.AsyncClient") as mock_client:
                 mock_instance = AsyncMock()

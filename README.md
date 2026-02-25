@@ -71,7 +71,6 @@ cd realize-mcp
 # Set required credentials
 export OAUTH_DCR_CLIENT_ID=your_dcr_client_id
 export OAUTH_DCR_CLIENT_SECRET=your_dcr_client_secret
-export MCP_SERVER_URL=https://your-mcp-server.example.com
 
 # Run the SSE server
 ./scripts/run-sse.sh
@@ -93,11 +92,8 @@ export MCP_SERVER_URL=https://your-mcp-server.example.com
 ### SSE Endpoints
 
 - `GET /.well-known/oauth-protected-resource` - RFC 9728 metadata
-- `GET /.well-known/oauth-authorization-server` - RFC 8414 metadata (proxied)
-- `GET /authorize` - Redirects to upstream auth server
+- `GET /.well-known/oauth-authorization-server` - RFC 8414 metadata (registration_endpoint rewritten)
 - `POST /register` - RFC 7591 Dynamic Client Registration
-- `POST /oauth/token` - Token endpoint (proxied to auth server)
-- `POST /token` - Alternative token endpoint
 - `GET /sse` - SSE connection endpoint (requires Bearer token)
 - `POST /messages` - MCP protocol message handling
 - `GET /health` - Health check endpoint for Kubernetes probes
@@ -261,6 +257,7 @@ AI Process:
 **For SSE transport:**
 - OAuth Dynamic Client Registration credentials (`OAUTH_DCR_CLIENT_ID` and `OAUTH_DCR_CLIENT_SECRET`)
 - Publicly accessible server URL for OAuth callbacks
+- `MCP_SERVER_SCHEME` — defaults to `https`. Set to `http` for local dev without TLS.
 
 ---
 

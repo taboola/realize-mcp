@@ -193,9 +193,12 @@ class TestPackageMetadata:
         assert 'project' in pyproject
         project = pyproject['project']
         
-        required_fields = ['name', 'version', 'description', 'authors', 'dependencies']
+        required_fields = ['name', 'description', 'authors', 'dependencies']
         for field in required_fields:
             assert field in project, f"Required field {field} missing from pyproject.toml"
+        # Version can be static or dynamic (sourced from _version.py via setuptools)
+        assert 'version' in project or 'version' in project.get('dynamic', []), \
+            "version must be in [project] or listed in dynamic"
         
         # Check scripts entry point
         assert 'scripts' in project
@@ -216,21 +219,29 @@ class TestPackageMetadata:
         """Test that version is consistent across files."""
         import toml
         
-        # Get version from pyproject.toml
+        # Get version from pyproject.toml (static or dynamic)
         pyproject_path = pathlib.Path(__file__).parent.parent / "pyproject.toml"
         with open(pyproject_path, 'r') as f:
             pyproject = toml.load(f)
-        pyproject_version = pyproject['project']['version']
-        
-        # Get version from _version.py if it exists
+        project = pyproject['project']
+
+        # _version.py must exist and define __version__
         version_file = pathlib.Path(__file__).parent.parent / "src" / "realize" / "_version.py"
-        if version_file.exists():
-            version_content = {}
-            with open(version_file, 'r') as f:
-                exec(f.read(), version_content)
-            if '__version__' in version_content:
-                assert version_content['__version__'] == pyproject_version, \
-                    "Version mismatch between pyproject.toml and _version.py"
+        assert version_file.exists(), "_version.py not found"
+        version_content = {}
+        with open(version_file, 'r') as f:
+            exec(f.read(), version_content)
+        assert '__version__' in version_content, "__version__ not defined in _version.py"
+
+        if 'version' in project:
+            # Static version — must match _version.py
+            assert version_content['__version__'] == project['version'], \
+                "Version mismatch between pyproject.toml and _version.py"
+        else:
+            # Dynamic version — verify pyproject.toml references _version.py
+            dynamic_cfg = pyproject.get('tool', {}).get('setuptools', {}).get('dynamic', {})
+            assert 'version' in dynamic_cfg, \
+                "Dynamic version configured but [tool.setuptools.dynamic] version not found"
 
 
 if __name__ == "__main__":
