@@ -131,12 +131,12 @@ async def run_stdio_server():
         )
 
 
-async def run_sse_server():
-    """Run MCP server with SSE transport and OAuth 2.1."""
+async def run_http_server():
+    """Run MCP server with Streamable HTTP transport and OAuth 2.1."""
     import uvicorn
     from realize.transports.app import create_app
 
-    logger.info(f"Starting Realize MCP Server with SSE transport on port {config.mcp_server_port}...")
+    logger.info(f"Starting Realize MCP Server with Streamable HTTP transport on port {config.mcp_server_port}...")
 
     app = create_app()
     uvicorn_config = uvicorn.Config(
@@ -152,8 +152,8 @@ async def run_sse_server():
 
 async def main():
     """Main server entry point with transport selection."""
-    if config.mcp_transport == "sse":
-        await run_sse_server()
+    if config.mcp_transport == "streamable-http":
+        await run_http_server()
     else:
         await run_stdio_server()
 

@@ -1,19 +1,21 @@
-"""Starlette application factory for SSE transport with OAuth 2.1.
-
-Based on working implementation from mcp-oauth21-test.
-"""
+"""Starlette application factory for Streamable HTTP transport with OAuth 2.1."""
+import contextlib
 import logging
+from collections.abc import AsyncIterator
 
 from starlette.applications import Starlette
 from starlette.responses import JSONResponse
-from starlette.routing import Route, Mount
+from starlette.routing import Route
 
 from ..oauth.routes import (
     protected_resource_metadata_handler,
     authorization_server_metadata_handler,
     register_handler,
 )
-from .sse_server import create_sse_endpoint, sse_transport
+from .streamable_http_server import (
+    create_streamable_http_session_manager,
+    StreamableHTTPEndpoint,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,21 +26,31 @@ async def health_handler(request):
 
 
 def create_app() -> Starlette:
-    """Create Starlette application with OAuth 2.1 and SSE support.
+    """Create Starlette application with OAuth 2.1 and Streamable HTTP support.
 
     Returns:
         Configured Starlette application
     """
-    logger.info("Creating SSE application with OAuth 2.1 support")
+    logger.info("Creating Streamable HTTP application with OAuth 2.1 support")
 
-    # Create SSE endpoint (stateless - no session manager needed)
-    sse_endpoint = create_sse_endpoint()
+    session_manager = create_streamable_http_session_manager()
 
-    # Define routes
+    @contextlib.asynccontextmanager
+    async def lifespan(app: Starlette) -> AsyncIterator[None]:
+        async with session_manager.run():
+            logger.info("StreamableHTTP session manager started")
+            yield
+            logger.info("StreamableHTTP session manager stopping")
+
+    streamable_endpoint = StreamableHTTPEndpoint(session_manager)
+
     routes = [
-        # Health check endpoint for Kubernetes probes
         Route("/health", health_handler, methods=["GET"]),
-        # OAuth 2.1 metadata endpoints
+        Route(
+            "/.well-known/oauth-protected-resource/{path:path}",
+            protected_resource_metadata_handler,
+            methods=["GET"],
+        ),
         Route(
             "/.well-known/oauth-protected-resource",
             protected_resource_metadata_handler,
@@ -49,15 +61,10 @@ def create_app() -> Starlette:
             authorization_server_metadata_handler,
             methods=["GET"],
         ),
-        # Dynamic Client Registration
         Route("/register", register_handler, methods=["POST"]),
-        # SSE endpoint - uses Route with methods=["GET"] like working impl
-        Route("/sse", sse_endpoint, methods=["GET"]),
-        # MCP messages endpoint - uses Mount like working impl
-        Mount("/messages/", app=sse_transport.handle_post_message),
+        Route("/mcp", streamable_endpoint),
     ]
 
-    # Plain Starlette app without middleware (matching working impl)
-    app = Starlette(routes=routes)
+    app = Starlette(routes=routes, lifespan=lifespan)
 
     return app

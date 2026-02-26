@@ -8,7 +8,7 @@ class Config(BaseSettings):
     """Configuration settings for Realize MCP server."""
 
     # === Transport selection ===
-    mcp_transport: Literal["stdio", "sse"] = "stdio"
+    mcp_transport: Literal["stdio", "streamable-http"] = "stdio"
 
     # === Shared settings ===
     realize_base_url: str = "https://backstage.taboola.com/backstage"
@@ -18,7 +18,7 @@ class Config(BaseSettings):
     realize_client_id: Optional[str] = None
     realize_client_secret: Optional[str] = None
 
-    # === SSE mode (required when mcp_transport="sse") ===
+    # === HTTP mode (required when mcp_transport="streamable-http") ===
     mcp_server_scheme: str = "https"  # Scheme for public-facing URLs; override with "http" for local dev
     mcp_server_port: int = 8000
     oauth_server_url: Optional[str] = None
@@ -35,13 +35,13 @@ class Config(BaseSettings):
                 raise ValueError(
                     "REALIZE_CLIENT_ID and REALIZE_CLIENT_SECRET are required for stdio transport"
                 )
-        elif self.mcp_transport == "sse":
-            # SSE requires OAuth 2.1 configuration
+        elif self.mcp_transport == "streamable-http":
+            # Streamable HTTP requires OAuth 2.1 configuration
             if not self.oauth_server_url:
-                raise ValueError("OAUTH_SERVER_URL is required for SSE transport")
+                raise ValueError("OAUTH_SERVER_URL is required for streamable-http transport")
             if not self.oauth_dcr_client_id or not self.oauth_dcr_client_secret:
                 raise ValueError(
-                    "OAUTH_DCR_CLIENT_ID and OAUTH_DCR_CLIENT_SECRET are required for SSE transport"
+                    "OAUTH_DCR_CLIENT_ID and OAUTH_DCR_CLIENT_SECRET are required for streamable-http transport"
                 )
         return self
 

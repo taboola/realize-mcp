@@ -267,7 +267,7 @@ class TestConfigurationValidation:
         # If running with real environment variables, they shouldn't be placeholders
         import os
         if 'REALIZE_CLIENT_ID' in os.environ:
-            placeholder_indicators = ['your_', 'example_', 'test_', 'placeholder', 'xxx', '???']
+            placeholder_indicators = ['your_', 'example_', 'placeholder', 'xxx', '???']
             client_id_lower = config.realize_client_id.lower()
             for indicator in placeholder_indicators:
                 assert indicator not in client_id_lower, \

@@ -1,6 +1,6 @@
 # Realize MCP Server
 
-A Model Context Protocol (MCP) server that provides read-only access to Taboola's Realize API, enabling AI assistants to analyze campaigns, retrieve performance data, and generate reports through natural language. Install the MCP Server with stdio transport for single-user local use, or SSE transport for multi-user deployment.
+A Model Context Protocol (MCP) server that provides read-only access to Taboola's Realize API, enabling AI assistants to analyze campaigns, retrieve performance data, and generate reports through natural language. Install the MCP Server with stdio transport for single-user local use, or Streamable HTTP transport for multi-user deployment.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python](https://img.shields.io/badge/Python-3.10+-green.svg)](https://python.org)
@@ -58,9 +58,9 @@ pip install realize-mcp
 
 ---
 
-## Option 2: SSE Quick Start
+## Option 2: Streamable HTTP Quick Start
 
-HTTP-based Server-Sent Events (SSE) transport supporting multiple users via OAuth 2.1
+HTTP-based [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) transport supporting multiple users via OAuth 2.1. Runs in stateless mode — no session affinity required, k8s-friendly.
 
 ### Server Installation
 
@@ -72,8 +72,8 @@ cd realize-mcp
 export OAUTH_DCR_CLIENT_ID=your_dcr_client_id
 export OAUTH_DCR_CLIENT_SECRET=your_dcr_client_secret
 
-# Run the SSE server
-./scripts/run-sse.sh
+# Run the Streamable HTTP server
+./scripts/run-streamable-http.sh
 ```
 
 ### Client Setup
@@ -81,7 +81,7 @@ export OAUTH_DCR_CLIENT_SECRET=your_dcr_client_secret
 **Claude Desktop**
 
 1. Go to Settings → Connectors → Add Custom Connector
-2. Enter the MCP Server name and URL (e.g., `https://your-mcp-server.example.com/sse`)
+2. Enter the MCP Server name and URL (e.g., `https://your-mcp-server.example.com/mcp`)
 3. Select **Connect** to initiate the OAuth 2.1 flow
 4. A browser window will open to Taboola SSO—enter your credentials to obtain a bearer token used by Realize tools
 
@@ -89,13 +89,12 @@ export OAUTH_DCR_CLIENT_SECRET=your_dcr_client_secret
 
 ⚠️ Temporarily unavailable — blocked by [Cursor OAuth redirect bug](https://forum.cursor.com/t/oauth-browser-redirect-not-triggered-for-http-based-mcp-servers/146988/6).
 
-### SSE Endpoints
+### Endpoints
 
-- `GET /.well-known/oauth-protected-resource` - RFC 9728 metadata
+- `GET /.well-known/oauth-protected-resource` - RFC 9728 Protected Resource Metadata (supports path-based discovery)
 - `GET /.well-known/oauth-authorization-server` - RFC 8414 metadata (registration_endpoint rewritten)
 - `POST /register` - RFC 7591 Dynamic Client Registration
-- `GET /sse` - SSE connection endpoint (requires Bearer token)
-- `POST /messages` - MCP protocol message handling
+- `POST|GET|DELETE /mcp` - MCP Streamable HTTP endpoint (requires Bearer token)
 - `GET /health` - Health check endpoint for Kubernetes probes
 
 ---
@@ -107,10 +106,10 @@ export OAUTH_DCR_CLIENT_SECRET=your_dcr_client_secret
 ### Authentication
 
 **`get_auth_token`** — Authenticate with Realize API.
-No parameters. In stdio mode, uses client credentials (`REALIZE_CLIENT_ID`/`REALIZE_CLIENT_SECRET`). In SSE mode, confirms the OAuth 2.1 session token is active.
+No parameters. In stdio mode, uses client credentials (`REALIZE_CLIENT_ID`/`REALIZE_CLIENT_SECRET`). In Streamable HTTP mode, confirms the OAuth 2.1 session token is active.
 
 **`get_token_details`** — Get details about the current authentication token.
-No parameters. Works with both stdio (client credentials token) and SSE (OAuth session token).
+No parameters. Works with both stdio (client credentials token) and Streamable HTTP (OAuth session token).
 
 ### Account Management
 
@@ -254,7 +253,7 @@ AI Process:
 **For stdio transport:**
 - Taboola Realize API credentials (`REALIZE_CLIENT_ID` and `REALIZE_CLIENT_SECRET`)
 
-**For SSE transport:**
+**For Streamable HTTP transport:**
 - OAuth Dynamic Client Registration credentials (`OAUTH_DCR_CLIENT_ID` and `OAUTH_DCR_CLIENT_SECRET`)
 - Publicly accessible server URL for OAuth callbacks
 - `MCP_SERVER_SCHEME` — defaults to `https`. Set to `http` for local dev without TLS.
