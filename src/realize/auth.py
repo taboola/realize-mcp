@@ -101,11 +101,11 @@ class ClientCredentialsAuth(AuthProvider):
 RealizeAuth = ClientCredentialsAuth
 
 
-class SSETokenAuth(AuthProvider):
-    """Auth provider for SSE transport using Bearer token from OAuth flow.
+class BearerTokenAuth(AuthProvider):
+    """Auth provider for HTTP transports using Bearer token from OAuth flow.
 
     Retrieves the Bearer token from the current async context via get_session_token().
-    Each SSE connection sets its token in the context, providing per-request isolation.
+    Each HTTP request sets its token in the context, providing per-request isolation.
     """
 
     async def get_auth_header(self) -> Optional[Dict[str, str]]:
@@ -118,21 +118,25 @@ class SSETokenAuth(AuthProvider):
 
         token = get_session_token()
         if not token:
-            logger.warning("No SSE token in current context")
+            logger.warning("No Bearer token in current context")
             return None
 
         return {"Authorization": f"Bearer {token}"}
 
 
+# Backward compatibility alias
+SSETokenAuth = BearerTokenAuth
+
+
 # Global auth instances
 _client_credentials_auth = ClientCredentialsAuth()
-_sse_token_auth = SSETokenAuth()
+_bearer_token_auth = BearerTokenAuth()
 
 
 def get_auth_provider() -> AuthProvider:
     """Get the appropriate auth provider based on transport mode."""
-    if config.mcp_transport == "sse":
-        return _sse_token_auth
+    if config.mcp_transport == "streamable-http":
+        return _bearer_token_auth
     return _client_credentials_auth
 
 

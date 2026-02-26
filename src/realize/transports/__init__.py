@@ -1,9 +1,12 @@
 """Transport implementations for realize-mcp."""
 from .app import create_app
-from .sse_server import create_sse_endpoint, sse_transport
+from .streamable_http_server import (
+    create_streamable_http_session_manager,
+    StreamableHTTPEndpoint,
+)
 
 __all__ = [
     "create_app",
-    "create_sse_endpoint",
-    "sse_transport",
+    "create_streamable_http_session_manager",
+    "StreamableHTTPEndpoint",
 ]
