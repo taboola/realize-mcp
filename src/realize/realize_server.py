@@ -98,7 +98,16 @@ async def handle_call_tool(
         elif handler_path == "report_handlers.get_campaign_site_day_breakdown_report":
             from realize.tools.report_handlers import get_campaign_site_day_breakdown_report
             return await get_campaign_site_day_breakdown_report(arguments)
-            
+
+        # Dynamic report handlers
+        elif handler_path == "dynamic_report_handlers.get_dynamic_report_settings":
+            from realize.tools.dynamic_report_handlers import get_dynamic_report_settings
+            return await get_dynamic_report_settings(arguments)
+
+        elif handler_path == "dynamic_report_handlers.get_dynamic_report_data":
+            from realize.tools.dynamic_report_handlers import get_dynamic_report_data
+            return await get_dynamic_report_data(arguments)
+
         else:
             raise ValueError(f"Handler not implemented: {handler_path}")
             

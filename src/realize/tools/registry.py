@@ -283,19 +283,19 @@ TOOL_REGISTRY = {
             "type": "object",
             "properties": {
                 "account_id": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Account ID (string from search_accounts response 'account_id' field - NOT numeric ID). Workflow: 1) search_accounts('query') 2) Use 'account_id' from results"
                 },
                 "start_date": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Start date (YYYY-MM-DD)"
                 },
                 "end_date": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "End date (YYYY-MM-DD)"
                 },
                 "filters": {
-                    "type": "object", 
+                    "type": "object",
                     "description": "Optional filters (flexible JSON object)",
                     "additionalProperties": {"type": "string"}
                 },
@@ -330,6 +330,70 @@ TOOL_REGISTRY = {
         "category": "reports"
     },
 
+    # Dynamic Reports Tools
+    "get_dynamic_report_settings": {
+        "description": "REQUIRED FIRST STEP for dynamic reports (read-only). Returns the metamodel schema with all available dimensions, metrics, filters, and their allowed operators. You MUST call this tool BEFORE calling get_dynamic_report_data - do NOT guess dimension/metric/filter names or operators. The response tells you exactly which names are valid for columns and filters in the query. WORKFLOW: 1) search_accounts to get account_id 2) Call THIS tool to discover available options 3) Use the returned names/operators to build a valid report_query 4) Call get_dynamic_report_data with that query.",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string",
+                    "description": "Account ID (from search_accounts)"
+                },
+                "report_type": {
+                    "type": "string",
+                    "default": "PERFORMANCE",
+                    "description": "Report type (default: PERFORMANCE)"
+                }
+            },
+            "required": ["account_id"]
+        },
+        "handler": "dynamic_report_handlers.get_dynamic_report_settings",
+        "category": "dynamic_reports"
+    },
+
+    "get_dynamic_report_data": {
+        "description": "Execute a dynamic report query and return results (read-only). IMPORTANT: You MUST call get_dynamic_report_settings FIRST and use the exact fully qualified names from the metamodel - do NOT guess or fabricate field names. WORKING EXAMPLE: {\"account_id\": \"<id>\", \"columns\": [\"PERFORMANCE_REPORT.CAMPAIGN.CAMPAIGN_NAME\", \"PERFORMANCE_REPORT.METRICS.CLICKS\", \"PERFORMANCE_REPORT.METRICS.SPENT\"], \"date_preset\": \"LAST_7_DAYS\"} WORKFLOW: 1) search_accounts 2) get_dynamic_report_settings to discover valid field names 3) Pass those exact fully qualified names as columns here.",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string",
+                    "description": "Account ID (from search_accounts)"
+                },
+                "columns": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of fully qualified dimension/metric names from get_dynamic_report_settings metamodel. MUST use exact names like PERFORMANCE_REPORT.CAMPAIGN.CAMPAIGN_NAME, PERFORMANCE_REPORT.METRICS.CLICKS, PERFORMANCE_REPORT.METRICS.SPENT"
+                },
+                "date_preset": {
+                    "type": "string",
+                    "description": "REQUIRED date range preset. Use one of: LAST_7_DAYS, LAST_30_DAYS, LAST_3_MONTHS, YESTERDAY, TODAY"
+                },
+                "filters": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string", "description": "Fully qualified filter field name from metamodel"},
+                            "operator": {"type": "string", "description": "Filter operator: EQUALS, IN, NOT_IN, GREATER_THAN, LESS_THAN"},
+                            "values": {"type": "array", "items": {"type": "string"}, "description": "Filter values as strings"}
+                        },
+                        "required": ["name", "operator", "values"]
+                    },
+                    "description": "Optional additional filters. Example: [{\"name\": \"PERFORMANCE_REPORT.CAMPAIGN.CAMPAIGN_STATUS\", \"operator\": \"IN\", \"values\": [\"RUNNING\"]}]. ACCOUNT_ID and date filters are auto-injected."
+                },
+                "report_type": {
+                    "type": "string",
+                    "default": "PERFORMANCE",
+                    "description": "Report type (default: PERFORMANCE)"
+                }
+            },
+            "required": ["account_id", "columns", "date_preset"]
+        },
+        "handler": "dynamic_report_handlers.get_dynamic_report_data",
+        "category": "dynamic_reports"
+    },
 
 }
 
