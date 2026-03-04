@@ -25,21 +25,19 @@ def handle_client_registration(request_data: dict[str, Any]) -> dict[str, Any]:
     Raises:
         DCRError: If DCR credentials not configured in environment
     """
-    if not config.oauth_dcr_client_id or not config.oauth_dcr_client_secret:
-        raise DCRError("DCR credentials not configured. Set OAUTH_DCR_CLIENT_ID and OAUTH_DCR_CLIENT_SECRET environment variables.")
+    if not config.oauth_dcr_client_id:
+        raise DCRError("DCR credentials not configured. Set OAUTH_DCR_CLIENT_ID environment variable.")
 
     # Default values per RFC 7591
     defaults = {
         "grant_types": ["authorization_code"],
         "response_types": ["code"],
-        "token_endpoint_auth_method": "client_secret_post",
+        "token_endpoint_auth_method": "none",
     }
 
     response = {
         "client_id": config.oauth_dcr_client_id,
-        "client_secret": config.oauth_dcr_client_secret,
         "client_id_issued_at": int(time.time()),
-        "client_secret_expires_at": 0,  # Does not expire
     }
 
     # Echo back client metadata with defaults

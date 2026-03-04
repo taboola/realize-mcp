@@ -23,7 +23,6 @@ class Config(BaseSettings):
     mcp_server_port: int = 8000
     oauth_server_url: Optional[str] = None
     oauth_dcr_client_id: Optional[str] = None
-    oauth_dcr_client_secret: Optional[str] = None
     oauth_scopes: str = "all"
 
     @model_validator(mode='after')
@@ -39,9 +38,9 @@ class Config(BaseSettings):
             # Streamable HTTP requires OAuth 2.1 configuration
             if not self.oauth_server_url:
                 raise ValueError("OAUTH_SERVER_URL is required for streamable-http transport")
-            if not self.oauth_dcr_client_id or not self.oauth_dcr_client_secret:
+            if not self.oauth_dcr_client_id:
                 raise ValueError(
-                    "OAUTH_DCR_CLIENT_ID and OAUTH_DCR_CLIENT_SECRET are required for streamable-http transport"
+                    "OAUTH_DCR_CLIENT_ID is required for streamable-http transport"
                 )
         return self
 

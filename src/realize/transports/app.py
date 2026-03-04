@@ -57,6 +57,11 @@ def create_app() -> Starlette:
             methods=["GET"],
         ),
         Route(
+            "/.well-known/oauth-authorization-server/{path:path}",
+            authorization_server_metadata_handler,
+            methods=["GET"],
+        ),
+        Route(
             "/.well-known/oauth-authorization-server",
             authorization_server_metadata_handler,
             methods=["GET"],

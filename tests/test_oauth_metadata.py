@@ -88,7 +88,7 @@ class TestAuthorizationServerMetadataProxy:
                 # Required fields preserved
                 assert metadata["issuer"] == "https://auth.example.com"
                 assert metadata["response_types_supported"] == ["code"]
-                # token_endpoint and authorization_endpoint pass through from upstream
+                # authorization_endpoint and token_endpoint pass through from upstream
                 assert metadata["authorization_endpoint"] == "https://auth.example.com/authorize"
                 assert metadata["token_endpoint"] == "https://auth.example.com/token"
                 # Only registration_endpoint is rewritten to MCP server
@@ -127,17 +127,17 @@ class TestAuthorizationServerMetadataProxy:
 
                 metadata = await proxy_authorization_server_metadata("https://mcp.example.com")
 
-                # Registration endpoint is overridden to MCP server
+                # registration_endpoint is overridden to MCP server
                 assert metadata["registration_endpoint"] == "https://mcp.example.com/register"
-                # token_endpoint and authorization_endpoint pass through from upstream
+                # authorization_endpoint and token_endpoint pass through from upstream
                 assert metadata["authorization_endpoint"] == "https://auth.example.com/authorize"
                 assert metadata["token_endpoint"] == "https://auth.example.com/token"
                 # Other optional fields preserved
                 assert metadata["scopes_supported"] == ["openid", "profile"]
                 assert metadata["grant_types_supported"] == ["authorization_code", "refresh_token"]
                 assert metadata["code_challenge_methods_supported"] == ["S256"]
-                # "none" is filtered out from auth methods
-                assert metadata["token_endpoint_auth_methods_supported"] == ["client_secret_post"]
+                # Auth methods overridden based on DCR client type (no secret = public client)
+                assert metadata["token_endpoint_auth_methods_supported"] == ["none"]
 
     @pytest.mark.asyncio
     async def test_fetches_from_correct_url(self):
