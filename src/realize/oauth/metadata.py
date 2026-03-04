@@ -52,16 +52,13 @@ async def proxy_authorization_server_metadata(base_url: str) -> dict:
         response.raise_for_status()
         metadata = response.json()
 
-    # Remove "none" from token_endpoint_auth_methods_supported
-    # to force Claude Desktop to use client_secret_post and send client_id
-    if "token_endpoint_auth_methods_supported" in metadata:
-        methods = metadata["token_endpoint_auth_methods_supported"]
-        metadata["token_endpoint_auth_methods_supported"] = [
-            m for m in methods if m != "none"
-        ]
-
-    # Only override registration_endpoint (upstream doesn't support RFC 7591)
+    # Override registration_endpoint (upstream doesn't support RFC 7591)
     metadata["registration_endpoint"] = f"{base_url}/register"
+
+    # Override to "none" only — MCP clients are public (PKCE, no client secret).
+    # Upstream advertises client_secret_basic/post too, but those exist for
+    # M2M flows and can't be removed server-side.
+    metadata["token_endpoint_auth_methods_supported"] = ["none"]
 
     logger.debug("Returning modified OAuth AS metadata")
     return metadata
