@@ -12,6 +12,7 @@ class Config(BaseSettings):
 
     # === Shared settings ===
     realize_base_url: str = "https://backstage.taboola.com/backstage"
+    oauth_server_url: str = "https://authentication.taboola.com/authentication"
     log_level: str = "DEBUG"
 
     # === Stdio mode (required when mcp_transport="stdio") ===
@@ -21,7 +22,6 @@ class Config(BaseSettings):
     # === HTTP mode (required when mcp_transport="streamable-http") ===
     mcp_server_scheme: str = "https"  # Scheme for public-facing URLs; override with "http" for local dev
     mcp_server_port: int = 8000
-    oauth_server_url: Optional[str] = None
     oauth_dcr_client_id: Optional[str] = None
     oauth_scopes: str = "all"
 
@@ -36,8 +36,6 @@ class Config(BaseSettings):
                 )
         elif self.mcp_transport == "streamable-http":
             # Streamable HTTP requires OAuth 2.1 configuration
-            if not self.oauth_server_url:
-                raise ValueError("OAUTH_SERVER_URL is required for streamable-http transport")
             if not self.oauth_dcr_client_id:
                 raise ValueError(
                     "OAUTH_DCR_CLIENT_ID is required for streamable-http transport"

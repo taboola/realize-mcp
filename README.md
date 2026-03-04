@@ -24,7 +24,7 @@ pip install realize-mcp
 
 ### Client Setup
 
-**Cursor IDE** - Add to Settings → Features → Model Context Protocol:
+**Cursor IDE** - Add to Settings → Tools & MCP:
 
 ```json
 {
@@ -56,6 +56,12 @@ pip install realize-mcp
 }
 ```
 
+**Claude Code (CLI)**
+
+```bash
+claude mcp add realize-mcp --transport stdio -e REALIZE_CLIENT_ID=your_client_id -e REALIZE_CLIENT_SECRET=your_client_secret -- realize-mcp-server
+```
+
 ---
 
 ## Option 2: Streamable HTTP Quick Start
@@ -65,15 +71,13 @@ HTTP-based [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-
 ### Server Installation
 
 ```bash
-git clone https://github.com/taboola/realize-mcp.git
-cd realize-mcp
+pip install realize-mcp
+```
 
-# Set required credentials
-export OAUTH_DCR_CLIENT_ID=your_dcr_client_id
-export OAUTH_DCR_CLIENT_SECRET=your_dcr_client_secret
+### Start the Server
 
-# Run the Streamable HTTP server
-./scripts/run-streamable-http.sh
+```bash
+MCP_TRANSPORT=streamable-http OAUTH_DCR_CLIENT_ID=your_dcr_client_id realize-mcp-server
 ```
 
 ### Client Setup
@@ -85,9 +89,24 @@ export OAUTH_DCR_CLIENT_SECRET=your_dcr_client_secret
 3. Select **Connect** to initiate the OAuth 2.1 flow
 4. A browser window will open to Taboola SSO—enter your credentials to obtain a bearer token used by Realize tools
 
-**Cursor IDE**
+**Claude Code (CLI)**
 
-⚠️ Temporarily unavailable — blocked by [Cursor OAuth redirect bug](https://forum.cursor.com/t/oauth-browser-redirect-not-triggered-for-http-based-mcp-servers/146988/6).
+```bash
+claude mcp add --transport http --callback-port 3000 realize-mcp https://your-mcp-server.example.com/mcp
+```
+
+**Cursor IDE** - Add to Settings → Tools & MCP:
+
+```json
+{
+  "mcpServers": {
+    "realize-mcp": {
+      "type": "streamable-http",
+      "url": "https://your-mcp-server.example.com/mcp"
+    }
+  }
+}
+```
 
 ### Endpoints
 
@@ -254,7 +273,8 @@ AI Process:
 - Taboola Realize API credentials (`REALIZE_CLIENT_ID` and `REALIZE_CLIENT_SECRET`)
 
 **For Streamable HTTP transport:**
-- OAuth Dynamic Client Registration credentials (`OAUTH_DCR_CLIENT_ID` and `OAUTH_DCR_CLIENT_SECRET`)
+- OAuth Dynamic Client Registration client ID (`OAUTH_DCR_CLIENT_ID`)
+- Optional: `OAUTH_SERVER_URL` (defaults to `https://authentication.taboola.com/authentication`)
 - Publicly accessible server URL for OAuth callbacks
 - `MCP_SERVER_SCHEME` — defaults to `https`. Set to `http` for local dev without TLS.
 
