@@ -4,6 +4,7 @@ import logging
 import httpx
 
 from ..config import config
+from ..http import create_http_client
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ async def proxy_authorization_server_metadata(base_url: str) -> dict:
     Raises:
         httpx.HTTPError: If upstream request fails
     """
-    async with httpx.AsyncClient() as client:
+    async with create_http_client() as client:
         url = f"{config.oauth_server_url}/.well-known/oauth-authorization-server"
         response = await client.get(url, timeout=10.0)
         response.raise_for_status()

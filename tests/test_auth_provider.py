@@ -44,7 +44,7 @@ class TestClientCredentialsAuth:
         }
         mock_response.raise_for_status = MagicMock()
 
-        with patch("realize.auth.httpx.AsyncClient") as mock_client:
+        with patch("realize.auth.create_http_client") as mock_client:
             mock_instance = AsyncMock()
             mock_instance.post.return_value = mock_response
             mock_instance.__aenter__.return_value = mock_instance
@@ -113,8 +113,9 @@ class TestRealizeClientWithAuthProvider:
         mock_response = MagicMock()
         mock_response.json.return_value = {"result": "ok"}
         mock_response.raise_for_status = MagicMock()
+        mock_response.status_code = 200
 
-        with patch("realize.client.httpx.AsyncClient") as mock_client:
+        with patch("realize.client.create_http_client") as mock_client:
             mock_instance = AsyncMock()
             mock_instance.request.return_value = mock_response
             mock_instance.__aenter__.return_value = mock_instance
