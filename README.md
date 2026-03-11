@@ -115,6 +115,7 @@ claude mcp add --transport http --callback-port 3000 realize-mcp https://your-mc
 - `POST /register` - RFC 7591 Dynamic Client Registration
 - `POST|GET|DELETE /mcp` - MCP Streamable HTTP endpoint (requires Bearer token)
 - `GET /health` - Health check endpoint for Kubernetes probes
+- `GET /metrics` - Prometheus metrics endpoint
 
 ---
 
@@ -304,6 +305,22 @@ get_all_campaigns(account_id="12345")  # Numeric IDs won't work
 - **Pagination**: Default page_size=20, max=100 to prevent overwhelming responses
 - **Sorting**: Available for most reports by `clicks`, `spent`, or `impressions`
 - **Size Optimization**: Automatic truncation for large datasets
+
+---
+
+## Prometheus Metrics
+
+Enabled by default (`METRICS_ENABLED=true`). Exposed at `GET /metrics` in Streamable HTTP mode.
+
+| Metric | Type | Labels |
+|--------|------|--------|
+| `realize_mcp_http_requests_total` | Counter | `method`, `endpoint`, `http_status`, `client_name`, `client_version` |
+| `realize_mcp_http_request_latency_seconds` | Histogram | `endpoint`, `client_name`, `client_version` |
+| `realize_mcp_tool_calls_total` | Counter | `tool_name`, `status`, `client_name`, `client_version` |
+| `realize_mcp_tool_call_latency_seconds` | Histogram | `tool_name`, `client_name`, `client_version` |
+| `realize_mcp_api_requests_total` | Counter | `method`, `endpoint_pattern`, `http_status` |
+| `realize_mcp_api_request_latency_seconds` | Histogram | `method`, `endpoint_pattern` |
+| `realize_mcp_api_errors_total` | Counter | `method`, `endpoint_pattern`, `error_type` |
 
 ---
 

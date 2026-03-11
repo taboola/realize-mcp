@@ -15,6 +15,9 @@ class Config(BaseSettings):
     oauth_server_url: str = "https://authentication.taboola.com/authentication"
     log_level: str = "DEBUG"
 
+    # === Metrics ===
+    metrics_enabled: bool = True
+
     # === Stdio mode (required when mcp_transport="stdio") ===
     realize_client_id: Optional[str] = None
     realize_client_secret: Optional[str] = None

@@ -7,3 +7,4 @@ import os
 os.environ.setdefault("REALIZE_CLIENT_ID", "realize_mcp_ci_client")
 os.environ.setdefault("REALIZE_CLIENT_SECRET", "realize_mcp_ci_secret")
 os.environ.setdefault("MCP_TRANSPORT", "stdio")
+os.environ.setdefault("METRICS_ENABLED", "true")

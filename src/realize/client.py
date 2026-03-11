@@ -1,11 +1,45 @@
 """HTTP client for Realize API."""
 import logging
+import re
+import time
 from typing import Any, Dict, Optional
 import httpx
 from realize.auth import AuthProvider, get_auth_provider
 from realize.config import config
 
 logger = logging.getLogger(__name__)
+
+# Pattern: numeric-only path segments → {id}
+_NUMERIC_SEGMENT = re.compile(r"/(\d+)(?=/|$)")
+
+
+def _normalize_endpoint(endpoint: str) -> str:
+    """Normalize an API endpoint for metric labels.
+
+    Replaces the first path segment (account_id) with {account_id}
+    unless it is 'advertisers', then replaces remaining numeric
+    segments with {id}.
+
+    Examples:
+        /acme-inc/campaigns            → /{account_id}/campaigns
+        /acme-inc/campaigns/123/items  → /{account_id}/campaigns/{id}/items
+        /advertisers                   → /advertisers
+    """
+    if not endpoint or endpoint == "/":
+        return endpoint
+
+    parts = endpoint.strip("/").split("/")
+    if not parts:
+        return endpoint
+
+    # First segment is account_id unless it is 'advertisers'
+    if parts[0] != "advertisers":
+        parts[0] = "{account_id}"
+
+    # Rejoin and replace remaining numeric segments
+    normalized = "/" + "/".join(parts)
+    normalized = _NUMERIC_SEGMENT.sub("/{id}", normalized)
+    return normalized
 
 
 class RealizeClient:
@@ -55,6 +89,8 @@ class RealizeClient:
             httpx.HTTPStatusError: If request fails
             ValueError: If no valid auth available
         """
+        from realize.app_metrics import metrics
+
         url = f"{self.base_url}{endpoint}"
         auth_header = await self.auth_provider.get_auth_header()
 
@@ -62,26 +98,39 @@ class RealizeClient:
             raise ValueError("No valid authentication available")
 
         headers = {**auth_header, "Content-Type": "application/json"}
+        pattern = _normalize_endpoint(endpoint)
+        start = time.monotonic()
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.request(
-                method=method,
-                url=url,
-                headers=headers,
-                json=data,
-                params=params
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.request(
+                    method=method,
+                    url=url,
+                    headers=headers,
+                    json=data,
+                    params=params
+                )
+        except (httpx.ConnectError, httpx.TimeoutException) as exc:
+            duration = time.monotonic() - start
+            metrics.record_api_error(method, pattern, type(exc).__name__)
+            raise
+
+        duration = time.monotonic() - start
+        metrics.record_api_request(method, pattern, response.status_code, duration)
+
+        if response.status_code >= 400:
+            metrics.record_api_error(method, pattern, f"http_{response.status_code}")
+
+        if response.status_code == 401:
+            raise httpx.HTTPStatusError(
+                "Authentication token expired or invalid. "
+                "Please reconnect with a valid token.",
+                request=response.request,
+                response=response,
             )
 
-            if response.status_code == 401:
-                raise httpx.HTTPStatusError(
-                    "Authentication token expired or invalid. "
-                    "Please reconnect with a valid token.",
-                    request=response.request,
-                    response=response,
-                )
-
-            response.raise_for_status()
-            return response.json()
+        response.raise_for_status()
+        return response.json()
 
     # Convenience methods for common HTTP verbs
     async def get(
