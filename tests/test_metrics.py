@@ -171,13 +171,20 @@ class TestAppMetricsEnabled:
 class TestGetClientInfo:
     def test_returns_unknown_when_no_session(self):
         from realize.realize_server import _get_client_info, server
+        from realize.transports.client_context import get_client_info, clear_client_info
         # request_context is not set outside of a request, so AttributeError
         name, version = _get_client_info()
         assert name == "unknown"
-        assert version == "unknown"
+        assert version == "?"
+        # Verify context vars were also set
+        ctx_name, ctx_version = get_client_info()
+        assert ctx_name == "unknown"
+        assert ctx_version == "?"
+        clear_client_info()
 
     def test_returns_real_values_when_available(self):
         from realize.realize_server import _get_client_info, server
+        from realize.transports.client_context import get_client_info, clear_client_info
 
         mock_info = MagicMock()
         mock_info.name = "cursor"
@@ -191,6 +198,11 @@ class TestGetClientInfo:
             name, version = _get_client_info()
         assert name == "cursor"
         assert version == "0.45.0"
+        # Verify context vars were also set
+        ctx_name, ctx_version = get_client_info()
+        assert ctx_name == "cursor"
+        assert ctx_version == "0.45.0"
+        clear_client_info()
 
 
 # ---------------------------------------------------------------------------
@@ -233,7 +245,7 @@ class TestMetricsEndpoint:
 
 
 class TestMetricsMiddleware:
-    def test_middleware_records_request(self):
+    def test_middleware_records_request_with_default_client(self):
         from prometheus_client import CollectorRegistry
         from realize.transports.middleware import MetricsMiddleware
         from starlette.applications import Starlette
@@ -258,7 +270,39 @@ class TestMetricsMiddleware:
         count = registry.get_sample_value(
             "realize_mcp_http_requests_total",
             {"method": "GET", "endpoint": "/hello", "http_status": "200",
-             "client_name": "unknown", "client_version": "unknown"},
+             "client_name": "unknown", "client_version": "?"},
+        )
+        assert count == 1.0
+
+    def test_middleware_reads_client_context(self):
+        from prometheus_client import CollectorRegistry
+        from realize.transports.middleware import MetricsMiddleware
+        from realize.transports.client_context import set_client_info
+        from starlette.applications import Starlette
+        from starlette.responses import PlainTextResponse
+        from starlette.routing import Route
+        from starlette.testclient import TestClient
+
+        registry = CollectorRegistry()
+        test_metrics = AppMetrics(enabled=True, registry=registry)
+
+        async def mcp_endpoint(request):
+            # Simulate MCP handler setting client info
+            set_client_info("cursor", "0.45.0")
+            return PlainTextResponse("ok")
+
+        inner_app = Starlette(routes=[Route("/mcp", mcp_endpoint, methods=["POST"])])
+        wrapped = MetricsMiddleware(inner_app)
+
+        with patch("realize.transports.middleware.metrics", test_metrics):
+            client = TestClient(wrapped)
+            resp = client.post("/mcp")
+            assert resp.status_code == 200
+
+        count = registry.get_sample_value(
+            "realize_mcp_http_requests_total",
+            {"method": "POST", "endpoint": "/mcp", "http_status": "200",
+             "client_name": "cursor", "client_version": "0.45.0"},
         )
         assert count == 1.0
 
@@ -286,7 +330,31 @@ class TestMetricsMiddleware:
         count = registry.get_sample_value(
             "realize_mcp_http_requests_total",
             {"method": "GET", "endpoint": "/metrics", "http_status": "200",
-             "client_name": "unknown", "client_version": "unknown"},
+             "client_name": "unknown", "client_version": "?"},
         )
         # Should be None (not recorded) since /metrics is skipped
         assert count is None
+
+
+# ---------------------------------------------------------------------------
+# client_context tests
+# ---------------------------------------------------------------------------
+
+
+class TestClientContext:
+    def test_set_and_get(self):
+        from realize.transports.client_context import set_client_info, get_client_info, clear_client_info
+        set_client_info("claude-code", "1.2.3")
+        assert get_client_info() == ("claude-code", "1.2.3")
+        clear_client_info()
+
+    def test_defaults_when_unset(self):
+        from realize.transports.client_context import get_client_info, clear_client_info
+        clear_client_info()
+        assert get_client_info() == ("unknown", "?")
+
+    def test_clear(self):
+        from realize.transports.client_context import set_client_info, get_client_info, clear_client_info
+        set_client_info("test", "1.0")
+        clear_client_info()
+        assert get_client_info() == ("unknown", "?")

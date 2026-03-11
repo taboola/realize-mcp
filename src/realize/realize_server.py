@@ -4,12 +4,13 @@
 import asyncio
 import logging
 import time
-from typing import Any, Sequence
+from typing import Any
 from mcp.server import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
 import mcp.server.stdio
 import mcp.types as types
 from realize.config import config
+from realize.transports.client_context import set_client_info
 
 # Configure logging
 logging.basicConfig(level=getattr(logging, config.log_level))
@@ -22,7 +23,8 @@ server = Server("realize-mcp")
 async def handle_list_tools() -> list[types.Tool]:
     """List available MCP tools from registry."""
     from realize.tools.registry import get_all_tools
-    
+    _get_client_info()
+
     tools = []
     for tool_name, tool_config in get_all_tools().items():
         tools.append(
@@ -38,17 +40,17 @@ async def handle_list_tools() -> list[types.Tool]:
 def _get_client_info() -> tuple[str, str]:
     """Extract client name and version from the MCP session handshake.
 
-    Returns ("unknown", "unknown") when no session or client info is available.
+    Returns ("unknown", "?") when no session or client info is available.
     """
     try:
         session = server.request_context.session
         client_info = session.client_params.clientInfo
-        return (
-            getattr(client_info, "name", "unknown") or "unknown",
-            getattr(client_info, "version", "unknown") or "unknown",
-        )
+        name = getattr(client_info, "name", "unknown") or "unknown"
+        version = getattr(client_info, "version", "?") or "?"
     except (AttributeError, LookupError):
-        return ("unknown", "unknown")
+        name, version = "unknown", "?"
+    set_client_info(name, version)
+    return (name, version)
 
 
 @server.call_tool()
