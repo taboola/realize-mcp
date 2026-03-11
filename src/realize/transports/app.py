@@ -4,7 +4,8 @@ import logging
 from collections.abc import AsyncIterator
 
 from starlette.applications import Starlette
-from starlette.responses import JSONResponse
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from ..oauth.routes import (
@@ -23,6 +24,12 @@ logger = logging.getLogger(__name__)
 async def health_handler(request):
     """Health check endpoint for Kubernetes probes."""
     return JSONResponse({"status": "healthy", "service": "realize-mcp"})
+
+
+async def metrics_handler(request: Request) -> Response:
+    """Prometheus metrics endpoint."""
+    from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 def create_app() -> Starlette:
@@ -46,6 +53,7 @@ def create_app() -> Starlette:
 
     routes = [
         Route("/health", health_handler, methods=["GET"]),
+        Route("/metrics", metrics_handler, methods=["GET"]),
         Route(
             "/.well-known/oauth-protected-resource/{path:path}",
             protected_resource_metadata_handler,
@@ -70,6 +78,13 @@ def create_app() -> Starlette:
         Route("/mcp", streamable_endpoint),
     ]
 
-    app = Starlette(routes=routes, lifespan=lifespan)
+    from ..config import config
+    middleware = []
+    if config.metrics_enabled:
+        from starlette.middleware import Middleware
+        from .middleware import MetricsMiddleware
+        middleware.append(Middleware(MetricsMiddleware))
+
+    app = Starlette(routes=routes, lifespan=lifespan, middleware=middleware)
 
     return app

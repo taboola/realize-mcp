@@ -3,6 +3,7 @@
 
 import asyncio
 import logging
+import time
 from typing import Any, Sequence
 from mcp.server import Server, NotificationOptions
 from mcp.server.models import InitializationOptions
@@ -34,6 +35,22 @@ async def handle_list_tools() -> list[types.Tool]:
     
     return tools
 
+def _get_client_info() -> tuple[str, str]:
+    """Extract client name and version from the MCP session handshake.
+
+    Returns ("unknown", "unknown") when no session or client info is available.
+    """
+    try:
+        session = server.request_context.session
+        client_info = session.client_params.clientInfo
+        return (
+            getattr(client_info, "name", "unknown") or "unknown",
+            getattr(client_info, "version", "unknown") or "unknown",
+        )
+    except (AttributeError, LookupError):
+        return ("unknown", "unknown")
+
+
 @server.call_tool()
 async def handle_call_tool(
     name: str, arguments: dict[str, Any] | None
@@ -42,67 +59,76 @@ async def handle_call_tool(
     from realize.tools.registry import get_all_tools
     from realize.tools.utils import format_response
     from realize.client import client
-    
+    from realize.app_metrics import metrics
+
     # Get tool configuration from registry
     registry = get_all_tools()
     if name not in registry:
         raise ValueError(f"Unknown tool: {name}")
-    
+
     tool_config = registry[name]
     handler_path = tool_config["handler"]
-    
+    client_name, client_version = _get_client_info()
+    start = time.monotonic()
+
     try:
         # Dynamic handler import and execution
         if handler_path == "auth_handlers.get_auth_token":
             from realize.tools.auth_handlers import get_auth_token
-            return await get_auth_token()
-            
+            result = await get_auth_token()
+
         elif handler_path == "auth_handlers.get_token_details":
             from realize.tools.auth_handlers import get_token_details
-            return await get_token_details()
-            
+            result = await get_token_details()
+
         elif handler_path == "account_handlers.search_accounts":
             from realize.tools.account_handlers import search_accounts
-            return await search_accounts(arguments.get("query"))
-            
+            result = await search_accounts(arguments.get("query"))
+
         # Campaign handlers
         elif handler_path == "campaign_handlers.get_all_campaigns":
             from realize.tools.campaign_handlers import get_all_campaigns
-            return await get_all_campaigns(arguments)
-            
+            result = await get_all_campaigns(arguments)
+
         elif handler_path == "campaign_handlers.get_campaign":
             from realize.tools.campaign_handlers import get_campaign
-            return await get_campaign(arguments)
-            
+            result = await get_campaign(arguments)
+
         elif handler_path == "campaign_handlers.get_campaign_items":
             from realize.tools.campaign_handlers import get_campaign_items
-            return await get_campaign_items(arguments)
-            
+            result = await get_campaign_items(arguments)
+
         elif handler_path == "campaign_handlers.get_campaign_item":
             from realize.tools.campaign_handlers import get_campaign_item
-            return await get_campaign_item(arguments)
-            
+            result = await get_campaign_item(arguments)
+
         # Report handlers
         elif handler_path == "report_handlers.get_top_campaign_content_report":
             from realize.tools.report_handlers import get_top_campaign_content_report
-            return await get_top_campaign_content_report(arguments)
-            
+            result = await get_top_campaign_content_report(arguments)
+
         elif handler_path == "report_handlers.get_campaign_history_report":
             from realize.tools.report_handlers import get_campaign_history_report
-            return await get_campaign_history_report(arguments)
-            
+            result = await get_campaign_history_report(arguments)
+
         elif handler_path == "report_handlers.get_campaign_breakdown_report":
             from realize.tools.report_handlers import get_campaign_breakdown_report
-            return await get_campaign_breakdown_report(arguments)
-            
+            result = await get_campaign_breakdown_report(arguments)
+
         elif handler_path == "report_handlers.get_campaign_site_day_breakdown_report":
             from realize.tools.report_handlers import get_campaign_site_day_breakdown_report
-            return await get_campaign_site_day_breakdown_report(arguments)
-            
+            result = await get_campaign_site_day_breakdown_report(arguments)
+
         else:
             raise ValueError(f"Handler not implemented: {handler_path}")
-            
+
+        duration = time.monotonic() - start
+        metrics.record_tool_call(name, "success", client_name, client_version, duration)
+        return result
+
     except Exception as e:
+        duration = time.monotonic() - start
+        metrics.record_tool_call(name, "error", client_name, client_version, duration)
         logger.error(f"Tool execution failed for {name}: {e}")
         return [
             types.TextContent(
