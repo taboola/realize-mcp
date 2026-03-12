@@ -6,6 +6,7 @@ from typing import Optional, Dict, Any
 from datetime import timedelta
 import httpx
 from realize.config import config
+from realize.http import create_http_client
 from realize.models import Token, utc_now
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,7 @@ class ClientCredentialsAuth(AuthProvider):
             "grant_type": "client_credentials"
         }
 
-        async with httpx.AsyncClient() as client:
+        async with create_http_client() as client:
             response = await client.post(url, data=data)
             response.raise_for_status()
 
@@ -70,7 +71,7 @@ class ClientCredentialsAuth(AuthProvider):
         url = f"{self.base_url}/api/1.0/token-details"
         headers = {"Authorization": f"Bearer {access_token}"}
 
-        async with httpx.AsyncClient() as client:
+        async with create_http_client() as client:
             response = await client.get(url, headers=headers)
             response.raise_for_status()
 

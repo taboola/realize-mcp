@@ -76,7 +76,7 @@ class TestAuthorizationServerMetadataProxy:
         with patch("realize.oauth.metadata.config") as mock_config:
             mock_config.oauth_server_url = "https://auth.example.com"
 
-            with patch("realize.oauth.metadata.httpx.AsyncClient") as mock_client:
+            with patch("realize.oauth.metadata.create_http_client") as mock_client:
                 mock_instance = AsyncMock()
                 mock_instance.get.return_value = mock_response
                 mock_instance.__aenter__.return_value = mock_instance
@@ -118,7 +118,7 @@ class TestAuthorizationServerMetadataProxy:
         with patch("realize.oauth.metadata.config") as mock_config:
             mock_config.oauth_server_url = "https://auth.example.com"
 
-            with patch("realize.oauth.metadata.httpx.AsyncClient") as mock_client:
+            with patch("realize.oauth.metadata.create_http_client") as mock_client:
                 mock_instance = AsyncMock()
                 mock_instance.get.return_value = mock_response
                 mock_instance.__aenter__.return_value = mock_instance
@@ -156,7 +156,7 @@ class TestAuthorizationServerMetadataProxy:
         with patch("realize.oauth.metadata.config") as mock_config:
             mock_config.oauth_server_url = "https://auth.example.com"
 
-            with patch("realize.oauth.metadata.httpx.AsyncClient") as mock_client:
+            with patch("realize.oauth.metadata.create_http_client") as mock_client:
                 mock_instance = AsyncMock()
                 mock_instance.get.return_value = mock_response
                 mock_instance.__aenter__.return_value = mock_instance
@@ -212,7 +212,7 @@ class TestMetadataRouteHandlers:
         with patch("realize.oauth.metadata.config") as mock_config:
             mock_config.oauth_server_url = "https://auth.example.com"
 
-            with patch("realize.oauth.metadata.httpx.AsyncClient") as mock_client:
+            with patch("realize.oauth.metadata.create_http_client") as mock_client:
                 mock_instance = AsyncMock()
                 mock_instance.get.return_value = mock_response
                 mock_instance.__aenter__.return_value = mock_instance
@@ -234,7 +234,7 @@ class TestMetadataRouteHandlers:
         with patch("realize.oauth.metadata.config") as mock_config:
             mock_config.oauth_server_url = "https://auth.example.com"
 
-            with patch("realize.oauth.metadata.httpx.AsyncClient") as mock_client:
+            with patch("realize.oauth.metadata.create_http_client") as mock_client:
                 mock_instance = AsyncMock()
                 mock_instance.get.side_effect = Exception("Connection refused")
                 mock_instance.__aenter__.return_value = mock_instance

@@ -79,7 +79,7 @@ class TestProductionReadiness:
             assert 'required' in schema
     
     @pytest.mark.asyncio
-    @patch('realize.auth.httpx.AsyncClient')
+    @patch('realize.auth.create_http_client')
     async def test_authentication_flow(self, mock_client):
         """Test authentication flow works correctly with Token model."""
         # Mock successful auth response
@@ -107,7 +107,7 @@ class TestProductionReadiness:
         assert hasattr(config, 'log_level')
     
     @pytest.mark.asyncio
-    @patch('realize.client.httpx.AsyncClient')
+    @patch('realize.client.create_http_client')
     async def test_api_client_read_only_json_handling(self, mock_client):
         """Test API client returns raw JSON dictionaries for read operations."""
         # Mock successful API response
@@ -118,8 +118,9 @@ class TestProductionReadiness:
             ],
             "metadata": {"total": 1}
         }
+        mock_response.status_code = 200
         mock_response.raise_for_status.return_value = None
-        
+
         # Create an async context manager mock
         mock_context = Mock()
         mock_context.request = AsyncMock(return_value=mock_response)
@@ -136,7 +137,7 @@ class TestProductionReadiness:
         assert response["results"][0]["name"] == "Test Campaign"
     
     @pytest.mark.asyncio
-    @patch('realize.client.httpx.AsyncClient')
+    @patch('realize.client.create_http_client')
     async def test_api_client_error_handling(self, mock_client):
         """Test API client returns descriptive error on 401."""
         from httpx import HTTPStatusError

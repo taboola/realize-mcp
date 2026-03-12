@@ -4,6 +4,7 @@ from typing import List
 import json
 import httpx
 import mcp.types as types
+from realize.http import create_http_client
 from realize.auth import auth
 from realize.config import config
 
@@ -62,7 +63,7 @@ async def get_token_details() -> List[types.TextContent]:
                 ]
             url = f"{config.realize_base_url}/api/1.0/token-details"
             headers = {"Authorization": f"Bearer {token}"}
-            async with httpx.AsyncClient() as client:
+            async with create_http_client() as client:
                 response = await client.get(url, headers=headers)
                 response.raise_for_status()
                 details = response.json()
