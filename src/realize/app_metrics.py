@@ -1,6 +1,6 @@
 """Central Prometheus metric definitions for realize-mcp.
 
-All 7 metrics are defined here. The helper methods include a built-in
+All metrics are defined here. The helper methods include a built-in
 guard so callers never need to check ``enabled`` themselves.
 """
 from __future__ import annotations
@@ -29,19 +29,20 @@ class AppMetrics:
             self.api_requests_total = None
             self.api_request_latency_seconds = None
             self.api_errors_total = None
+            self.client_connections_total = None
             return
 
         # --- HTTP Transport Health ---
         self.http_requests_total = create_counter(
             "realize_mcp_http_requests_total",
             "Total HTTP requests to the MCP server",
-            ["method", "endpoint", "http_status", "client_name", "client_version"],
+            ["method", "endpoint", "http_status"],
             registry=registry,
         )
         self.http_request_latency_seconds = create_histogram(
             "realize_mcp_http_request_latency_seconds",
             "HTTP request latency in seconds",
-            ["endpoint", "client_name", "client_version"],
+            ["endpoint"],
             registry=registry,
         )
 
@@ -49,13 +50,21 @@ class AppMetrics:
         self.tool_calls_total = create_counter(
             "realize_mcp_tool_calls_total",
             "Total MCP tool calls",
-            ["tool_name", "status", "client_name", "client_version"],
+            ["tool_name", "status"],
             registry=registry,
         )
         self.tool_call_latency_seconds = create_histogram(
             "realize_mcp_tool_call_latency_seconds",
             "MCP tool call latency in seconds",
-            ["tool_name", "client_name", "client_version"],
+            ["tool_name"],
+            registry=registry,
+        )
+
+        # --- MCP Client Connections ---
+        self.client_connections_total = create_counter(
+            "realize_mcp_client_connections_total",
+            "Total MCP client connections by client name and version",
+            ["client_name", "client_version"],
             registry=registry,
         )
 
@@ -84,33 +93,37 @@ class AppMetrics:
     # ------------------------------------------------------------------
 
     def record_http_request(
-        self, method: str, endpoint: str, http_status: int,
-        client_name: str, client_version: str, duration: float,
+        self, method: str, endpoint: str, http_status: int, duration: float,
     ) -> None:
         if not self.enabled:
             return
         self.http_requests_total.labels(
             method=method, endpoint=endpoint, http_status=str(http_status),
-            client_name=client_name, client_version=client_version,
         ).inc()
         self.http_request_latency_seconds.labels(
-            endpoint=endpoint, client_name=client_name, client_version=client_version,
+            endpoint=endpoint,
         ).observe(duration)
 
     def record_tool_call(
-        self, tool_name: str, status: str,
-        client_name: str, client_version: str, duration: float,
+        self, tool_name: str, status: str, duration: float,
     ) -> None:
         if not self.enabled:
             return
         self.tool_calls_total.labels(
             tool_name=tool_name, status=status,
-            client_name=client_name, client_version=client_version,
         ).inc()
         self.tool_call_latency_seconds.labels(
             tool_name=tool_name,
-            client_name=client_name, client_version=client_version,
         ).observe(duration)
+
+    def record_client_connection(
+        self, client_name: str, client_version: str,
+    ) -> None:
+        if not self.enabled:
+            return
+        self.client_connections_total.labels(
+            client_name=client_name, client_version=client_version,
+        ).inc()
 
     def record_api_request(
         self, method: str, endpoint_pattern: str, http_status: int, duration: float,

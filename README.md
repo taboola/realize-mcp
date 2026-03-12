@@ -314,10 +314,11 @@ Enabled by default (`METRICS_ENABLED=true`). Exposed at `GET /metrics` in Stream
 
 | Metric | Type | Labels |
 |--------|------|--------|
-| `realize_mcp_http_requests_total` | Counter | `method`, `endpoint`, `http_status`, `client_name`, `client_version` |
-| `realize_mcp_http_request_latency_seconds` | Histogram | `endpoint`, `client_name`, `client_version` |
-| `realize_mcp_tool_calls_total` | Counter | `tool_name`, `status`, `client_name`, `client_version` |
-| `realize_mcp_tool_call_latency_seconds` | Histogram | `tool_name`, `client_name`, `client_version` |
+| `realize_mcp_http_requests_total` | Counter | `method`, `endpoint`, `http_status` |
+| `realize_mcp_http_request_latency_seconds` | Histogram | `endpoint` |
+| `realize_mcp_tool_calls_total` | Counter | `tool_name`, `status` |
+| `realize_mcp_tool_call_latency_seconds` | Histogram | `tool_name` |
+| `realize_mcp_client_connections_total` | Counter | `client_name`, `client_version` |
 | `realize_mcp_api_requests_total` | Counter | `method`, `endpoint_pattern`, `http_status` |
 | `realize_mcp_api_request_latency_seconds` | Histogram | `method`, `endpoint_pattern` |
 | `realize_mcp_api_errors_total` | Counter | `method`, `endpoint_pattern`, `error_type` |
