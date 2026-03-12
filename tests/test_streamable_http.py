@@ -221,7 +221,7 @@ class TestTransportSelection:
         """Test that streamable-http transport requires OAuth configuration."""
         from realize.config import Config
 
-        with pytest.raises(ValueError, match="OAUTH_SERVER_URL"):
+        with pytest.raises(ValueError, match="OAUTH_DCR_CLIENT_ID"):
             Config(
                 mcp_transport="streamable-http",
                 _env_file=None,

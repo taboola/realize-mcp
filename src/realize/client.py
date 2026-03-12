@@ -5,6 +5,7 @@ import time
 from typing import Any, Dict, Optional
 import httpx
 from realize.auth import AuthProvider, get_auth_provider
+from realize.http import create_http_client
 from realize.config import config
 
 logger = logging.getLogger(__name__)
@@ -102,7 +103,7 @@ class RealizeClient:
         start = time.monotonic()
 
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with create_http_client(timeout=self.timeout) as client:
                 response = await client.request(
                     method=method,
                     url=url,
