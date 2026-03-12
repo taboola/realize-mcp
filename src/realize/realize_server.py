@@ -10,7 +10,6 @@ from mcp.server.models import InitializationOptions
 import mcp.server.stdio
 import mcp.types as types
 from realize.config import config
-from realize.transports.client_context import set_client_info
 
 # Configure logging
 logging.basicConfig(level=getattr(logging, config.log_level))
@@ -23,7 +22,6 @@ server = Server("realize-mcp")
 async def handle_list_tools() -> list[types.Tool]:
     """List available MCP tools from registry."""
     from realize.tools.registry import get_all_tools
-    _get_client_info()
 
     tools = []
     for tool_name, tool_config in get_all_tools().items():
@@ -36,22 +34,6 @@ async def handle_list_tools() -> list[types.Tool]:
         )
     
     return tools
-
-def _get_client_info() -> tuple[str, str]:
-    """Extract client name and version from the MCP session handshake.
-
-    Returns ("unknown", "?") when no session or client info is available.
-    """
-    try:
-        session = server.request_context.session
-        client_info = session.client_params.clientInfo
-        name = getattr(client_info, "name", "unknown") or "unknown"
-        version = getattr(client_info, "version", "?") or "?"
-    except (AttributeError, LookupError):
-        name, version = "unknown", "?"
-    set_client_info(name, version)
-    return (name, version)
-
 
 @server.call_tool()
 async def handle_call_tool(
@@ -70,7 +52,6 @@ async def handle_call_tool(
 
     tool_config = registry[name]
     handler_path = tool_config["handler"]
-    client_name, client_version = _get_client_info()
     start = time.monotonic()
 
     try:
@@ -125,12 +106,12 @@ async def handle_call_tool(
             raise ValueError(f"Handler not implemented: {handler_path}")
 
         duration = time.monotonic() - start
-        metrics.record_tool_call(name, "success", client_name, client_version, duration)
+        metrics.record_tool_call(name, "success", duration)
         return result
 
     except Exception as e:
         duration = time.monotonic() - start
-        metrics.record_tool_call(name, "error", client_name, client_version, duration)
+        metrics.record_tool_call(name, "error", duration)
         logger.error(f"Tool execution failed for {name}: {e}")
         return [
             types.TextContent(

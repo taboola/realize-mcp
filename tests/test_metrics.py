@@ -67,13 +67,17 @@ class TestAppMetricsDisabled:
         assert self.m.api_requests_total is None
         assert self.m.api_request_latency_seconds is None
         assert self.m.api_errors_total is None
+        assert self.m.client_connections_total is None
 
     def test_record_http_request_noop(self):
         # Should not raise
-        self.m.record_http_request("GET", "/health", 200, "unknown", "unknown", 0.01)
+        self.m.record_http_request("GET", "/health", 200, 0.01)
 
     def test_record_tool_call_noop(self):
-        self.m.record_tool_call("get_campaign", "success", "c", "1", 0.1)
+        self.m.record_tool_call("get_campaign", "success", 0.1)
+
+    def test_record_client_connection_noop(self):
+        self.m.record_client_connection("cursor", "0.45.0")
 
     def test_record_api_request_noop(self):
         self.m.record_api_request("GET", "/{account_id}/campaigns", 200, 0.05)
@@ -93,39 +97,44 @@ class TestAppMetricsEnabled:
         self.m = AppMetrics(enabled=True, registry=self.registry)
 
     def test_record_http_request_increments_counter(self):
-        self.m.record_http_request("GET", "/health", 200, "unknown", "unknown", 0.01)
+        self.m.record_http_request("GET", "/health", 200, 0.01)
         value = self.registry.get_sample_value(
             "realize_mcp_http_requests_total",
-            {"method": "GET", "endpoint": "/health", "http_status": "200",
-             "client_name": "unknown", "client_version": "unknown"},
+            {"method": "GET", "endpoint": "/health", "http_status": "200"},
         )
         assert value == 1.0
 
     def test_record_http_request_observes_histogram(self):
-        self.m.record_http_request("POST", "/mcp", 200, "test", "1.0", 0.5)
+        self.m.record_http_request("POST", "/mcp", 200, 0.5)
         count = self.registry.get_sample_value(
             "realize_mcp_http_request_latency_seconds_count",
-            {"endpoint": "/mcp", "client_name": "test", "client_version": "1.0"},
+            {"endpoint": "/mcp"},
         )
         assert count == 1.0
 
     def test_record_tool_call_increments_counter(self):
-        self.m.record_tool_call("get_campaign", "success", "cursor", "0.1", 0.2)
+        self.m.record_tool_call("get_campaign", "success", 0.2)
         value = self.registry.get_sample_value(
             "realize_mcp_tool_calls_total",
-            {"tool_name": "get_campaign", "status": "success",
-             "client_name": "cursor", "client_version": "0.1"},
+            {"tool_name": "get_campaign", "status": "success"},
         )
         assert value == 1.0
 
     def test_record_tool_call_observes_histogram(self):
-        self.m.record_tool_call("get_campaign", "success", "cursor", "0.1", 0.2)
+        self.m.record_tool_call("get_campaign", "success", 0.2)
         count = self.registry.get_sample_value(
             "realize_mcp_tool_call_latency_seconds_count",
-            {"tool_name": "get_campaign",
-             "client_name": "cursor", "client_version": "0.1"},
+            {"tool_name": "get_campaign"},
         )
         assert count == 1.0
+
+    def test_record_client_connection_increments_counter(self):
+        self.m.record_client_connection("cursor", "0.45.0")
+        value = self.registry.get_sample_value(
+            "realize_mcp_client_connections_total",
+            {"client_name": "cursor", "client_version": "0.45.0"},
+        )
+        assert value == 1.0
 
     def test_record_api_request_increments_counter(self):
         self.m.record_api_request("GET", "/{account_id}/campaigns", 200, 0.1)
@@ -161,48 +170,6 @@ class TestAppMetricsEnabled:
              "http_status": "201"},
         )
         assert value == 5.0
-
-
-# ---------------------------------------------------------------------------
-# _get_client_info tests
-# ---------------------------------------------------------------------------
-
-
-class TestGetClientInfo:
-    def test_returns_unknown_when_no_session(self):
-        from realize.realize_server import _get_client_info, server
-        from realize.transports.client_context import get_client_info, clear_client_info
-        # request_context is not set outside of a request, so AttributeError
-        name, version = _get_client_info()
-        assert name == "unknown"
-        assert version == "?"
-        # Verify context vars were also set
-        ctx_name, ctx_version = get_client_info()
-        assert ctx_name == "unknown"
-        assert ctx_version == "?"
-        clear_client_info()
-
-    def test_returns_real_values_when_available(self):
-        from realize.realize_server import _get_client_info, server
-        from realize.transports.client_context import get_client_info, clear_client_info
-
-        mock_info = MagicMock()
-        mock_info.name = "cursor"
-        mock_info.version = "0.45.0"
-        mock_session = MagicMock()
-        mock_session.client_params.clientInfo = mock_info
-        mock_ctx = MagicMock()
-        mock_ctx.session = mock_session
-
-        with patch.object(type(server), "request_context", new_callable=lambda: property(lambda self: mock_ctx)):
-            name, version = _get_client_info()
-        assert name == "cursor"
-        assert version == "0.45.0"
-        # Verify context vars were also set
-        ctx_name, ctx_version = get_client_info()
-        assert ctx_name == "cursor"
-        assert ctx_version == "0.45.0"
-        clear_client_info()
 
 
 # ---------------------------------------------------------------------------
@@ -245,7 +212,7 @@ class TestMetricsEndpoint:
 
 
 class TestMetricsMiddleware:
-    def test_middleware_records_request_with_default_client(self):
+    def test_middleware_records_request(self):
         from prometheus_client import CollectorRegistry
         from realize.transports.middleware import MetricsMiddleware
         from starlette.applications import Starlette
@@ -269,40 +236,7 @@ class TestMetricsMiddleware:
 
         count = registry.get_sample_value(
             "realize_mcp_http_requests_total",
-            {"method": "GET", "endpoint": "/hello", "http_status": "200",
-             "client_name": "unknown", "client_version": "?"},
-        )
-        assert count == 1.0
-
-    def test_middleware_reads_client_context(self):
-        from prometheus_client import CollectorRegistry
-        from realize.transports.middleware import MetricsMiddleware
-        from realize.transports.client_context import set_client_info
-        from starlette.applications import Starlette
-        from starlette.responses import PlainTextResponse
-        from starlette.routing import Route
-        from starlette.testclient import TestClient
-
-        registry = CollectorRegistry()
-        test_metrics = AppMetrics(enabled=True, registry=registry)
-
-        async def mcp_endpoint(request):
-            # Simulate MCP handler setting client info
-            set_client_info("cursor", "0.45.0")
-            return PlainTextResponse("ok")
-
-        inner_app = Starlette(routes=[Route("/mcp", mcp_endpoint, methods=["POST"])])
-        wrapped = MetricsMiddleware(inner_app)
-
-        with patch("realize.transports.middleware.metrics", test_metrics):
-            client = TestClient(wrapped)
-            resp = client.post("/mcp")
-            assert resp.status_code == 200
-
-        count = registry.get_sample_value(
-            "realize_mcp_http_requests_total",
-            {"method": "POST", "endpoint": "/mcp", "http_status": "200",
-             "client_name": "cursor", "client_version": "0.45.0"},
+            {"method": "GET", "endpoint": "/hello", "http_status": "200"},
         )
         assert count == 1.0
 
@@ -329,32 +263,76 @@ class TestMetricsMiddleware:
 
         count = registry.get_sample_value(
             "realize_mcp_http_requests_total",
-            {"method": "GET", "endpoint": "/metrics", "http_status": "200",
-             "client_name": "unknown", "client_version": "?"},
+            {"method": "GET", "endpoint": "/metrics", "http_status": "200"},
         )
         # Should be None (not recorded) since /metrics is skipped
         assert count is None
 
 
 # ---------------------------------------------------------------------------
-# client_context tests
+# _extract_client_info_from_body tests
 # ---------------------------------------------------------------------------
 
 
-class TestClientContext:
-    def test_set_and_get(self):
-        from realize.transports.client_context import set_client_info, get_client_info, clear_client_info
-        set_client_info("claude-code", "1.2.3")
-        assert get_client_info() == ("claude-code", "1.2.3")
-        clear_client_info()
+class TestExtractClientInfoFromBody:
+    def setup_method(self):
+        from realize.transports.streamable_http_server import StreamableHTTPEndpoint
+        self.extract = StreamableHTTPEndpoint._extract_client_info_from_body
 
-    def test_defaults_when_unset(self):
-        from realize.transports.client_context import get_client_info, clear_client_info
-        clear_client_info()
-        assert get_client_info() == ("unknown", "?")
+    def test_extracts_from_initialize(self):
+        import json
+        body = json.dumps({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "clientInfo": {"name": "cursor", "version": "0.45.0"},
+                "protocolVersion": "2025-03-26",
+                "capabilities": {},
+            },
+        }).encode()
+        result = self.extract(body)
+        assert result == ("cursor", "0.45.0")
 
-    def test_clear(self):
-        from realize.transports.client_context import set_client_info, get_client_info, clear_client_info
-        set_client_info("test", "1.0")
-        clear_client_info()
-        assert get_client_info() == ("unknown", "?")
+    def test_ignores_non_initialize(self):
+        import json
+        body = json.dumps({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {"name": "get_campaign"},
+        }).encode()
+        assert self.extract(body) is None
+
+    def test_handles_empty_body(self):
+        assert self.extract(b"") is None
+
+    def test_handles_malformed_json(self):
+        assert self.extract(b"not json at all") is None
+
+    def test_missing_client_name_returns_none(self):
+        import json
+        body = json.dumps({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "clientInfo": {"version": "0.45.0"},
+                "protocolVersion": "2025-03-26",
+            },
+        }).encode()
+        assert self.extract(body) is None
+
+    def test_missing_version_defaults_to_question_mark(self):
+        import json
+        body = json.dumps({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "clientInfo": {"name": "cursor"},
+                "protocolVersion": "2025-03-26",
+            },
+        }).encode()
+        result = self.extract(body)
+        assert result == ("cursor", "?")
