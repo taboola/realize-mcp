@@ -217,6 +217,16 @@ class TestErrorHandling:
             assert "failed" in result[0].text.lower() or "error" in result[0].text.lower()
     
     @pytest.mark.asyncio
+    async def test_search_accounts_pagination_forwarded(self):
+        """Test that page and page_size are forwarded through the dispatch layer."""
+        with patch('realize.tools.account_handlers.client.get', new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = {"results": []}
+
+            result = await handle_call_tool("search_accounts", {"query": "test", "page": 2, "page_size": 5})
+
+            mock_get.assert_called_once_with("/advertisers", params={"search_text": "test", "page": 2, "page_size": 5})
+
+    @pytest.mark.asyncio
     async def test_malformed_arguments_handling(self):
         """Test handling of malformed arguments."""
         # Test with required parameter missing
