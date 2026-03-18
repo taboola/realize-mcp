@@ -1,4 +1,5 @@
 """Centralized registry for all MCP tools."""
+import copy
 
 # Tool Registry - Add new tools here
 TOOL_REGISTRY = {
@@ -335,15 +336,19 @@ TOOL_REGISTRY = {
 
 
 def get_all_tools():
-    """Get all registered tools."""
-    import copy
-    return copy.deepcopy(TOOL_REGISTRY)
+    """Get all registered tools, filtered by transport mode."""
+    from realize.config import config
+
+    tools = TOOL_REGISTRY
+    if config.mcp_transport != "stdio":
+        tools = {name: tool for name, tool in tools.items()
+                 if tool.get("category") != "authentication"}
+    return copy.deepcopy(tools)
 
 
 def get_tools_by_category(category: str):
     """Get tools filtered by category."""
-    import copy
-    return {name: copy.deepcopy(tool) for name, tool in TOOL_REGISTRY.items() 
+    return {name: copy.deepcopy(tool) for name, tool in TOOL_REGISTRY.items()
             if tool.get("category") == category}
 
 
