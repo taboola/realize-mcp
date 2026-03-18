@@ -4,7 +4,7 @@ import sys
 import pathlib
 sys.path.append(str(pathlib.Path(__file__).parent.parent / "src"))
 from unittest.mock import patch, Mock
-from realize.tools.registry import get_all_tools, get_tools_by_category, get_tool_categories
+from realize.tools.registry import get_all_tools, get_tools_by_category, get_tool_categories, TOOL_REGISTRY
 
 
 class TestToolRegistryEdgeCases:
@@ -67,10 +67,12 @@ class TestToolRegistryEdgeCases:
                 assert req_field in schema['properties'], \
                     f"Tool {tool_name} required field {req_field} not in properties"
     
-    def test_tool_handlers_format_consistent(self):
+    @patch("realize.config.config")
+    def test_tool_handlers_format_consistent(self, mock_config):
         """Test that tool handler paths follow consistent format."""
+        mock_config.mcp_transport = "stdio"
         tools = get_all_tools()
-        
+
         expected_patterns = [
             'auth_handlers.',
             'account_handlers.',
@@ -90,8 +92,10 @@ class TestToolRegistryEdgeCases:
             parts = handler.split('.')
             assert len(parts) >= 2, f"Tool {tool_name} handler {handler} should have module.function format"
     
-    def test_categories_comprehensive(self):
+    @patch("realize.config.config")
+    def test_categories_comprehensive(self, mock_config):
         """Test that all categories are properly defined."""
+        mock_config.mcp_transport = "stdio"
         categories = get_tool_categories()
         
         # Should have all expected categories
@@ -105,8 +109,10 @@ class TestToolRegistryEdgeCases:
             tools = get_tools_by_category(category)
             assert len(tools) > 0, f"Category {category} has no tools"
     
-    def test_category_filtering_works(self):
+    @patch("realize.config.config")
+    def test_category_filtering_works(self, mock_config):
         """Test that category filtering returns correct tools."""
+        mock_config.mcp_transport = "stdio"
         all_tools = get_all_tools()
         categories = get_tool_categories()
         
@@ -255,6 +261,44 @@ class TestToolDescriptions:
                         f"Tool {tool_name} property {prop_name} description should be string"
                     assert len(prop_config['description']) > 0, \
                         f"Tool {tool_name} property {prop_name} description is empty"
+
+
+class TestToolTransportFiltering:
+    """Test that auth tools are filtered based on transport mode."""
+
+    @patch("realize.config.config")
+    def test_stdio_includes_auth_tools(self, mock_config):
+        """Auth tools should be present in stdio mode."""
+        mock_config.mcp_transport = "stdio"
+        tools = get_all_tools()
+
+        auth_tools = {n for n, t in tools.items() if t["category"] == "authentication"}
+        assert "get_auth_token" in auth_tools
+        assert "get_token_details" in auth_tools
+
+    @patch("realize.config.config")
+    def test_streamable_http_excludes_auth_tools(self, mock_config):
+        """Auth tools should be absent in streamable-http mode."""
+        mock_config.mcp_transport = "streamable-http"
+        tools = get_all_tools()
+
+        auth_tools = {n for n, t in tools.items() if t["category"] == "authentication"}
+        assert len(auth_tools) == 0
+        assert "get_auth_token" not in tools
+        assert "get_token_details" not in tools
+
+    @patch("realize.config.config")
+    def test_streamable_http_preserves_non_auth_tools(self, mock_config):
+        """Non-auth tools should still be present in streamable-http mode."""
+        mock_config.mcp_transport = "streamable-http"
+        tools = get_all_tools()
+
+        non_auth_count = sum(
+            1 for t in TOOL_REGISTRY.values() if t["category"] != "authentication"
+        )
+        assert len(tools) == non_auth_count
+        assert "search_accounts" in tools
+        assert "get_all_campaigns" in tools
 
 
 if __name__ == "__main__":

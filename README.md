@@ -121,15 +121,15 @@ claude mcp add --transport http --callback-port 3000 realize-mcp https://your-mc
 
 ## Tools Reference
 
-> All 12 tools are **read-only**. No create/update/delete operations.
+> All tools are **read-only**. No create/update/delete operations.
 
-### Authentication
+### Authentication (stdio only)
 
-**`get_auth_token`** — Authenticate with Realize API.
-No parameters. In stdio mode, uses client credentials (`REALIZE_CLIENT_ID`/`REALIZE_CLIENT_SECRET`). In Streamable HTTP mode, confirms the OAuth 2.1 session token is active.
+These tools are only available in stdio mode, where the server manages its own client credentials. In Streamable HTTP mode, authentication is handled at the transport layer via OAuth 2.1 so these tools are excluded.
+
+**`get_auth_token`** — Authenticate with Realize API using client credentials (`REALIZE_CLIENT_ID`/`REALIZE_CLIENT_SECRET`).
 
 **`get_token_details`** — Get details about the current authentication token.
-No parameters. Works with both stdio (client credentials token) and Streamable HTTP (OAuth session token).
 
 ### Account Management
 
