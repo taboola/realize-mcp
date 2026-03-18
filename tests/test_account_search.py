@@ -138,6 +138,18 @@ class TestAccountSearch:
             mock_get.assert_called_once_with("/advertisers", params={"id": "00123", "page": 1, "page_size": 10})
     
     @pytest.mark.asyncio
+    async def test_search_accounts_pagination(self):
+        """Test that page and page_size parameters are forwarded."""
+        mock_response = {"results": []}
+
+        with patch.object(RealizeClient, 'get', new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = mock_response
+
+            result = await search_accounts("test", page=2, page_size=5)
+
+            mock_get.assert_called_once_with("/advertisers", params={"search_text": "test", "page": 2, "page_size": 5})
+
+    @pytest.mark.asyncio
     async def test_search_accounts_special_characters(self):
         """Test query with special characters."""
         mock_response = {"results": []}

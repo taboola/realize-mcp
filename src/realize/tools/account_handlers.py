@@ -75,7 +75,9 @@ async def search_accounts(query: str, page: int = 1, page_size: int = 10) -> Lis
                     account_ids.append(result["account_id"])
             
             # Create formatted response with guidance
-            response_text = f"🎯 ACCOUNT SEARCH RESULTS (Page {page}, Page Size {min(page_size, 10)})\n"
+            metadata = data.get("metadata", {})
+            total = metadata.get("total", len(data.get("results", [])))
+            response_text = f"🎯 ACCOUNT SEARCH RESULTS (Page {page}, Page Size {min(page_size, 10)}, Total: {total})\n"
             
             if account_ids:
                 response_text += "📋 ACCOUNT_ID VALUES FOR OTHER TOOLS:\n"
