@@ -2,7 +2,6 @@
 """Realize MCP Server - Main entry point."""
 
 import asyncio
-import logging
 import time
 from typing import Any
 from mcp.server import Server, NotificationOptions
@@ -10,11 +9,12 @@ from mcp.server.models import InitializationOptions
 import mcp.server.stdio
 import mcp.types as types
 from realize.config import config
+from realize.logger import Logger
 from realize.tools.errors import ToolInputError, classify_api_error
 
-# Configure logging
-logging.basicConfig(level=getattr(logging, config.log_level))
-logger = logging.getLogger(__name__)
+# Configure logging with log4j-style format
+_root_logger = Logger(name=__name__, level=config.log_level)
+logger = _root_logger.logger
 
 # Create server instance
 server = Server("realize-mcp")
@@ -158,6 +158,7 @@ async def run_http_server():
         host="0.0.0.0",
         port=config.mcp_server_port,
         log_level=config.log_level.lower(),
+        log_config=None,  # Preserve our log4j-style dictConfig
         proxy_headers=True,  # Respect X-Forwarded-Proto when available
     )
     server_instance = uvicorn.Server(uvicorn_config)
