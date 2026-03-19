@@ -10,6 +10,7 @@ from mcp.server.models import InitializationOptions
 import mcp.server.stdio
 import mcp.types as types
 from realize.config import config
+from realize.tools.errors import ToolInputError, classify_api_error
 
 # Configure logging
 logging.basicConfig(level=getattr(logging, config.log_level))
@@ -113,16 +114,16 @@ async def handle_call_tool(
         metrics.record_tool_call(name, "success", duration)
         return result
 
+    except ToolInputError as e:
+        duration = time.monotonic() - start
+        metrics.record_tool_call(name, "error", duration)
+        logger.debug(f"Validation error for {name}: {e}")
+        raise  # Local validation — message is already client-facing
     except Exception as e:
         duration = time.monotonic() - start
         metrics.record_tool_call(name, "error", duration)
         logger.error(f"Tool execution failed for {name}: {e}")
-        return [
-            types.TextContent(
-                type="text",
-                text=f"Tool execution failed: {str(e)}"
-            )
-        ]
+        raise Exception(classify_api_error(e)) from e
 
 
 async def run_stdio_server():

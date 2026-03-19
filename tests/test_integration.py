@@ -8,6 +8,7 @@ sys.path.append(str(pathlib.Path(__file__).parent.parent / "src"))
 from datetime import datetime, timedelta
 from realize.tools.registry import get_all_tools
 from unittest.mock import Mock, patch, AsyncMock
+from realize.tools.errors import ToolInputError
 from realize.realize_server import handle_list_tools, handle_call_tool
 
 
@@ -190,29 +191,25 @@ class TestReadOnlyIntegration:
         assert len(result) == 1
         assert "Campaign History Report CSV" in result[0].text
     
-    @pytest.mark.asyncio  
+    @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.get')
     async def test_error_handling_integration(self, mock_get):
-        """Test error handling integration across all tools."""
-        # Test that all tools handle errors gracefully
+        """Test error handling integration across all tools — errors propagate."""
         error_tools = [
             ("get_all_campaigns", {"account_id": "test"}),
             ("get_campaign", {"account_id": "test", "campaign_id": "123"}),
             ("get_campaign_items", {"account_id": "test", "campaign_id": "123"})
         ]
-        
+
         for tool_name, args in error_tools:
-            # Configure mock for each tool test
             mock_get.side_effect = Exception("API Error")
-            
-            result = await handle_call_tool(tool_name, args)
-            assert len(result) == 1
-            assert "failed" in result[0].text.lower() or "error" in result[0].text.lower()
-    
+
+            with pytest.raises(Exception, match="An unexpected error occurred"):
+                await handle_call_tool(tool_name, args)
+
     @pytest.mark.asyncio
     async def test_parameter_validation_integration(self):
-        """Test parameter validation across all tools."""
-        # Test tools with missing required parameters
+        """Test parameter validation across all tools — raises ToolInputError."""
         validation_tests = [
             ("get_all_campaigns", {}, "account_id is required"),
             ("get_campaign", {"account_id": "test"}, "campaign_id"),
@@ -222,11 +219,10 @@ class TestReadOnlyIntegration:
             ("get_top_campaign_content_report", {"account_id": "test"}, "start_date"),
             ("get_campaign_history_report", {"account_id": "test"}, "start_date")
         ]
-        
+
         for tool_name, args, expected_error in validation_tests:
-            result = await handle_call_tool(tool_name, args)
-            assert len(result) == 1
-            assert expected_error in result[0].text
+            with pytest.raises(ToolInputError, match=expected_error):
+                await handle_call_tool(tool_name, args)
     
     @pytest.mark.asyncio
     async def test_tool_categories_integration(self):
