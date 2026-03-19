@@ -6,6 +6,7 @@ import pathlib
 sys.path.append(str(pathlib.Path(__file__).parent.parent / "src"))
 from unittest.mock import patch, AsyncMock
 from realize.tools.account_handlers import search_accounts
+from realize.tools.errors import ToolInputError
 from realize.client import RealizeClient
 
 
@@ -40,7 +41,7 @@ class TestAccountSearch:
             assert "Test Account" in result[0].text
             assert "📊 FULL DETAILS:" in result[0].text
             mock_get.assert_called_once_with("/advertisers", params={"id": "12345", "page": 1, "page_size": 10})
-    
+
     @pytest.mark.asyncio
     async def test_search_accounts_text_query(self):
         """Test searching with text query."""
@@ -53,12 +54,12 @@ class TestAccountSearch:
                 }
             ]
         }
-        
+
         with patch.object(RealizeClient, 'get', new_callable=AsyncMock) as mock_get:
             mock_get.return_value = mock_response
-            
+
             result = await search_accounts("Marketing")
-            
+
             assert len(result) == 1
             assert hasattr(result[0], 'type')
             assert hasattr(result[0], 'text')
@@ -73,41 +74,29 @@ class TestAccountSearch:
     @pytest.mark.asyncio
     async def test_search_accounts_empty_query(self):
         """Test with empty query string."""
-        result = await search_accounts("")
-        
-        assert len(result) == 1
-        assert hasattr(result[0], 'text')
-        assert "Error: Query parameter cannot be empty" in result[0].text
-    
+        with pytest.raises(ToolInputError, match="Query parameter cannot be empty"):
+            await search_accounts("")
+
     @pytest.mark.asyncio
     async def test_search_accounts_whitespace_query(self):
         """Test with whitespace-only query."""
-        result = await search_accounts("   ")
-        
-        assert len(result) == 1
-        assert hasattr(result[0], 'text')
-        assert "Error: Query parameter cannot be empty" in result[0].text
-    
+        with pytest.raises(ToolInputError, match="Query parameter cannot be empty"):
+            await search_accounts("   ")
+
     @pytest.mark.asyncio
     async def test_search_accounts_none_query(self):
         """Test with None query."""
-        result = await search_accounts(None)
-        
-        assert len(result) == 1
-        assert hasattr(result[0], 'text')
-        assert "Error: Query parameter cannot be empty" in result[0].text
-    
+        with pytest.raises(ToolInputError, match="Query parameter cannot be empty"):
+            await search_accounts(None)
+
     @pytest.mark.asyncio
     async def test_search_accounts_api_error(self):
-        """Test error handling when API call fails."""
+        """Test error handling when API call fails — exceptions propagate."""
         with patch.object(RealizeClient, 'get', new_callable=AsyncMock) as mock_get:
             mock_get.side_effect = Exception("API Error")
-            
-            result = await search_accounts("test")
-            
-            assert len(result) == 1
-            assert hasattr(result[0], 'text')
-            assert "Failed to search accounts: API Error" in result[0].text
+
+            with pytest.raises(Exception, match="API Error"):
+                await search_accounts("test")
     
     @pytest.mark.asyncio
     async def test_search_accounts_mixed_alphanumeric(self):
