@@ -1,7 +1,7 @@
 """Tests for OAuth 2.1 metadata endpoints (RFC 8414 and RFC 9728)."""
 import pathlib
 import sys
-sys.path.append(str(pathlib.Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / "src"))
 
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
@@ -60,7 +60,7 @@ class TestAuthorizationServerMetadataProxy:
 
     @pytest.mark.asyncio
     async def test_proxies_required_fields(self):
-        """Verify required RFC 8414 fields are included; only registration_endpoint is rewritten."""
+        """Verify required RFC 8414 fields are included; issuer and registration_endpoint are rewritten."""
         upstream_metadata = {
             "issuer": "https://auth.example.com",
             "authorization_endpoint": "https://auth.example.com/authorize",
@@ -85,13 +85,13 @@ class TestAuthorizationServerMetadataProxy:
 
                 metadata = await proxy_authorization_server_metadata("https://mcp.example.com")
 
-                # Required fields preserved
-                assert metadata["issuer"] == "https://auth.example.com"
+                # issuer is rewritten to MCP server (RFC 8414 Section 3.3)
+                assert metadata["issuer"] == "https://mcp.example.com"
                 assert metadata["response_types_supported"] == ["code"]
                 # authorization_endpoint and token_endpoint pass through from upstream
                 assert metadata["authorization_endpoint"] == "https://auth.example.com/authorize"
                 assert metadata["token_endpoint"] == "https://auth.example.com/token"
-                # Only registration_endpoint is rewritten to MCP server
+                # registration_endpoint is rewritten to MCP server
                 assert metadata["registration_endpoint"] == "https://mcp.example.com/register"
                 # Extra fields are preserved (not filtered)
                 assert metadata["extra_field"] == "should_be_preserved"
@@ -138,6 +138,38 @@ class TestAuthorizationServerMetadataProxy:
                 assert metadata["code_challenge_methods_supported"] == ["S256"]
                 # Auth methods overridden based on DCR client type (no secret = public client)
                 assert metadata["token_endpoint_auth_methods_supported"] == ["none"]
+
+    @pytest.mark.asyncio
+    async def test_issuer_overridden_to_mcp_server(self):
+        """Verify issuer from upstream is replaced with MCP server URL (RFC 8414 Section 3.3)."""
+        upstream_metadata = {
+            "issuer": "https://totally-different-auth.example.com/auth",
+            "authorization_endpoint": "https://totally-different-auth.example.com/auth/authorize",
+            "token_endpoint": "https://totally-different-auth.example.com/auth/token",
+            "response_types_supported": ["code"],
+        }
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = upstream_metadata
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("realize.oauth.metadata.config") as mock_config:
+            mock_config.oauth_server_url = "https://totally-different-auth.example.com/auth"
+
+            with patch("realize.oauth.metadata.create_http_client") as mock_client:
+                mock_instance = AsyncMock()
+                mock_instance.get.return_value = mock_response
+                mock_instance.__aenter__.return_value = mock_instance
+                mock_instance.__aexit__.return_value = None
+                mock_client.return_value = mock_instance
+
+                metadata = await proxy_authorization_server_metadata("https://mcp.example.com")
+
+                # issuer MUST match the MCP server URL, not the upstream auth server
+                assert metadata["issuer"] == "https://mcp.example.com"
+                # auth endpoints still point upstream
+                assert metadata["authorization_endpoint"] == "https://totally-different-auth.example.com/auth/authorize"
+                assert metadata["token_endpoint"] == "https://totally-different-auth.example.com/auth/token"
 
     @pytest.mark.asyncio
     async def test_fetches_from_correct_url(self):

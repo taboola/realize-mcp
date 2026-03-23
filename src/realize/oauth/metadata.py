@@ -53,6 +53,10 @@ async def proxy_authorization_server_metadata(base_url: str) -> dict:
         response.raise_for_status()
         metadata = response.json()
 
+    # Override issuer to match this server's URL (RFC 8414 Section 3.3 requires
+    # issuer to match the URL the client used to fetch this metadata)
+    metadata["issuer"] = base_url
+
     # Override registration_endpoint (upstream doesn't support RFC 7591)
     metadata["registration_endpoint"] = f"{base_url}/register"
 
