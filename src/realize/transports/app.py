@@ -12,6 +12,7 @@ from ..oauth.routes import (
     protected_resource_metadata_handler,
     authorization_server_metadata_handler,
     register_handler,
+    token_proxy_handler,
 )
 from .streamable_http_server import (
     create_streamable_http_session_manager,
@@ -75,6 +76,7 @@ def create_app() -> Starlette:
             methods=["GET"],
         ),
         Route("/register", register_handler, methods=["POST"]),
+        Route("/token", token_proxy_handler, methods=["POST"]),
         Route("/mcp", streamable_endpoint),
     ]
 

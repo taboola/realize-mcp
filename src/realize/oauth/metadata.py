@@ -60,6 +60,11 @@ async def proxy_authorization_server_metadata(base_url: str) -> dict:
     # Override registration_endpoint (upstream doesn't support RFC 7591)
     metadata["registration_endpoint"] = f"{base_url}/register"
 
+    # Override token_endpoint so external clients (e.g. claude.ai) can reach it
+    # via the MCP server proxy, since the upstream auth server may be on an
+    # internal network inaccessible to the client.
+    metadata["token_endpoint"] = f"{base_url}/token"
+
     # Override to "none" only — MCP clients are public (PKCE, no client secret).
     # Upstream advertises client_secret_basic/post too, but those exist for
     # M2M flows and can't be removed server-side.

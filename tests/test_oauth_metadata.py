@@ -88,9 +88,10 @@ class TestAuthorizationServerMetadataProxy:
                 # issuer is rewritten to MCP server (RFC 8414 Section 3.3)
                 assert metadata["issuer"] == "https://mcp.example.com"
                 assert metadata["response_types_supported"] == ["code"]
-                # authorization_endpoint and token_endpoint pass through from upstream
+                # authorization_endpoint passes through from upstream
                 assert metadata["authorization_endpoint"] == "https://auth.example.com/authorize"
-                assert metadata["token_endpoint"] == "https://auth.example.com/token"
+                # token_endpoint is rewritten to MCP server (proxied to upstream)
+                assert metadata["token_endpoint"] == "https://mcp.example.com/token"
                 # registration_endpoint is rewritten to MCP server
                 assert metadata["registration_endpoint"] == "https://mcp.example.com/register"
                 # Extra fields are preserved (not filtered)
@@ -129,9 +130,10 @@ class TestAuthorizationServerMetadataProxy:
 
                 # registration_endpoint is overridden to MCP server
                 assert metadata["registration_endpoint"] == "https://mcp.example.com/register"
-                # authorization_endpoint and token_endpoint pass through from upstream
+                # authorization_endpoint passes through from upstream
                 assert metadata["authorization_endpoint"] == "https://auth.example.com/authorize"
-                assert metadata["token_endpoint"] == "https://auth.example.com/token"
+                # token_endpoint is rewritten to MCP server (proxied to upstream)
+                assert metadata["token_endpoint"] == "https://mcp.example.com/token"
                 # Other optional fields preserved
                 assert metadata["scopes_supported"] == ["openid", "profile"]
                 assert metadata["grant_types_supported"] == ["authorization_code", "refresh_token"]
@@ -167,9 +169,10 @@ class TestAuthorizationServerMetadataProxy:
 
                 # issuer MUST match the MCP server URL, not the upstream auth server
                 assert metadata["issuer"] == "https://mcp.example.com"
-                # auth endpoints still point upstream
+                # authorization_endpoint still points upstream
                 assert metadata["authorization_endpoint"] == "https://totally-different-auth.example.com/auth/authorize"
-                assert metadata["token_endpoint"] == "https://totally-different-auth.example.com/auth/token"
+                # token_endpoint is rewritten to MCP server
+                assert metadata["token_endpoint"] == "https://mcp.example.com/token"
 
     @pytest.mark.asyncio
     async def test_fetches_from_correct_url(self):
