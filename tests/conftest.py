@@ -1,5 +1,10 @@
 """Pytest configuration and fixtures for realize-mcp tests."""
 import os
+import pathlib
+import sys
+
+# Ensure local src/ takes precedence over any installed realize-mcp package
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / "src"))
 
 # Set default environment variables for tests BEFORE any imports
 # These are required for config validation
