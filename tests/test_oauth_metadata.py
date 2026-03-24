@@ -90,8 +90,8 @@ class TestAuthorizationServerMetadataProxy:
                 assert metadata["response_types_supported"] == ["code"]
                 # authorization_endpoint passes through from upstream
                 assert metadata["authorization_endpoint"] == "https://auth.example.com/authorize"
-                # token_endpoint is rewritten to MCP server (proxied to upstream)
-                assert metadata["token_endpoint"] == "https://mcp.example.com/token"
+                # token_endpoint passes through from upstream
+                assert metadata["token_endpoint"] == upstream_metadata["token_endpoint"]
                 # registration_endpoint is rewritten to MCP server
                 assert metadata["registration_endpoint"] == "https://mcp.example.com/register"
                 # Extra fields are preserved (not filtered)
@@ -132,8 +132,8 @@ class TestAuthorizationServerMetadataProxy:
                 assert metadata["registration_endpoint"] == "https://mcp.example.com/register"
                 # authorization_endpoint passes through from upstream
                 assert metadata["authorization_endpoint"] == "https://auth.example.com/authorize"
-                # token_endpoint is rewritten to MCP server (proxied to upstream)
-                assert metadata["token_endpoint"] == "https://mcp.example.com/token"
+                # token_endpoint passes through from upstream
+                assert metadata["token_endpoint"] == upstream_metadata["token_endpoint"]
                 # Other optional fields preserved
                 assert metadata["scopes_supported"] == ["openid", "profile"]
                 assert metadata["grant_types_supported"] == ["authorization_code", "refresh_token"]
@@ -172,7 +172,7 @@ class TestAuthorizationServerMetadataProxy:
                 # authorization_endpoint still points upstream
                 assert metadata["authorization_endpoint"] == "https://totally-different-auth.example.com/auth/authorize"
                 # token_endpoint is rewritten to MCP server
-                assert metadata["token_endpoint"] == "https://mcp.example.com/token"
+                assert metadata["token_endpoint"] == upstream_metadata["token_endpoint"]
 
     @pytest.mark.asyncio
     async def test_fetches_from_correct_url(self):

@@ -2,10 +2,9 @@
 import logging
 
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse
 
 from ..config import config
-from ..http import create_http_client
 from .metadata import get_protected_resource_metadata, proxy_authorization_server_metadata
 from .dcr import handle_client_registration, DCRError
 
@@ -58,32 +57,3 @@ async def register_handler(request: Request) -> JSONResponse:
             {"error": "invalid_request", "error_description": str(e)},
             status_code=400,
         )
-
-
-async def token_proxy_handler(request: Request) -> Response:
-    """Proxy token requests to the upstream auth server.
-
-    External clients (e.g. claude.ai) may not be able to reach the upstream
-    auth server directly if it's on an internal network. This endpoint proxies
-    the OAuth 2.1 token exchange so the client only needs to reach the MCP server.
-    """
-    body = await request.body()
-    upstream_token_url = f"{config.oauth_server_url}/oauth2.1/token"
-
-    async with create_http_client() as client:
-        upstream_response = await client.post(
-            upstream_token_url,
-            content=body,
-            headers={
-                "Content-Type": request.headers.get(
-                    "Content-Type", "application/x-www-form-urlencoded"
-                ),
-            },
-            timeout=10.0,
-        )
-
-    return Response(
-        content=upstream_response.content,
-        status_code=upstream_response.status_code,
-        headers={"Content-Type": upstream_response.headers.get("Content-Type", "application/json")},
-    )
