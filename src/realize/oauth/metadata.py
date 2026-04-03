@@ -22,7 +22,7 @@ def get_protected_resource_metadata(base_url: str) -> dict:
         dict: Protected resource metadata per RFC 9728
     """
     return {
-        "resource": base_url,
+        "resource": f"{base_url}/mcp",
         "authorization_servers": [base_url],
         "bearer_methods_supported": ["header"],
         "scopes_supported": config.oauth_scopes.split(),
