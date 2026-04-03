@@ -29,7 +29,7 @@ class TestProtectedResourceMetadata:
 
             metadata = get_protected_resource_metadata("https://mcp.example.com")
 
-            assert metadata["resource"] == "https://mcp.example.com"
+            assert metadata["resource"] == "https://mcp.example.com/mcp"
             assert metadata["authorization_servers"] == ["https://mcp.example.com"]
             assert metadata["bearer_methods_supported"] == ["header"]
             assert metadata["scopes_supported"] == ["read", "write", "admin"]
