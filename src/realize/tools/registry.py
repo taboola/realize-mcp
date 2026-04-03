@@ -34,7 +34,7 @@ TOOL_REGISTRY = {
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Account ID (numeric) or search term (text) to find accounts. Use the returned 'account_id' field for other tool operations."
+                    "description": "Account ID (numeric), search term (text), or '*' to list all accounts. Use the returned 'account_id' field for other tool operations."
                 },
                 "page": {
                     "type": "integer",
