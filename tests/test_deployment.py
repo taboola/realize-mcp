@@ -7,6 +7,11 @@ import pathlib
 import shutil
 from unittest.mock import patch, Mock
 
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
+
 
 class TestSourceDeployment:
     """Test running from source code."""
@@ -181,13 +186,11 @@ class TestPackageMetadata:
     
     def test_package_metadata_complete(self):
         """Test that package metadata is complete."""
-        import toml
-        
         pyproject_path = pathlib.Path(__file__).parent.parent / "pyproject.toml"
         assert pyproject_path.exists(), "pyproject.toml not found"
-        
-        with open(pyproject_path, 'r') as f:
-            pyproject = toml.load(f)
+
+        with open(pyproject_path, 'rb') as f:
+            pyproject = tomllib.load(f)
         
         # Check required fields
         assert 'project' in pyproject
@@ -217,12 +220,10 @@ class TestPackageMetadata:
     
     def test_version_consistency(self):
         """Test that version is consistent across files."""
-        import toml
-        
         # Get version from pyproject.toml (static or dynamic)
         pyproject_path = pathlib.Path(__file__).parent.parent / "pyproject.toml"
-        with open(pyproject_path, 'r') as f:
-            pyproject = toml.load(f)
+        with open(pyproject_path, 'rb') as f:
+            pyproject = tomllib.load(f)
         project = pyproject['project']
 
         # _version.py must exist and define __version__
