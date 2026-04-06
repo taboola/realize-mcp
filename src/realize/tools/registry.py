@@ -28,7 +28,7 @@ TOOL_REGISTRY = {
     
     # Account Management Tools
     "search_accounts": {
-        "description": "Search for accounts by numeric ID or text query to get account_id values needed for other tools (read-only). Returns account data including 'account_id' field (camelCase string) required for campaign and report operations. WORKFLOW: Use this tool FIRST to get account_id values, then use those values with other tools. PAGINATION: Results are paginated with two controls: page_size (1-10, default: 10) and page (page number, default: 1). Check 'Total' in response header for full match count.",
+        "description": "Search for accounts by numeric ID or text query to get account_id values needed for other tools (read-only). Returns account data including 'account_id' field (camelCase string) required for campaign and report operations. WORKFLOW: Use this tool FIRST to get account_id values, then use those values with other tools. PAGINATION: page_size (1-10, default: 10) and page (default: 1). Keep page_size the same across all pages to avoid duplicate/missing results. Check 'Total' in response metadata for full match count.",
         "schema": {
             "type": "object",
             "properties": {

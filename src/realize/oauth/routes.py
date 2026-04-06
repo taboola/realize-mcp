@@ -49,11 +49,21 @@ async def register_handler(request: Request) -> JSONResponse:
     except Exception:
         body = {}
 
+    log_extra = {
+        "client_name": body.get("client_name"),
+        "software_id": body.get("software_id"),
+        "software_version": body.get("software_version"),
+        "redirect_uris": body.get("redirect_uris"),
+        "user_agent": request.headers.get("user-agent"),
+    }
+
     try:
         response = handle_client_registration(body)
+        logger.info("dcr_register", extra={**log_extra, "status": 201})
         return JSONResponse(response, status_code=201)
     except DCRError as e:
+        logger.info("dcr_register", extra={**log_extra, "status": 400, "error_code": e.error_code})
         return JSONResponse(
-            {"error": "invalid_request", "error_description": str(e)},
+            {"error": e.error_code, "error_description": str(e)},
             status_code=400,
         )

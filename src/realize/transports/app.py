@@ -78,10 +78,12 @@ def create_app() -> Starlette:
         Route("/mcp", streamable_endpoint),
     ]
 
+    from starlette.middleware import Middleware
+    from .middleware import RequestSizeLimitMiddleware
+    middleware = [Middleware(RequestSizeLimitMiddleware)]
+
     from ..config import config
-    middleware = []
     if config.metrics_enabled:
-        from starlette.middleware import Middleware
         from .middleware import MetricsMiddleware
         middleware.append(Middleware(MetricsMiddleware))
 
