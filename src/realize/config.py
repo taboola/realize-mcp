@@ -17,6 +17,7 @@ class Config(BaseSettings):
 
     # === Metrics ===
     metrics_enabled: bool = True
+    metrics_allowed_cidrs: str = "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8,::1/128"
 
     # === Stdio mode (required when mcp_transport="stdio") ===
     realize_client_id: Optional[str] = None

@@ -1,4 +1,5 @@
 """Pure ASGI middleware for Prometheus HTTP metrics and request size limiting."""
+import ipaddress
 import json
 import logging
 import time
@@ -78,6 +79,68 @@ class RequestSizeLimitMiddleware:
 class _RequestTooLarge(Exception):
     """Internal signal for streaming guard."""
     pass
+
+
+class InternalOnlyMiddleware:
+    """Restrict sensitive endpoints to requests from allowed CIDR ranges.
+
+    Prometheus scrapes pods directly in-cluster, so scope["client"]
+    is the real scraper IP (e.g. 10.x.x.x). External requests via
+    the load balancer are blocked since their source IP falls outside
+    the allowed CIDRs.
+    """
+
+    RESTRICTED_PATHS = {"/metrics"}
+
+    def __init__(self, app: ASGIApp, allowed_cidrs: list[str]):
+        self.app = app
+        self.allowed_networks = [
+            ipaddress.ip_network(cidr, strict=False)
+            for cidr in allowed_cidrs
+        ]
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope.get("path") not in self.RESTRICTED_PATHS:
+            await self.app(scope, receive, send)
+            return
+
+        client = scope.get("client")
+        if client:
+            try:
+                client_ip = ipaddress.ip_address(client[0])
+                if any(client_ip in network for network in self.allowed_networks):
+                    await self.app(scope, receive, send)
+                    return
+            except ValueError:
+                pass
+
+        logger.warning(
+            "blocked_restricted_path",
+            extra={
+                "path": scope.get("path"),
+                "client_ip": client[0] if client else "unknown",
+            },
+        )
+        await self._send_403(send)
+
+    @staticmethod
+    async def _send_403(send: Send) -> None:
+        body = json.dumps({
+            "error": "forbidden",
+            "error_description": "Access denied",
+        }).encode()
+        await send({
+            "type": "http.response.start",
+            "status": 403,
+            "headers": [
+                [b"content-type", b"application/json"],
+                [b"content-length", str(len(body)).encode()],
+            ],
+        })
+        await send({
+            "type": "http.response.body",
+            "body": body,
+        })
 
 
 class MetricsMiddleware:

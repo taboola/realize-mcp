@@ -79,10 +79,15 @@ def create_app() -> Starlette:
     ]
 
     from starlette.middleware import Middleware
-    from .middleware import RequestSizeLimitMiddleware
-    middleware = [Middleware(RequestSizeLimitMiddleware)]
+    from .middleware import RequestSizeLimitMiddleware, InternalOnlyMiddleware
 
     from ..config import config
+    cidrs = [c.strip() for c in config.metrics_allowed_cidrs.split(",") if c.strip()]
+    middleware = [
+        Middleware(RequestSizeLimitMiddleware),
+        Middleware(InternalOnlyMiddleware, allowed_cidrs=cidrs),
+    ]
+
     if config.metrics_enabled:
         from .middleware import MetricsMiddleware
         middleware.append(Middleware(MetricsMiddleware))
