@@ -312,6 +312,8 @@ get_all_campaigns(account_id="12345")  # Numeric IDs won't work
 
 Enabled by default (`METRICS_ENABLED=true`). Exposed at `GET /metrics` in Streamable HTTP mode.
 
+The `/metrics` endpoint is restricted to internal IPs. Set `METRICS_ALLOWED_CIDRS` to override the allowed ranges (comma-separated). Default: `10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8,::1/128`.
+
 | Metric | Type | Labels |
 |--------|------|--------|
 | `realize_mcp_http_requests_total` | Counter | `method`, `endpoint`, `http_status` |
