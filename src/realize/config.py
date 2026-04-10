@@ -17,6 +17,7 @@ class Config(BaseSettings):
 
     # === Metrics ===
     metrics_enabled: bool = True
+    metrics_port: int = 8092
 
     # === Stdio mode (required when mcp_transport="stdio") ===
     realize_client_id: Optional[str] = None
