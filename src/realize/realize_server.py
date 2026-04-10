@@ -153,7 +153,7 @@ async def run_http_server():
     logger.info(f"Starting Realize MCP Server with Streamable HTTP transport on port {config.mcp_server_port}...")
 
     app = create_app()
-    uvicorn_config = uvicorn.Config(
+    main_config = uvicorn.Config(
         app,
         host="0.0.0.0",
         port=config.mcp_server_port,
@@ -161,8 +161,33 @@ async def run_http_server():
         log_config=None,  # Preserve our log4j-style dictConfig
         proxy_headers=True,  # Respect X-Forwarded-Proto when available
     )
-    server_instance = uvicorn.Server(uvicorn_config)
-    await server_instance.serve()
+    main_server = uvicorn.Server(main_config)
+
+    if config.metrics_enabled:
+        from realize.transports.metrics_server import create_metrics_app
+
+        logger.info(f"Starting metrics server on port {config.metrics_port}...")
+        metrics_app = create_metrics_app()
+        metrics_config = uvicorn.Config(
+            metrics_app,
+            host="0.0.0.0",
+            port=config.metrics_port,
+            log_level=config.log_level.lower(),
+            log_config=None,
+        )
+        metrics_srv = uvicorn.Server(metrics_config)
+        metrics_config.install_signal_handlers = False
+
+        async def _run_main():
+            await main_server.serve()
+            logger.info("Main server stopped, shutting down metrics server...")
+            metrics_srv.should_exit = True
+
+        await asyncio.gather(_run_main(), metrics_srv.serve())
+        logger.info("Metrics server stopped")
+    else:
+        logger.info("Metrics disabled, skipping metrics server")
+        await main_server.serve()
 
 
 async def main():

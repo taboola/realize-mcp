@@ -115,7 +115,7 @@ claude mcp add --transport http --callback-port 3000 realize-mcp https://your-mc
 - `POST /register` - RFC 7591 Dynamic Client Registration
 - `POST|GET|DELETE /mcp` - MCP Streamable HTTP endpoint (requires Bearer token)
 - `GET /health` - Health check endpoint for Kubernetes probes
-- `GET /metrics` - Prometheus metrics endpoint
+- `GET /` on port 8092 - Prometheus metrics endpoint (separate port)
 
 ---
 
@@ -310,9 +310,7 @@ get_all_campaigns(account_id="12345")  # Numeric IDs won't work
 
 ## Prometheus Metrics
 
-Enabled by default (`METRICS_ENABLED=true`). Exposed at `GET /metrics` in Streamable HTTP mode.
-
-The `/metrics` endpoint is restricted to internal IPs. Set `METRICS_ALLOWED_CIDRS` to override the allowed ranges (comma-separated). Default: `10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8,::1/128`.
+Enabled by default (`METRICS_ENABLED=true`). Served on a dedicated port (default `8092`, configurable via `METRICS_PORT`) in Streamable HTTP mode.
 
 | Metric | Type | Labels |
 |--------|------|--------|

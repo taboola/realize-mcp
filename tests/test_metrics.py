@@ -181,7 +181,7 @@ class TestMetricsEndpoint:
     @pytest.fixture
     def app(self):
         """Create a test Starlette app with the metrics_handler."""
-        from realize.transports.app import metrics_handler
+        from realize.transports.metrics_server import metrics_handler
         from starlette.applications import Starlette
         from starlette.routing import Route
         from starlette.testclient import TestClient
