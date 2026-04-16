@@ -1,4 +1,5 @@
 """Dynamic Client Registration (RFC 7591) for OAuth 2.1."""
+import ipaddress
 import re
 import time
 from typing import Any
@@ -7,7 +8,6 @@ from urllib.parse import urlparse
 from ..config import config
 
 ALLOWED_GRANT_TYPES = {"authorization_code", "refresh_token"}
-LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 MAX_REDIRECT_URI_LEN = 2048
 # Schemes known to execute script or otherwise unsafe as redirect targets.
 DANGEROUS_SCHEMES = frozenset({
@@ -24,6 +24,29 @@ class DCRError(Exception):
     def __init__(self, message: str, error_code: str = "invalid_client_metadata"):
         super().__init__(message)
         self.error_code = error_code
+
+
+def _is_loopback_host(host: str | None) -> bool:
+    """True if host is a loopback IP literal or the string "localhost".
+
+    Accepts 127.0.0.0/8, ::1 (any canonical form), ::ffff:127.x.x.x
+    (IPv4-mapped IPv6 loopback), and the literal "localhost". RFC 8252
+    §8.3 discourages "localhost" in favor of IP literals, but real
+    clients ship it, so we keep it.
+    """
+    if not host:
+        return False
+    if host == "localhost":
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    if ip.is_loopback:
+        return True
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        return ip.ipv4_mapped.is_loopback
+    return False
 
 
 def _validate_redirect_uri(uri: Any) -> None:
@@ -63,9 +86,10 @@ def _validate_redirect_uri(uri: Any) -> None:
             )
         return
     if scheme == "http":
-        if parsed.hostname not in LOOPBACK_HOSTS:
+        if not _is_loopback_host(parsed.hostname):
             raise DCRError(
-                "Invalid redirect URI: HTTP scheme requires loopback host (localhost/127.0.0.1/::1)",
+                "Invalid redirect URI: HTTP scheme requires loopback host "
+                "(localhost, 127.0.0.0/8, or ::1)",
                 error_code="invalid_redirect_uri",
             )
         return

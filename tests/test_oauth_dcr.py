@@ -158,6 +158,29 @@ class TestDCRValidation:
         response = self._register({"redirect_uris": ["http://[::1]:3000/cb"]})
         assert response["redirect_uris"] == ["http://[::1]:3000/cb"]
 
+    @pytest.mark.parametrize("uri", [
+        "http://127.0.0.2:8080/cb",
+        "http://127.255.255.254/cb",
+        "http://[0:0:0:0:0:0:0:1]:8080/cb",
+        "http://[::ffff:127.0.0.1]:8080/cb",
+    ])
+    def test_allows_expanded_loopback_hosts(self, uri):
+        response = self._register({"redirect_uris": [uri]})
+        assert response["redirect_uris"] == [uri]
+
+    @pytest.mark.parametrize("uri", [
+        "http://169.254.169.254/cb",
+        "http://10.0.0.1/cb",
+        "http://192.168.1.1/cb",
+        "http://localhost.attacker.com/cb",
+        "http://127.0.0.1./cb",
+        "http:///cb",
+    ])
+    def test_rejects_non_loopback_http_hosts(self, uri):
+        with pytest.raises(DCRError) as exc_info:
+            self._register({"redirect_uris": [uri]})
+        assert exc_info.value.error_code == "invalid_redirect_uri"
+
     def test_allows_reverse_dns_custom_scheme(self):
         response = self._register({"redirect_uris": ["com.example.app://cb"]})
         assert response["redirect_uris"] == ["com.example.app://cb"]
