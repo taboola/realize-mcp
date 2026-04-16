@@ -10,7 +10,15 @@ from typing import Any
 MAX_LEN = 4096
 MAX_DEPTH = 32
 
-_ANSI_RE = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
+_ANSI_RE = re.compile(
+    r"\x1B"
+    r"(?:"
+    r"\[[0-?]*[ -/]*[@-~]"             # CSI: ESC [ ... final
+    r"|\][^\x07\x1B]*(?:\x07|\x1B\\)"  # OSC: ESC ] ... BEL or ST (ESC \)
+    r"|P[^\x1B]*\x1B\\"                # DCS: ESC P ... ST
+    r"|[\x20-\x7E]"                    # simple escapes: ESC c, ESC D, ESC 7, etc.
+    r")"
+)
 _CONTROL_RE = re.compile(r"[\x00-\x1F\x7F-\x9F]")
 _SUBST_RE = re.compile(r"\$\{[^${}]*\}")
 _MAX_SUBST_ITER = 5

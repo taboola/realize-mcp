@@ -15,6 +15,26 @@ class TestSanitizeStr:
     def test_strips_ansi_csi(self):
         assert sanitize_str("\x1b[31mred\x1b[0m") == "red"
 
+    def test_strips_ansi_osc_with_bel(self):
+        """OSC terminal-title injection: ESC ] 0 ; title BEL."""
+        assert sanitize_str("before\x1b]0;evil-title\x07after") == "beforeafter"
+
+    def test_strips_ansi_osc_with_string_terminator(self):
+        """OSC terminated by ST (ESC \\) instead of BEL."""
+        assert sanitize_str("x\x1b]0;title\x1b\\y") == "xy"
+
+    def test_strips_ansi_simple_reset(self):
+        """ESC c full terminal reset."""
+        assert sanitize_str("before\x1bcafter") == "beforeafter"
+
+    def test_strips_ansi_simple_index(self):
+        """ESC D (index) and ESC M (reverse index)."""
+        assert sanitize_str("a\x1bDb\x1bMc") == "abc"
+
+    def test_strips_ansi_dcs(self):
+        """DCS: ESC P ... ST."""
+        assert sanitize_str("a\x1bP1;2qhello\x1b\\b") == "ab"
+
     def test_strips_jndi(self):
         assert sanitize_str("${jndi:ldap://x/a}") == ""
 
