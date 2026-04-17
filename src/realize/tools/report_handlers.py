@@ -1,5 +1,6 @@
 """Report handlers for Realize MCP server."""
 from typing import List
+from urllib.parse import quote
 import mcp.types as types
 from realize.tools.utils import format_large_response_with_csv_truncation, validate_account_id
 from realize.tools.errors import ToolInputError
@@ -55,7 +56,7 @@ async def get_campaign_breakdown_report(arguments: dict = None) -> List[types.Te
     if sort_field:
         params["sort"] = f"{sort_field},{sort_direction}"
 
-    endpoint = f"/{account_id}/reports/campaign-summary/dimensions/campaign_breakdown"
+    endpoint = f"/{quote(account_id, safe='')}/reports/campaign-summary/dimensions/campaign_breakdown"
     response = await client.get(endpoint, params=params)
 
     # Add pagination context to response for better formatting
@@ -109,7 +110,7 @@ async def get_campaign_site_day_breakdown_report(arguments: dict = None) -> List
     if sort_field:
         params["sort"] = f"{sort_field},{sort_direction}"
 
-    endpoint = f"/{account_id}/reports/campaign-summary/dimensions/campaign_site_day_breakdown"
+    endpoint = f"/{quote(account_id, safe='')}/reports/campaign-summary/dimensions/campaign_site_day_breakdown"
     response = await client.get(endpoint, params=params)
 
     # Add pagination context to response for better formatting
@@ -158,7 +159,7 @@ async def get_top_campaign_content_report(arguments: dict = None) -> List[types.
     if sort_field:
         params["sort"] = f"{sort_field},{sort_direction}"
 
-    endpoint = f"/{account_id}/reports/top-campaign-content/dimensions/item_breakdown"
+    endpoint = f"/{quote(account_id, safe='')}/reports/top-campaign-content/dimensions/item_breakdown"
     response = await client.get(endpoint, params=params)
 
     # Add pagination context to response for better formatting
@@ -199,7 +200,7 @@ async def get_campaign_history_report(arguments: dict = None) -> List[types.Text
         "page_size": page_size
     }
 
-    endpoint = f"/{account_id}/reports/campaign-history/dimensions/by_account"
+    endpoint = f"/{quote(account_id, safe='')}/reports/campaign-history/dimensions/by_account"
     response = await client.get(endpoint, params=params)
 
     # Add pagination context to response for better formatting

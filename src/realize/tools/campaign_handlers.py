@@ -1,5 +1,6 @@
 """Campaign handlers for Realize MCP server."""
 from typing import List
+from urllib.parse import quote
 import mcp.types as types
 from realize.tools.utils import format_response, validate_account_id
 from realize.tools.errors import ToolInputError
@@ -14,7 +15,7 @@ async def get_all_campaigns(arguments: dict = None) -> List[types.TextContent]:
     if not is_valid:
         raise ToolInputError(error_message)
 
-    response = await client.get(f"/{account_id}/campaigns")
+    response = await client.get(f"/{quote(account_id, safe='')}/campaigns")
 
     return [types.TextContent(
         type="text",
@@ -34,7 +35,7 @@ async def get_campaign(arguments: dict = None) -> List[types.TextContent]:
     if not campaign_id:
         raise ToolInputError("campaign_id is required")
 
-    response = await client.get(f"/{account_id}/campaigns/{campaign_id}")
+    response = await client.get(f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}")
 
     return [types.TextContent(
         type="text",
@@ -54,7 +55,7 @@ async def get_campaign_items(arguments: dict = None) -> List[types.TextContent]:
     if not campaign_id:
         raise ToolInputError("campaign_id is required")
 
-    response = await client.get(f"/{account_id}/campaigns/{campaign_id}/items/")
+    response = await client.get(f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}/items/")
 
     return [types.TextContent(
         type="text",
@@ -75,7 +76,7 @@ async def get_campaign_item(arguments: dict = None) -> List[types.TextContent]:
     if not campaign_id or not item_id:
         raise ToolInputError("campaign_id and item_id are both required")
 
-    response = await client.get(f"/{account_id}/campaigns/{campaign_id}/items/{item_id}")
+    response = await client.get(f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}/items/{quote(item_id, safe='')}")
 
     return [types.TextContent(
         type="text",
