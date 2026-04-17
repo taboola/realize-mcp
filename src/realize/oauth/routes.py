@@ -7,6 +7,7 @@ from starlette.responses import JSONResponse
 from ..config import config
 from .metadata import get_protected_resource_metadata, proxy_authorization_server_metadata
 from .dcr import handle_client_registration, DCRError
+from .sanitize import sanitize, sanitize_str, SanitizeError
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +36,10 @@ async def authorization_server_metadata_handler(request: Request) -> JSONRespons
     try:
         metadata = await proxy_authorization_server_metadata(base_url)
         return JSONResponse(metadata)
-    except Exception as e:
+    except Exception:
+        logger.exception("authorization_server_metadata_upstream_error")
         return JSONResponse(
-            {"error": "upstream_error", "error_description": str(e)},
+            {"error": "upstream_error", "error_description": "Failed to fetch upstream authorization server metadata"},
             status_code=502,
         )
 
@@ -48,13 +50,21 @@ async def register_handler(request: Request) -> JSONResponse:
         body = await request.json()
     except Exception:
         body = {}
+    try:
+        body = sanitize(body) if isinstance(body, dict) else {}
+    except SanitizeError:
+        logger.info("dcr_register_rejected", extra={"reason": "input_too_deep"})
+        return JSONResponse(
+            {"error": "invalid_request", "error_description": "Request body rejected"},
+            status_code=400,
+        )
 
     log_extra = {
         "client_name": body.get("client_name"),
         "software_id": body.get("software_id"),
         "software_version": body.get("software_version"),
         "redirect_uris": body.get("redirect_uris"),
-        "user_agent": request.headers.get("user-agent"),
+        "user_agent": sanitize_str(request.headers.get("user-agent") or ""),
     }
 
     try:

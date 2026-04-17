@@ -282,4 +282,5 @@ class TestMetadataRouteHandlers:
                 assert response.status_code == 502
                 data = response.json()
                 assert data["error"] == "upstream_error"
-                assert "Connection refused" in data["error_description"]
+                assert "error_description" in data
+                assert "Connection refused" not in data["error_description"]
