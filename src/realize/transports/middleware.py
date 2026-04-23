@@ -11,6 +11,35 @@ logger = logging.getLogger(__name__)
 
 MAX_REQUEST_BYTES = 131072  # 128KB
 
+_EXACT_ROUTES = frozenset({"/health", "/register", "/mcp"})
+_ALLOWED_METHODS = frozenset(
+    {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
+)
+
+
+_WELLKNOWN_PREFIXES = (
+    "/.well-known/oauth-protected-resource",
+    "/.well-known/oauth-authorization-server",
+)
+
+
+def _normalize_http_path(path: str) -> str:
+    """Map raw ASGI path to a bounded set of endpoint labels.
+
+    Prevents unbounded label cardinality from `{path:path}` routes and
+    scanner traffic that would otherwise blow past the Prometheus sample cap.
+    """
+    if path in _EXACT_ROUTES:
+        return path
+    for prefix in _WELLKNOWN_PREFIXES:
+        if path == prefix or path.startswith(prefix + "/"):
+            return prefix
+    return "other"
+
+
+def _normalize_http_method(method: str) -> str:
+    return method if method in _ALLOWED_METHODS else "other"
+
 
 class RequestSizeLimitMiddleware:
     """Reject HTTP requests with bodies exceeding MAX_REQUEST_BYTES.
@@ -111,8 +140,8 @@ class MetricsMiddleware:
         finally:
             duration = time.monotonic() - start
             metrics.record_http_request(
-                method=method,
-                endpoint=path,
+                method=_normalize_http_method(method),
+                endpoint=_normalize_http_path(path),
                 http_status=status_code,
                 duration=duration,
             )

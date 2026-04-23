@@ -207,6 +207,106 @@ class TestMetricsEndpoint:
 
 
 # ---------------------------------------------------------------------------
+# HTTP label normalizer tests (cardinality guards)
+# ---------------------------------------------------------------------------
+
+
+class TestNormalizeHttpPath:
+    def setup_method(self):
+        from realize.transports.middleware import _normalize_http_path
+        self.fn = _normalize_http_path
+
+    def test_health(self):
+        assert self.fn("/health") == "/health"
+
+    def test_register(self):
+        assert self.fn("/register") == "/register"
+
+    def test_mcp(self):
+        assert self.fn("/mcp") == "/mcp"
+
+    def test_wellknown_protected_resource_base(self):
+        assert (
+            self.fn("/.well-known/oauth-protected-resource")
+            == "/.well-known/oauth-protected-resource"
+        )
+
+    def test_wellknown_protected_resource_with_tail(self):
+        assert (
+            self.fn("/.well-known/oauth-protected-resource/tenant-acme")
+            == "/.well-known/oauth-protected-resource"
+        )
+        assert (
+            self.fn("/.well-known/oauth-protected-resource/customer-123/mcp")
+            == "/.well-known/oauth-protected-resource"
+        )
+
+    def test_wellknown_authorization_server_base(self):
+        assert (
+            self.fn("/.well-known/oauth-authorization-server")
+            == "/.well-known/oauth-authorization-server"
+        )
+
+    def test_wellknown_authorization_server_with_tail(self):
+        assert (
+            self.fn("/.well-known/oauth-authorization-server/tenant-x")
+            == "/.well-known/oauth-authorization-server"
+        )
+
+    def test_unknown_paths_collapse_to_other(self):
+        unknown = [
+            "/wp-admin",
+            "/phpmyadmin",
+            "/.env",
+            "/foo/bar",
+            "/",
+            "",
+            # non-OAuth /.well-known probes scanners commonly send
+            "/.well-known/matrix/client",
+            "/.well-known/matrix/server",
+            "/.well-known/security.txt",
+            "/.well-known/caldav",
+            "/.well-known/webfinger",
+            "/.well-known/host-meta",
+            # prefix boundary: must not be mis-bucketed into OAuth label
+            "/.well-known/oauth-protected-resource-admin",
+            "/.well-known/oauth-authorization-server-typo",
+        ]
+        for p in unknown:
+            assert self.fn(p) == "other", p
+
+    def test_trailing_slash_is_unknown(self):
+        # Strict allowlist: /health/ is not /health
+        assert self.fn("/health/") == "other"
+
+    def test_mcp_subpath_is_unknown(self):
+        # /mcp is a bare Route; sub-paths 404
+        assert self.fn("/mcp/foo") == "other"
+
+
+class TestNormalizeHttpMethod:
+    def setup_method(self):
+        from realize.transports.middleware import _normalize_http_method
+        self.fn = _normalize_http_method
+
+    def test_standard_methods_pass_through(self):
+        for m in ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]:
+            assert self.fn(m) == m
+
+    def test_lowercase_not_allowed(self):
+        # ASGI always uppercases; lowercase would be anomalous
+        assert self.fn("get") == "other"
+
+    def test_exotic_methods_become_other(self):
+        for m in ["PROPFIND", "TRACE", "CONNECT", "FOOBAR", ""]:
+            assert self.fn(m) == "other", m
+
+    def test_garbage_bytes_become_other(self):
+        # Scanner TLS probes on plain HTTP can produce junk method tokens
+        assert self.fn("\x16\x03\x01") == "other"
+
+
+# ---------------------------------------------------------------------------
 # MetricsMiddleware test
 # ---------------------------------------------------------------------------
 
@@ -223,20 +323,111 @@ class TestMetricsMiddleware:
         registry = CollectorRegistry()
         test_metrics = AppMetrics(enabled=True, registry=registry)
 
-        async def hello(request):
+        async def health(request):
             return PlainTextResponse("ok")
 
-        inner_app = Starlette(routes=[Route("/hello", hello)])
+        inner_app = Starlette(routes=[Route("/health", health)])
         wrapped = MetricsMiddleware(inner_app)
 
         with patch("realize.transports.middleware.metrics", test_metrics):
             client = TestClient(wrapped)
-            resp = client.get("/hello")
+            resp = client.get("/health")
             assert resp.status_code == 200
 
         count = registry.get_sample_value(
             "realize_mcp_http_requests_total",
-            {"method": "GET", "endpoint": "/hello", "http_status": "200"},
+            {"method": "GET", "endpoint": "/health", "http_status": "200"},
+        )
+        assert count == 1.0
+
+    def test_middleware_normalizes_wellknown_path(self):
+        from prometheus_client import CollectorRegistry
+        from realize.transports.middleware import MetricsMiddleware
+        from starlette.applications import Starlette
+        from starlette.responses import PlainTextResponse
+        from starlette.routing import Route
+        from starlette.testclient import TestClient
+
+        registry = CollectorRegistry()
+        test_metrics = AppMetrics(enabled=True, registry=registry)
+
+        async def handler(request):
+            return PlainTextResponse("ok")
+
+        inner_app = Starlette(routes=[
+            Route(
+                "/.well-known/oauth-protected-resource/{path:path}",
+                handler,
+                methods=["GET"],
+            ),
+        ])
+        wrapped = MetricsMiddleware(inner_app)
+
+        with patch("realize.transports.middleware.metrics", test_metrics):
+            client = TestClient(wrapped)
+            client.get("/.well-known/oauth-protected-resource/tenant-x")
+            client.get("/.well-known/oauth-protected-resource/tenant-y/mcp")
+
+        count = registry.get_sample_value(
+            "realize_mcp_http_requests_total",
+            {
+                "method": "GET",
+                "endpoint": "/.well-known/oauth-protected-resource",
+                "http_status": "200",
+            },
+        )
+        assert count == 2.0
+
+    def test_middleware_unknown_path_uses_other(self):
+        from prometheus_client import CollectorRegistry
+        from realize.transports.middleware import MetricsMiddleware
+        from starlette.applications import Starlette
+        from starlette.testclient import TestClient
+
+        registry = CollectorRegistry()
+        test_metrics = AppMetrics(enabled=True, registry=registry)
+
+        inner_app = Starlette(routes=[])
+        wrapped = MetricsMiddleware(inner_app)
+
+        with patch("realize.transports.middleware.metrics", test_metrics):
+            client = TestClient(wrapped)
+            client.get("/wp-admin")
+
+        count = registry.get_sample_value(
+            "realize_mcp_http_requests_total",
+            {"method": "GET", "endpoint": "other", "http_status": "404"},
+        )
+        assert count == 1.0
+
+    def test_middleware_unknown_method_uses_other(self):
+        from prometheus_client import CollectorRegistry
+        from realize.transports.middleware import MetricsMiddleware
+        from starlette.applications import Starlette
+        from starlette.responses import PlainTextResponse
+        from starlette.routing import Route
+        from starlette.testclient import TestClient
+
+        registry = CollectorRegistry()
+        test_metrics = AppMetrics(enabled=True, registry=registry)
+
+        async def handler(request):
+            return PlainTextResponse("ok")
+
+        # Accept any method so we can drive an exotic one
+        inner_app = Starlette(routes=[
+            Route("/mcp", handler, methods=["PROPFIND"]),
+        ])
+        wrapped = MetricsMiddleware(inner_app)
+
+        with patch("realize.transports.middleware.metrics", test_metrics):
+            client = TestClient(wrapped)
+            resp = client.request("PROPFIND", "/mcp")
+            assert resp.status_code == 200
+
+        count = registry.get_sample_value(
+            "realize_mcp_http_requests_total",
+            {"method": "other", "endpoint": "/mcp", "http_status": "200"},
         )
         assert count == 1.0
 
