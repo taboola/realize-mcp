@@ -175,4 +175,8 @@ temp/
 # Distribution / packaging (PyPI deployment)
 build/
 dist/
-*.egg-info/ 
+*.egg-info/
+
+# Local agent/tooling state
+.a5c/
+.agent-mail/
