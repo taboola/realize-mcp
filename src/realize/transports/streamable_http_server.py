@@ -22,6 +22,37 @@ from ..oauth.routes import _get_base_url
 logger = logging.getLogger(__name__)
 
 
+_PASSTHROUGH_HEADERS: tuple[tuple[bytes, bytes], ...] = (
+    (b"cache-control", b"no-store, no-transform"),
+    (b"surrogate-control", b"no-store"),
+    (b"x-accel-buffering", b"no"),
+)
+_OVERRIDE_KEYS = frozenset(name for name, _ in _PASSTHROUGH_HEADERS)
+
+
+def _wrap_send_with_passthrough(send: Send) -> Send:
+    """Wrap ASGI send to inject CDN pass-through headers on response start.
+
+    When the response lacks explicit no-buffer / no-transform signals,
+    Fastly's HTTP/2 re-framer can corrupt SSE bodies (observed as
+    PROTOCOL_ERROR on the client). These headers instruct Fastly (and
+    other CDNs) to stream the body through unchanged. Installed at the top
+    of StreamableHTTPEndpoint.__call__ so all response paths (200, 401, 405)
+    receive the headers via one install point.
+    """
+    async def wrapped(message):
+        if message["type"] == "http.response.start":
+            kept = [
+                (name, value)
+                for name, value in message.get("headers", [])
+                if name.lower() not in _OVERRIDE_KEYS
+            ]
+            message = {**message, "headers": kept + list(_PASSTHROUGH_HEADERS)}
+        await send(message)
+
+    return wrapped
+
+
 def create_streamable_http_session_manager() -> StreamableHTTPSessionManager:
     """Create a StreamableHTTPSessionManager in stateless mode.
 
@@ -86,6 +117,7 @@ class StreamableHTTPEndpoint:
         self, scope: Scope, receive: Receive, send: Send
     ) -> None:
         """Handle ASGI request with Bearer token extraction."""
+        send = _wrap_send_with_passthrough(send)
         request = Request(scope, receive)
 
         if request.method not in ("POST", "DELETE"):

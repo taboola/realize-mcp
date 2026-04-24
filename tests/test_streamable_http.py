@@ -173,6 +173,139 @@ class TestStreamableHTTPEndpoint:
         assert response.status_code == 401
 
 
+class TestPassthroughHeaders:
+    """Tests for CDN pass-through headers (Fastly SSE re-framing fix).
+
+    The three headers instruct Fastly/Cloudflare/nginx to stream the response
+    body through without buffering, caching, or transformation — the bug
+    being worked around is Fastly's HTTP/2 re-framer corrupting SSE bodies.
+    """
+
+    EXPECTED = {
+        "cache-control": "no-store, no-transform",
+        "surrogate-control": "no-store",
+        "x-accel-buffering": "no",
+    }
+
+    def _assert_passthrough_headers(self, response):
+        for name, value in self.EXPECTED.items():
+            assert response.headers.get(name) == value, (
+                f"expected {name}={value!r}, got {response.headers.get(name)!r}"
+            )
+
+    def test_headers_on_401_missing_bearer(self):
+        app = _make_test_app_with_endpoint()
+        client = TestClient(app)
+        response = client.post("/mcp")
+        assert response.status_code == 401
+        self._assert_passthrough_headers(response)
+        assert "WWW-Authenticate" in response.headers
+
+    def test_headers_on_401_empty_bearer(self):
+        app = _make_test_app_with_endpoint()
+        client = TestClient(app)
+        response = client.post("/mcp", headers={"Authorization": "Bearer "})
+        assert response.status_code == 401
+        self._assert_passthrough_headers(response)
+        assert "WWW-Authenticate" in response.headers
+
+    def test_headers_on_405(self):
+        app = _make_test_app_with_endpoint()
+        client = TestClient(app)
+        response = client.get("/mcp")
+        assert response.status_code == 405
+        self._assert_passthrough_headers(response)
+        assert response.headers.get("Allow") == "POST, DELETE"
+
+    def test_headers_on_delete_401(self):
+        """DELETE path 401 also gets the three pass-through headers."""
+        app = _make_test_app_with_endpoint()
+        client = TestClient(app)
+        response = client.delete("/mcp")
+        assert response.status_code == 401
+        self._assert_passthrough_headers(response)
+        assert "WWW-Authenticate" in response.headers
+
+    def test_headers_on_200_success_path(self):
+        app = _make_test_app_with_endpoint()
+        client = TestClient(app)
+        response = client.post(
+            "/mcp",
+            headers={"Authorization": "Bearer valid-token"},
+            json={"jsonrpc": "2.0", "id": 1, "method": "test"},
+        )
+        assert response.status_code == 200
+        self._assert_passthrough_headers(response)
+
+    def test_sdk_duplicate_headers_replaced_not_appended(self):
+        """If downstream sets its own Cache-Control, wrapper must replace it."""
+        mock_session_manager = MagicMock()
+
+        async def mock_handle_request(scope, receive, send):
+            await send({
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [
+                    (b"content-type", b"text/event-stream"),
+                    (b"cache-control", b"max-age=3600"),
+                ],
+            })
+            await send({"type": "http.response.body", "body": b"data: ok\n\n"})
+
+        mock_session_manager.handle_request = mock_handle_request
+        endpoint = StreamableHTTPEndpoint(mock_session_manager)
+        app = Starlette(routes=[Route("/mcp", endpoint)])
+        client = TestClient(app)
+
+        response = client.post(
+            "/mcp",
+            headers={"Authorization": "Bearer x"},
+            json={},
+        )
+        assert response.status_code == 200
+        # SDK's Cache-Control must be replaced, not duplicated
+        assert response.headers.get("cache-control") == "no-store, no-transform"
+        # Content-Type must be preserved
+        assert response.headers.get("content-type") == "text/event-stream"
+
+    def test_body_messages_pass_through_unchanged(self):
+        """Wrapper must only touch http.response.start — body bytes must be byte-identical."""
+        captured = []
+        payload = b"data: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n\n"
+
+        async def mock_handle_request(scope, receive, send):
+            async def recording_send(message):
+                captured.append(message)
+                await send(message)
+            await recording_send({
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [(b"content-type", b"text/event-stream")],
+            })
+            await recording_send({
+                "type": "http.response.body",
+                "body": payload,
+                "more_body": False,
+            })
+
+        mock_session_manager = MagicMock()
+        mock_session_manager.handle_request = mock_handle_request
+        endpoint = StreamableHTTPEndpoint(mock_session_manager)
+        app = Starlette(routes=[Route("/mcp", endpoint)])
+        client = TestClient(app)
+
+        response = client.post(
+            "/mcp",
+            headers={"Authorization": "Bearer x"},
+            json={},
+        )
+        assert response.status_code == 200
+        assert response.content == payload
+        body_messages = [m for m in captured if m["type"] == "http.response.body"]
+        assert len(body_messages) == 1
+        assert body_messages[0]["body"] == payload
+
+
 class TestCreateApp:
     """Tests for create_app factory function."""
 
