@@ -88,6 +88,14 @@ class StreamableHTTPEndpoint:
         """Handle ASGI request with Bearer token extraction."""
         request = Request(scope, receive)
 
+        if request.method not in ("POST", "DELETE"):
+            response = Response(
+                status_code=405,
+                headers={"Allow": "POST, DELETE"},
+            )
+            await response(scope, receive, send)
+            return
+
         auth_header = request.headers.get("Authorization", "")
         base_url = _get_base_url(request)
 

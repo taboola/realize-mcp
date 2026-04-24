@@ -109,13 +109,60 @@ class TestStreamableHTTPEndpoint:
         # Token should be cleared after request
         assert get_session_token() is None
 
-    def test_get_request_returns_401_without_auth(self):
-        """Test GET to /mcp returns 401 without Authorization."""
+    def test_get_request_returns_405(self):
+        """GET /mcp returns 405 - stateless mode rejects server-initiated streams."""
         app = _make_test_app_with_endpoint()
         client = TestClient(app)
         response = client.get("/mcp")
 
-        assert response.status_code == 401
+        assert response.status_code == 405
+        assert response.headers.get("Allow") == "POST, DELETE"
+
+    def test_get_with_bearer_returns_405(self):
+        """Authorized GET /mcp also returns 405 (method-level rejection)."""
+        app = _make_test_app_with_endpoint()
+        client = TestClient(app)
+        response = client.get("/mcp", headers={"Authorization": "Bearer valid-token"})
+
+        assert response.status_code == 405
+        assert response.headers.get("Allow") == "POST, DELETE"
+
+    def test_head_request_returns_405(self):
+        """HEAD /mcp returns 405 - same server-initiated-stream bug surface as GET."""
+        app = _make_test_app_with_endpoint()
+        client = TestClient(app)
+        response = client.head("/mcp")
+
+        assert response.status_code == 405
+        assert response.headers.get("Allow") == "POST, DELETE"
+
+    def test_put_request_returns_405(self):
+        """PUT /mcp returns 405 - only POST and DELETE allowed."""
+        app = _make_test_app_with_endpoint()
+        client = TestClient(app)
+        response = client.put("/mcp", headers={"Authorization": "Bearer x"})
+
+        assert response.status_code == 405
+
+    def test_get_does_not_delegate_to_session_manager(self):
+        """GET /mcp must not reach the SDK session manager (stateless GET is broken)."""
+        call_count = {"n": 0}
+        mock_session_manager = MagicMock()
+
+        async def mock_handle_request(scope, receive, send):
+            call_count["n"] += 1
+            from starlette.responses import JSONResponse
+            response = JSONResponse({"status": "ok"})
+            await response(scope, receive, send)
+
+        mock_session_manager.handle_request = mock_handle_request
+        endpoint = StreamableHTTPEndpoint(mock_session_manager)
+        app = Starlette(routes=[Route("/mcp", endpoint)])
+        client = TestClient(app)
+
+        client.get("/mcp", headers={"Authorization": "Bearer x"})
+
+        assert call_count["n"] == 0
 
     def test_delete_request_returns_401_without_auth(self):
         """Test DELETE to /mcp returns 401 without Authorization."""
