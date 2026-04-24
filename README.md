@@ -2,134 +2,45 @@
 
 A Model Context Protocol (MCP) server that provides read-only access to Taboola's Realize API, enabling AI assistants to analyze campaigns, retrieve performance data, and generate reports through natural language. Install the MCP Server with stdio transport for single-user local use, or Streamable HTTP transport for multi-user deployment.
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Python](https://img.shields.io/badge/Python-3.10+-green.svg)](https://python.org)
-[![MCP](https://img.shields.io/badge/MCP-Compatible-orange.svg)](https://modelcontextprotocol.io/)
-[![Latest Version][mdversion-button]][md-pypi]
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![Python](https://img.shields.io/badge/Python-3.10+-green.svg)](https://python.org) [![MCP](https://img.shields.io/badge/MCP-Compatible-orange.svg)](https://modelcontextprotocol.io/) [![Latest Version][mdversion-button]][md-pypi]
 
 [mdversion-button]: https://img.shields.io/pypi/v/realize-mcp.svg
 [md-pypi]: https://pypi.org/project/realize-mcp/
 
 ---
 
-## Option 1: Stdio Quick Start
+## Quick Start (Remote MCP)
 
-Standard MCP transport for local clients. The server runs on your machine and uses server-side credentials for Taboola API authentication.
+Connect to the hosted Realize MCP server using [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) transport with OAuth 2.1. Multi-user, stateless, no local install required.
 
-### Server Installation
-
-```bash
-pip install realize-mcp
-```
-
-### Client Setup
-
-**Cursor IDE** - Add to Settings → Tools & MCP:
+**Cursor IDE / Claude Desktop** — Add to your MCP client config:
 
 ```json
 {
   "mcpServers": {
     "realize-mcp": {
-      "command": "realize-mcp-server",
-      "env": {
-        "REALIZE_CLIENT_ID": "your_client_id",
-        "REALIZE_CLIENT_SECRET": "your_client_secret"
-      }
+      "url": "https://mcp.realize.com/mcp"
     }
   }
 }
 ```
 
-**Claude Desktop** - Add to `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "realize-mcp": {
-      "command": "realize-mcp-server",
-      "env": {
-        "REALIZE_CLIENT_ID": "your_client_id",
-        "REALIZE_CLIENT_SECRET": "your_client_secret"
-      }
-    }
-  }
-}
-```
-
-**Claude Code (CLI)**
-
-```bash
-claude mcp add realize-mcp --transport stdio -e REALIZE_CLIENT_ID=your_client_id -e REALIZE_CLIENT_SECRET=your_client_secret -- realize-mcp-server
-```
-
----
-
-## Option 2: Streamable HTTP Quick Start
-
-HTTP-based [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) transport supporting multiple users via OAuth 2.1. Runs in stateless mode — no session affinity required, k8s-friendly.
-
-### Server Installation
-
-```bash
-pip install realize-mcp
-```
-
-### Start the Server
-
-```bash
-MCP_TRANSPORT=streamable-http OAUTH_DCR_CLIENT_ID=your_dcr_client_id realize-mcp-server
-```
-
-### Client Setup
-
-**Claude Desktop**
+**Claude Desktop (UI)**
 
 1. Go to Settings → Connectors → Add Custom Connector
-2. Enter the MCP Server name and URL (e.g., `https://your-mcp-server.example.com/mcp`)
+2. Enter the MCP Server name and URL: `https://mcp.realize.com/mcp`
 3. Select **Connect** to initiate the OAuth 2.1 flow
 4. A browser window will open to Taboola SSO—enter your credentials to obtain a bearer token used by Realize tools
 
 **Claude Code (CLI)**
 
 ```bash
-claude mcp add --transport http --callback-port 3000 realize-mcp https://your-mcp-server.example.com/mcp
+claude mcp add --transport http --callback-port 3000 realize-mcp https://mcp.realize.com/mcp
 ```
-
-**Cursor IDE** - Add to Settings → Tools & MCP:
-
-```json
-{
-  "mcpServers": {
-    "realize-mcp": {
-      "type": "streamable-http",
-      "url": "https://your-mcp-server.example.com/mcp"
-    }
-  }
-}
-```
-
-### Endpoints
-
-- `GET /.well-known/oauth-protected-resource` - RFC 9728 Protected Resource Metadata (supports path-based discovery)
-- `GET /.well-known/oauth-authorization-server` - RFC 8414 metadata (registration_endpoint rewritten)
-- `POST /register` - RFC 7591 Dynamic Client Registration
-- `POST|GET|DELETE /mcp` - MCP Streamable HTTP endpoint (requires Bearer token)
-- `GET /health` - Health check endpoint for Kubernetes probes
-- `GET /` on port 8092 - Prometheus metrics endpoint (separate port)
 
 ---
 
 ## Tools Reference
-
-> All tools are **read-only**. No create/update/delete operations.
-
-### Authentication (stdio only)
-
-These tools are only available in stdio mode, where the server manages its own client credentials. In Streamable HTTP mode, authentication is handled at the transport layer via OAuth 2.1 so these tools are excluded.
-
-**`get_auth_token`** — Authenticate with Realize API using client credentials (`REALIZE_CLIENT_ID`/`REALIZE_CLIENT_SECRET`).
-
-**`get_token_details`** — Get details about the current authentication token.
 
 ### Account Management
 
@@ -206,6 +117,14 @@ Supports: shared params only (no sort, no filters).
 **`get_campaign_site_day_breakdown_report`** — Site/day performance breakdown.
 Supports: shared params + sort + filters.
 
+### Authentication (stdio only)
+
+These tools are only available in stdio mode, where the server manages its own client credentials. In Streamable HTTP mode, authentication is handled at the transport layer via OAuth 2.1 so these tools are excluded.
+
+**`get_auth_token`** — Authenticate with Realize API using client credentials (`REALIZE_CLIENT_ID`/`REALIZE_CLIENT_SECRET`).
+
+**`get_token_details`** — Get details about the current authentication token.
+
 ---
 
 ## Usage Examples
@@ -262,43 +181,6 @@ AI Process:
   Result: Top content sorted by spend
 ```
 
----
-
-## Prerequisites
-
-**Common:**
-- Python 3.10+ (Python 3.11+ recommended)
-- MCP-compatible client (Claude Desktop, Cursor, VS Code, etc.)
-
-**For stdio transport:**
-- Taboola Realize API credentials (`REALIZE_CLIENT_ID` and `REALIZE_CLIENT_SECRET`)
-
-**For Streamable HTTP transport:**
-- OAuth Dynamic Client Registration client ID (`OAUTH_DCR_CLIENT_ID`)
-- Optional: `OAUTH_SERVER_URL` (defaults to `https://authentication.taboola.com/authentication`)
-- Publicly accessible server URL for OAuth callbacks
-- `MCP_SERVER_SCHEME` — defaults to `https`. Set to `http` for local dev without TLS.
-
----
-
-## Important Workflow Notes
-
-### Account ID Requirement
-
-**All campaign and report tools require `account_id` values from `search_accounts`:**
-
-✅ **Correct Workflow:**
-```
-1. search_accounts("company name" or "numeric_id")
-2. Extract account_id from response
-3. Use account_id in other tools
-```
-
-❌ **Incorrect:**
-```
-get_all_campaigns(account_id="12345")  # Numeric IDs won't work
-```
-
 ### Report Features
 
 - **CSV Format**: Reports return efficient CSV data with headers and pagination info
@@ -325,7 +207,110 @@ Enabled by default (`METRICS_ENABLED=true`). Served on a dedicated port (default
 
 ---
 
-## Troubleshooting
+## Local Setup
+
+Run the MCP server locally if you prefer to manage your own credentials or host the server yourself.
+
+### Prerequisites
+
+- Python 3.10+ (Python 3.11+ recommended)
+- MCP-compatible client (Claude Desktop, Cursor, VS Code, etc.)
+
+### Option A: Stdio Transport (single-user, local)
+
+Standard MCP transport for local clients. The server runs on your machine and uses server-side credentials for Taboola API authentication.
+
+**Prerequisites:** Taboola Realize API credentials (`REALIZE_CLIENT_ID` and `REALIZE_CLIENT_SECRET`)
+
+**Install:**
+
+```bash
+pip install realize-mcp
+```
+
+**Cursor IDE** - Add to Settings → Tools & MCP:
+
+```json
+{
+  "mcpServers": {
+    "realize-mcp": {
+      "command": "realize-mcp-server",
+      "env": {
+        "REALIZE_CLIENT_ID": "your_client_id",
+        "REALIZE_CLIENT_SECRET": "your_client_secret"
+      }
+    }
+  }
+}
+```
+
+**Claude Desktop** - Add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "realize-mcp": {
+      "command": "realize-mcp-server",
+      "env": {
+        "REALIZE_CLIENT_ID": "your_client_id",
+        "REALIZE_CLIENT_SECRET": "your_client_secret"
+      }
+    }
+  }
+}
+```
+
+**Claude Code (CLI)**
+
+```bash
+claude mcp add realize-mcp --transport stdio -e REALIZE_CLIENT_ID=your_client_id -e REALIZE_CLIENT_SECRET=your_client_secret -- realize-mcp-server
+```
+
+### Option B: Self-Hosted Streamable HTTP
+
+Run the Streamable HTTP transport yourself (multi-user via OAuth 2.1, stateless, k8s-friendly).
+
+**Prerequisites:**
+- OAuth Dynamic Client Registration client ID (`OAUTH_DCR_CLIENT_ID`)
+- Optional: `OAUTH_SERVER_URL` (defaults to `https://authentication.taboola.com/authentication`)
+- Publicly accessible server URL for OAuth callbacks
+- `MCP_SERVER_SCHEME` — defaults to `https`. Set to `http` for local dev without TLS.
+
+**Install:**
+
+```bash
+pip install realize-mcp
+```
+
+**Start the server:**
+
+```bash
+MCP_TRANSPORT=streamable-http OAUTH_DCR_CLIENT_ID=your_dcr_client_id realize-mcp-server
+```
+
+**Client config** (point to your self-hosted URL):
+
+```json
+{
+  "mcpServers": {
+    "realize-mcp": {
+      "type": "streamable-http",
+      "url": "https://your-mcp-server.example.com/mcp"
+    }
+  }
+}
+```
+
+**Endpoints:**
+
+- `GET /.well-known/oauth-protected-resource` - RFC 9728 Protected Resource Metadata (supports path-based discovery)
+- `GET /.well-known/oauth-authorization-server` - RFC 8414 metadata (registration_endpoint rewritten)
+- `POST /register` - RFC 7591 Dynamic Client Registration
+- `POST|GET|DELETE /mcp` - MCP Streamable HTTP endpoint (requires Bearer token)
+- `GET /health` - Health check endpoint for Kubernetes probes
+- `GET /` on port 8092 - Prometheus metrics endpoint (separate port)
+
+### Troubleshooting
 
 Test the server manually:
 
@@ -359,4 +344,4 @@ Licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
 
 ---
 
-**Realize MCP Server** - Safe, efficient, read-only access to Taboola's advertising platform through natural language.
+**Realize MCP Server** - Safe, efficient, access to Taboola's advertising platform through natural language.
