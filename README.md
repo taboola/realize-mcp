@@ -174,6 +174,16 @@ schedule    (object, required)
                                     until_hour: int 1-24, must be > from_hour}
 ```
 
+**`update_campaign_conversion_rules`** — Replace the conversion rules attached to a campaign. Full-replace: the supplied list overwrites current attachments wholesale. Send `[]` to detach all. To add or remove a single rule, first read the campaign with `get_campaign`, modify the list locally, then send the merged result. Rule authoring lives in the Realize UI (Conversions section); this tool only attaches existing rule IDs.
+
+```
+account_id        (string, required)   From search_accounts
+campaign_id       (string, required)
+conversion_rules  (array, required)    Full-replace list of rule references.
+                                       Each item: {id: <conversion_rule_id>}
+                                       Send [] to detach all.
+```
+
 ### Reporting (CSV Format)
 
 All report tools return CSV with a summary header. Every report requires these parameters:

@@ -630,6 +630,85 @@ TOOL_REGISTRY = {
         },
     },
 
+    "update_campaign_conversion_rules": {
+        "description": (
+            "Replace the conversion rules attached to a campaign. Conversion rules tell Realize "
+            "which on-site events count as conversions (purchase, lead, signup, etc.) for this "
+            "campaign's optimization and reporting.\n"
+            "\n"
+            "Required:\n"
+            "- account_id (string): from search_accounts.account_id (NOT numeric)\n"
+            "- campaign_id (string)\n"
+            "- conversion_rules (array): list of rule references in the form {\"id\": \"<rule_id>\"}\n"
+            "\n"
+            "Semantics:\n"
+            "- Full-replace: the supplied list replaces the campaign's current attachments wholesale.\n"
+            "- To detach all rules, send conversion_rules: [].\n"
+            "- To add or remove a single rule, first read the campaign with get_campaign, modify the "
+            "list locally, then send the merged result. There is no incremental ADD/REMOVE operation.\n"
+            "\n"
+            "Discovery:\n"
+            "- This tool does not list available rule ids. Rule ids are authored in the Realize UI "
+            "(Conversions section) or can be read off an existing campaign via get_campaign.\n"
+            "\n"
+            "Server-side constraints (will return 4xx if violated):\n"
+            "- Each rule id must already exist under the account.\n"
+            "- Campaigns with marketing_objective LEADS_GENERATION or ONLINE_PURCHASES typically "
+            "require at least one conversion rule; sending [] on those will be rejected.\n"
+            "- Some rule types are incompatible with some campaign configurations.\n"
+            "\n"
+            "Read-only fields are managed by the server. Do not include id, advertiser_id, status, etc.\n"
+            "\n"
+            "Examples:\n"
+            "\n"
+            "Attach two rules:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+            "  \"conversion_rules\": [\n"
+            "    {\"id\": \"rule_purchase_main\"},\n"
+            "    {\"id\": \"rule_addtocart_main\"}\n"
+            "  ] }\n"
+            "\n"
+            "Detach all rules:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+            "  \"conversion_rules\": [] }"
+        ),
+        "schema": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string",
+                    "description": "Value from search_accounts.account_id (NOT numeric).",
+                },
+                "campaign_id": {
+                    "type": "string",
+                    "description": "Campaign ID to update.",
+                },
+                "conversion_rules": {
+                    "type": "array",
+                    "description": "Full-replace list of rule references. Send [] to detach all.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {
+                                "type": "string",
+                                "description": "Conversion rule ID (from the Realize UI Conversions section, or get_campaign).",
+                            },
+                        },
+                        "required": ["id"],
+                    },
+                },
+            },
+            "required": ["account_id", "campaign_id", "conversion_rules"],
+        },
+        "handler": "campaign_handlers.update_campaign_conversion_rules",
+        "category": "campaigns",
+        "annotations": {
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    },
+
     # Campaign Items Tools (READ-ONLY)
     "get_campaign_items": {
         "description": "Get all items for a campaign (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",

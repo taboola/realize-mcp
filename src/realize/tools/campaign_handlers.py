@@ -17,6 +17,10 @@ from realize.tools.techno import (
 )
 from realize.tools.audiences import validate_my_audiences
 from realize.tools.schedule import to_wire_schedule, validate_schedule
+from realize.tools.conversion_rules import (
+    to_wire_conversion_rules,
+    validate_conversion_rules,
+)
 from realize.client import client
 
 
@@ -283,4 +287,33 @@ async def update_campaign_schedule(arguments: dict = None) -> List[types.TextCon
     return [types.TextContent(
         type="text",
         text=f"Campaign {campaign_id} activity schedule updated:\n{format_response(response)}"
+    )]
+
+
+async def update_campaign_conversion_rules(arguments: dict = None) -> List[types.TextContent]:
+    """Replace a campaign's attached conversion rules (write operation)."""
+    args = arguments or {}
+    account_id = args.get("account_id")
+    campaign_id = args.get("campaign_id")
+    conversion_rules = args.get("conversion_rules")
+
+    is_valid, error_message = validate_account_id(account_id)
+    if not is_valid:
+        raise ToolInputError(error_message)
+
+    if not campaign_id:
+        raise ToolInputError("campaign_id is required")
+
+    validate_conversion_rules(conversion_rules)
+
+    body = {"conversionRules": to_wire_conversion_rules(conversion_rules)}
+
+    response = await client.post(
+        f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}",
+        data=body,
+    )
+
+    return [types.TextContent(
+        type="text",
+        text=f"Campaign {campaign_id} conversion rules updated:\n{format_response(response)}"
     )]

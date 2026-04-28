@@ -110,6 +110,10 @@ async def handle_call_tool(
             from realize.tools.campaign_handlers import update_campaign_schedule
             result = await update_campaign_schedule(arguments)
 
+        elif handler_path == "campaign_handlers.update_campaign_conversion_rules":
+            from realize.tools.campaign_handlers import update_campaign_conversion_rules
+            result = await update_campaign_conversion_rules(arguments)
+
         elif handler_path == "campaign_handlers.get_campaign_items":
             from realize.tools.campaign_handlers import get_campaign_items
             result = await get_campaign_items(arguments)
