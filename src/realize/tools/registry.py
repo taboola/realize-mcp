@@ -117,9 +117,9 @@ TOOL_REGISTRY = {
             "    -> set bid_strategy (string enum) = TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE.\n"
             "       If bid_strategy = TARGET_CPA, set target_cpa (number). Omit cpc.\n"
             "\n"
-            "Optional scalars: start_date (string, YYYY-MM-DD), end_date (string, YYYY-MM-DD), tracking_code (string), cpc_cap (number), comments (string). If both dates set: end_date >= start_date.\n"
+            "Optional scalars: start_date (string, YYYY-MM-DD), end_date (string, YYYY-MM-DD), tracking_code (string), cpc_cap (number), comments (string), daily_ad_delivery_model (string enum: BALANCED | STRICT), traffic_allocation_mode (string enum: OPTIMIZED | EVEN, default OPTIMIZED). If both dates set: end_date >= start_date.\n"
             "\n"
-            "Read-only - NEVER send: id, advertiser_id, status, approval_state, is_active, spent, policy_review.\n"
+            "Read-only - NEVER send: id, advertiser_id, status, approval_state, is_active, spent, policy_review, pricing_model.\n"
             "\n"
             "Not supported here. After creation, use these update tools to set them:\n"
             "- geo targeting: update_campaign_geo_classic | update_campaign_geo_advanced\n"
@@ -169,7 +169,26 @@ TOOL_REGISTRY = {
                 "end_date": {"type": "string", "description": "YYYY-MM-DD. Optional; omit for ongoing."},
                 "tracking_code": {"type": "string", "description": "Query string appended to item URLs."},
                 "cpc_cap": {"type": "number", "description": "Upper bound on bids in account's default currency (e.g. 1.50)."},
-                "comments": {"type": "string", "description": "Internal notes."}
+                "comments": {"type": "string", "description": "Internal notes."},
+                "daily_ad_delivery_model": {
+                    "type": "string",
+                    "enum": ["BALANCED", "STRICT"],
+                    "description": (
+                        "Pacing model for how the daily budget is spent. "
+                        "BALANCED smooths spend across the day; STRICT caps spend within tighter daily windows. "
+                        "BALANCED typically pairs with MONTHLY/ENTIRE budgets; STRICT typically pairs with daily-cap setups. "
+                        "ACCELERATED was deprecated Aug 1 and is no longer accepted. Server determines default."
+                    ),
+                },
+                "traffic_allocation_mode": {
+                    "type": "string",
+                    "enum": ["OPTIMIZED", "EVEN"],
+                    "description": (
+                        "How traffic is split across the campaign's items. "
+                        "OPTIMIZED (default) lets the algorithm serve higher-engagement items more often. "
+                        "EVEN gives each item equal opportunity to compete (used for A/B-testing creatives during the exploratory phase)."
+                    ),
+                }
             },
             "required": ["account_id", "name", "marketing_objective", "branding_text", "spending_limit_model"]
         },
@@ -209,6 +228,8 @@ TOOL_REGISTRY = {
             "- tracking_code (string)\n"
             "- cpc_cap (number)\n"
             "- comments (string)\n"
+            "- daily_ad_delivery_model (string enum): BALANCED | STRICT (ACCELERATED deprecated, no longer accepted)\n"
+            "- traffic_allocation_mode (string enum): OPTIMIZED (default) | EVEN\n"
             "\n"
             "Conditional rules (apply when the gating field is in this request):\n"
             "- If you supply spending_limit_model = MONTHLY or ENTIRE, also supply spending_limit.\n"
@@ -223,7 +244,7 @@ TOOL_REGISTRY = {
             "- Objective + bid_strategy combos must remain compatible.\n"
             "- Account permissions and policy review state may forbid certain edits.\n"
             "\n"
-            "Read-only - NEVER send: id, advertiser_id, status, approval_state, is_active, spent, policy_review.\n"
+            "Read-only - NEVER send: id, advertiser_id, status, approval_state, is_active, spent, policy_review, pricing_model.\n"
             "\n"
             "Not supported here. Use these dedicated tools for non-scalar updates:\n"
             "- geo targeting: update_campaign_geo_classic | update_campaign_geo_advanced\n"
@@ -277,7 +298,26 @@ TOOL_REGISTRY = {
                 "end_date": {"type": "string", "description": "YYYY-MM-DD. Optional; omit for ongoing."},
                 "tracking_code": {"type": "string", "description": "Query string appended to item URLs."},
                 "cpc_cap": {"type": "number", "description": "Upper bound on bids in account's default currency (e.g. 1.50)."},
-                "comments": {"type": "string", "description": "Internal notes."}
+                "comments": {"type": "string", "description": "Internal notes."},
+                "daily_ad_delivery_model": {
+                    "type": "string",
+                    "enum": ["BALANCED", "STRICT"],
+                    "description": (
+                        "Pacing model for how the daily budget is spent. "
+                        "BALANCED smooths spend across the day; STRICT caps spend within tighter daily windows. "
+                        "BALANCED typically pairs with MONTHLY/ENTIRE budgets; STRICT typically pairs with daily-cap setups. "
+                        "ACCELERATED was deprecated Aug 1 and is no longer accepted. Server determines default."
+                    ),
+                },
+                "traffic_allocation_mode": {
+                    "type": "string",
+                    "enum": ["OPTIMIZED", "EVEN"],
+                    "description": (
+                        "How traffic is split across the campaign's items. "
+                        "OPTIMIZED (default) lets the algorithm serve higher-engagement items more often. "
+                        "EVEN gives each item equal opportunity to compete (used for A/B-testing creatives during the exploratory phase)."
+                    ),
+                }
             },
             "required": ["account_id", "campaign_id"]
         },

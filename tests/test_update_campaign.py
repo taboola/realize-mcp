@@ -224,6 +224,8 @@ class TestUpdateCampaignWireMapping:
         ("tracking_code", "utm_source=foo", {}),
         ("cpc_cap", 1.5, {}),
         ("comments", "internal", {}),
+        ("daily_ad_delivery_model", "BALANCED", {}),
+        ("traffic_allocation_mode", "OPTIMIZED", {}),
     ])
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
@@ -276,6 +278,26 @@ class TestUpdateCampaignWireMapping:
         result = await handle_call_tool("update_campaign", _args())
         assert "c-123" in result[0].text
 
+    @pytest.mark.asyncio
+    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
+    async def test_solo_daily_ad_delivery_model_passes(self, mock_post):
+        mock_post.return_value = {"id": "c-123"}
+        await handle_call_tool(
+            "update_campaign",
+            {"account_id": "acme-inc", "campaign_id": "c-123", "daily_ad_delivery_model": "STRICT"},
+        )
+        assert _post_body(mock_post) == {"daily_ad_delivery_model": "STRICT"}
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
+    async def test_solo_traffic_allocation_mode_passes(self, mock_post):
+        mock_post.return_value = {"id": "c-123"}
+        await handle_call_tool(
+            "update_campaign",
+            {"account_id": "acme-inc", "campaign_id": "c-123", "traffic_allocation_mode": "EVEN"},
+        )
+        assert _post_body(mock_post) == {"traffic_allocation_mode": "EVEN"}
+
 
 class TestUpdateCampaignSchema:
     @pytest.mark.asyncio
@@ -317,7 +339,7 @@ class TestUpdateCampaignSchema:
         assert update.inputSchema["required"] == ["account_id", "campaign_id"]
 
     @pytest.mark.asyncio
-    async def test_all_14_fields_present_as_optional_properties(self):
+    async def test_all_16_fields_present_as_optional_properties(self):
         from realize.realize_server import handle_list_tools
 
         tools = await handle_list_tools()
@@ -329,10 +351,29 @@ class TestUpdateCampaignSchema:
             "name", "marketing_objective", "branding_text", "spending_limit_model",
             "spending_limit", "daily_cap", "cpc", "bid_strategy", "target_cpa",
             "start_date", "end_date", "tracking_code", "cpc_cap", "comments",
+            "daily_ad_delivery_model", "traffic_allocation_mode",
         }
         for f in expected_fields:
             assert f in props, f"missing schema property: {f}"
             assert f not in required, f"{f} should be optional"
+
+    @pytest.mark.asyncio
+    async def test_daily_ad_delivery_model_enum(self):
+        from realize.realize_server import handle_list_tools
+
+        tools = await handle_list_tools()
+        update = next(t for t in tools if t.name == "update_campaign")
+        dadm = update.inputSchema["properties"]["daily_ad_delivery_model"]
+        assert set(dadm["enum"]) == {"BALANCED", "STRICT"}
+
+    @pytest.mark.asyncio
+    async def test_traffic_allocation_mode_enum(self):
+        from realize.realize_server import handle_list_tools
+
+        tools = await handle_list_tools()
+        update = next(t for t in tools if t.name == "update_campaign")
+        tam = update.inputSchema["properties"]["traffic_allocation_mode"]
+        assert set(tam["enum"]) == {"OPTIMIZED", "EVEN"}
 
 
 class TestUpdateCampaignAnnotations:

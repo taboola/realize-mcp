@@ -107,9 +107,11 @@ start_date, end_date (string, optional)   YYYY-MM-DD
 tracking_code        (string, optional)
 cpc_cap              (number, optional)
 comments             (string, optional)
+daily_ad_delivery_model    (string, optional)   BALANCED | STRICT
+traffic_allocation_mode    (string, optional)   OPTIMIZED (default) | EVEN
 ```
 
-**`update_campaign`** — Edit scalar fields on an existing campaign. Partial-merge: only supplied fields are updated; omitted fields keep their current value. Same 14 scalars accepted by `create_campaign`, all optional. At least one updatable field must be supplied. For non-scalar updates (geo, technology, audiences, schedule, conversion rules, publishers, contextual segments), use the dedicated tools below.
+**`update_campaign`** — Edit scalar fields on an existing campaign. Partial-merge: only supplied fields are updated; omitted fields keep their current value. Same 16 scalars accepted by `create_campaign`, all optional. At least one updatable field must be supplied. For non-scalar updates (geo, technology, audiences, schedule, conversion rules, publishers, contextual segments), use the dedicated tools below.
 
 ```
 account_id           (string, required)   From search_accounts
@@ -128,6 +130,8 @@ start_date, end_date (string, optional)   YYYY-MM-DD; if both supplied, end_date
 tracking_code        (string, optional)
 cpc_cap              (number, optional)
 comments             (string, optional)
+daily_ad_delivery_model    (string, optional)   BALANCED | STRICT
+traffic_allocation_mode    (string, optional)   OPTIMIZED (default) | EVEN
 ```
 
 **`update_campaign_geo_classic`** — Update one classic geo dimension on a campaign. Use when `get_campaign` shows no `geoTargeting` field. Sub-dimension mutex: at most one of `region | dma | city | postal_code` may be set at a time — clear the current dim with `type=ALL` before setting a new one.

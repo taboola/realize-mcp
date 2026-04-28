@@ -211,3 +211,62 @@ class TestCreateCampaignTopLevelFields:
         assert "country_targeting" not in body
         assert "extra_unknown" not in body
         assert "account_id" not in body
+
+
+class TestCreateCampaignDeliveryFields:
+    @pytest.mark.asyncio
+    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
+    async def test_includes_optional_daily_ad_delivery_model(self, mock_post):
+        mock_post.return_value = {"id": "c-1"}
+
+        await handle_call_tool("create_campaign", _minimal_args(
+            cpc=0.5, spending_limit=100.0,
+            daily_ad_delivery_model="BALANCED",
+        ))
+
+        assert _post_body(mock_post)["daily_ad_delivery_model"] == "BALANCED"
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
+    async def test_includes_optional_traffic_allocation_mode(self, mock_post):
+        mock_post.return_value = {"id": "c-1"}
+
+        await handle_call_tool("create_campaign", _minimal_args(
+            cpc=0.5, spending_limit=100.0,
+            traffic_allocation_mode="EVEN",
+        ))
+
+        assert _post_body(mock_post)["traffic_allocation_mode"] == "EVEN"
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
+    async def test_omitted_delivery_fields_not_in_body(self, mock_post):
+        mock_post.return_value = {"id": "c-1"}
+
+        await handle_call_tool("create_campaign", _minimal_args(
+            cpc=0.5, spending_limit=100.0,
+        ))
+
+        body = _post_body(mock_post)
+        assert "daily_ad_delivery_model" not in body
+        assert "traffic_allocation_mode" not in body
+
+    @pytest.mark.asyncio
+    async def test_daily_ad_delivery_model_enum_in_schema(self):
+        from realize.realize_server import handle_list_tools
+
+        tools = await handle_list_tools()
+        create = next(t for t in tools if t.name == "create_campaign")
+        dadm = create.inputSchema["properties"]["daily_ad_delivery_model"]
+
+        assert set(dadm["enum"]) == {"BALANCED", "STRICT"}
+
+    @pytest.mark.asyncio
+    async def test_traffic_allocation_mode_enum_in_schema(self):
+        from realize.realize_server import handle_list_tools
+
+        tools = await handle_list_tools()
+        create = next(t for t in tools if t.name == "create_campaign")
+        tam = create.inputSchema["properties"]["traffic_allocation_mode"]
+
+        assert set(tam["enum"]) == {"OPTIMIZED", "EVEN"}

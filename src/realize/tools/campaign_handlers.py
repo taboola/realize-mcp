@@ -113,6 +113,7 @@ _CREATE_CAMPAIGN_BODY_FIELDS = (
     "name", "marketing_objective", "branding_text", "spending_limit_model",
     "spending_limit", "daily_cap", "cpc", "bid_strategy", "target_cpa",
     "start_date", "end_date", "tracking_code", "cpc_cap", "comments",
+    "daily_ad_delivery_model", "traffic_allocation_mode",
 )
 
 
@@ -146,6 +147,7 @@ _UPDATE_CAMPAIGN_BODY_FIELDS = (
     "name", "marketing_objective", "branding_text", "spending_limit_model",
     "spending_limit", "daily_cap", "cpc", "bid_strategy", "target_cpa",
     "start_date", "end_date", "tracking_code", "cpc_cap", "comments",
+    "daily_ad_delivery_model", "traffic_allocation_mode",
 )
 
 
