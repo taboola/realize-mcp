@@ -90,6 +90,14 @@ async def handle_call_tool(
             from realize.tools.campaign_handlers import create_campaign
             result = await create_campaign(arguments)
 
+        elif handler_path == "campaign_handlers.update_campaign_geo_classic":
+            from realize.tools.campaign_handlers import update_campaign_geo_classic
+            result = await update_campaign_geo_classic(arguments)
+
+        elif handler_path == "campaign_handlers.update_campaign_geo_advanced":
+            from realize.tools.campaign_handlers import update_campaign_geo_advanced
+            result = await update_campaign_geo_advanced(arguments)
+
         elif handler_path == "campaign_handlers.get_campaign_items":
             from realize.tools.campaign_handlers import get_campaign_items
             result = await get_campaign_items(arguments)

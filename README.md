@@ -85,6 +85,53 @@ campaign_id (string, required)
 item_id     (string, required)
 ```
 
+#### Write tools
+
+These tools mutate campaign state and are annotated `destructiveHint: true` for MCP host UIs that gate writes.
+
+**`create_campaign`** — Create a campaign. Returns the new campaign with `status=PAUSED` (will not serve until items are added and the campaign is activated). Targeting is not supported here; use the update tools below after creation.
+
+```
+account_id           (string, required)   From search_accounts
+name                 (string, required)
+marketing_objective  (string, required)   BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC | WEBSITE_ENGAGEMENT |
+                                          LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL
+branding_text        (string, required)   Brand name shown with ads
+spending_limit_model (string, required)   NONE | MONTHLY | ENTIRE
+spending_limit       (number, optional)   Required when model = MONTHLY or ENTIRE
+daily_cap            (number, optional)   Required when model = NONE
+cpc                  (number, optional)   For BRAND_AWARENESS / DRIVE_WEBSITE_TRAFFIC / WEBSITE_ENGAGEMENT
+bid_strategy         (string, optional)   SMART | FIXED | TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE
+target_cpa           (number, optional)   Required when bid_strategy = TARGET_CPA
+start_date, end_date (string, optional)   YYYY-MM-DD
+tracking_code        (string, optional)
+cpc_cap              (number, optional)
+comments             (string, optional)
+```
+
+**`update_campaign_geo_classic`** — Update one classic geo dimension on a campaign. Use when `get_campaign` shows no `geoTargeting` field. Sub-dimension mutex: at most one of `region | dma | city | postal_code` may be set at a time — clear the current dim with `type=ALL` before setting a new one.
+
+```
+account_id  (string, required)
+campaign_id (string, required)
+dimension   (string, required)   country | region | dma | city | postal_code
+targeting   (object, required)   {type: INCLUDE | EXCLUDE | ALL, value: [string]}
+                                 value=[] required when type=ALL
+```
+
+**`update_campaign_geo_advanced`** — Update geo using the advanced (MultiTargeting) shape. Use when `get_campaign` returns a populated `geoTargeting`. Sending advanced on a classic-stored campaign migrates the campaign one-way to advanced storage and clears classic fields.
+
+```
+account_id    (string, required)
+campaign_id   (string, required)
+geo_targeting (object, required)
+  state  (string)   ALL | EXISTS                 ALL with value=[] clears all geo
+  value  (array)    Rules; each rule:
+                    {type: INCLUDE | EXCLUDE,
+                     value: [{country, region, dma, city, postal_code}]}
+                    A vector may set one dim or mix dims (e.g. country=US AND region=CA → California).
+```
+
 ### Reporting (CSV Format)
 
 All report tools return CSV with a summary header. Every report requires these parameters:

@@ -4,6 +4,12 @@ from urllib.parse import quote
 import mcp.types as types
 from realize.tools.utils import format_response, validate_account_id
 from realize.tools.errors import ToolInputError
+from realize.tools.geo import (
+    geo_classic_wire_field,
+    to_wire_geo_advanced,
+    validate_geo_advanced,
+    validate_geo_classic,
+)
 from realize.client import client
 
 
@@ -115,4 +121,68 @@ async def create_campaign(arguments: dict = None) -> List[types.TextContent]:
     return [types.TextContent(
         type="text",
         text=f"Campaign created in account {account_id}:\n{format_response(response)}"
+    )]
+
+
+async def update_campaign_geo_classic(arguments: dict = None) -> List[types.TextContent]:
+    """Update one classic geo dimension on a campaign (write operation)."""
+    args = arguments or {}
+    account_id = args.get("account_id")
+    campaign_id = args.get("campaign_id")
+    dimension = args.get("dimension")
+    targeting = args.get("targeting")
+
+    is_valid, error_message = validate_account_id(account_id)
+    if not is_valid:
+        raise ToolInputError(error_message)
+
+    if not campaign_id:
+        raise ToolInputError("campaign_id is required")
+
+    validate_geo_classic(dimension, targeting)
+
+    body = {
+        geo_classic_wire_field(dimension): {
+            "type": targeting["type"],
+            "value": targeting["value"],
+        }
+    }
+
+    response = await client.post(
+        f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}",
+        data=body,
+    )
+
+    return [types.TextContent(
+        type="text",
+        text=f"Campaign {campaign_id} geo ({dimension}) updated:\n{format_response(response)}"
+    )]
+
+
+async def update_campaign_geo_advanced(arguments: dict = None) -> List[types.TextContent]:
+    """Update advanced (MultiTargeting) geo on a campaign (write operation)."""
+    args = arguments or {}
+    account_id = args.get("account_id")
+    campaign_id = args.get("campaign_id")
+    geo_targeting = args.get("geo_targeting")
+
+    is_valid, error_message = validate_account_id(account_id)
+    if not is_valid:
+        raise ToolInputError(error_message)
+
+    if not campaign_id:
+        raise ToolInputError("campaign_id is required")
+
+    validate_geo_advanced(geo_targeting)
+
+    body = {"geoTargeting": to_wire_geo_advanced(geo_targeting)}
+
+    response = await client.post(
+        f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}",
+        data=body,
+    )
+
+    return [types.TextContent(
+        type="text",
+        text=f"Campaign {campaign_id} advanced geo updated:\n{format_response(response)}"
     )]

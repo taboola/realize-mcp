@@ -176,6 +176,175 @@ TOOL_REGISTRY = {
         },
     },
 
+    "update_campaign_geo_classic": {
+        "description": (
+            "Update one classic geo targeting dimension on a campaign. Use this for campaigns that store "
+            "geo in the classic shape. Call get_campaign first to detect which shape is in use: "
+            "if the response has `geoTargeting`, use update_campaign_geo_advanced instead.\n"
+            "\n"
+            "Required:\n"
+            "- account_id (string): from search_accounts.account_id (NOT numeric)\n"
+            "- campaign_id (string)\n"
+            "- dimension (enum): country | region | dma | city | postal_code\n"
+            "- targeting (object): {type: INCLUDE | EXCLUDE | ALL, value: [string]}\n"
+            "\n"
+            "Semantics:\n"
+            "- type=INCLUDE: only matched values are targeted.\n"
+            "- type=EXCLUDE: matched values are excluded; everything else included.\n"
+            "- type=ALL: clear this dimension. Send value: []. (type=ALL with non-empty value is rejected.)\n"
+            "\n"
+            "Server-side constraints (will return 4xx if violated):\n"
+            "- Sub-dimension mutex. At most ONE of {region, dma, city, postal_code} may be set on a campaign at a time. "
+            "To switch from one to another, FIRST clear the current dim with type=ALL, THEN set the new dim in a second call.\n"
+            "- DMA only valid when country = INCLUDE [US].\n"
+            "- Sub-dimension write requires exactly one INCLUDE country to already be set.\n"
+            "- Region values are short-form (e.g., \"CA\"), NOT prefixed with country.\n"
+            "- Country=ALL with empty value clears all sub-location restrictions on the campaign in one call.\n"
+            "- The campaign's allowGeoTargeting flag may forbid geo updates entirely.\n"
+            "- The campaign must currently use classic storage (no `geoTargeting` field set). "
+            "Setting classic on an advanced-stored campaign returns 4xx.\n"
+            "\n"
+            "Examples:\n"
+            "\n"
+            "Target US and Canada by country:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"dimension\": \"country\",\n"
+            "  \"targeting\": {\"type\": \"INCLUDE\", \"value\": [\"US\", \"CA\"]} }\n"
+            "\n"
+            "Switch from city to region targeting (TWO calls):\n"
+            "1) {\"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"dimension\": \"city\", \"targeting\": {\"type\": \"ALL\", \"value\": []}}\n"
+            "2) {\"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"dimension\": \"region\", \"targeting\": {\"type\": \"INCLUDE\", \"value\": [\"CA\", \"NY\"]}}\n"
+            "\n"
+            "Clear all geo restrictions in one call:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"dimension\": \"country\",\n"
+            "  \"targeting\": {\"type\": \"ALL\", \"value\": []} }"
+        ),
+        "schema": {
+            "type": "object",
+            "properties": {
+                "account_id": {"type": "string", "description": "Value from search_accounts.account_id (NOT numeric)."},
+                "campaign_id": {"type": "string", "description": "Campaign ID to update."},
+                "dimension": {
+                    "type": "string",
+                    "enum": ["country", "region", "dma", "city", "postal_code"],
+                    "description": "Which classic geo dimension to update.",
+                },
+                "targeting": {
+                    "type": "object",
+                    "properties": {
+                        "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
+                        "value": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "required": ["type", "value"],
+                    "description": "Targeting block. value=[] when type=ALL.",
+                },
+            },
+            "required": ["account_id", "campaign_id", "dimension", "targeting"],
+        },
+        "handler": "campaign_handlers.update_campaign_geo_classic",
+        "category": "campaigns",
+        "annotations": {
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    },
+
+    "update_campaign_geo_advanced": {
+        "description": (
+            "Update a campaign's geo targeting using the advanced (MultiTargeting) shape. "
+            "Requires the campaign to currently use advanced storage, OR the caller is intentionally "
+            "migrating it from classic — sending advanced on a classic-storage campaign will clear classic "
+            "fields and migrate the campaign one-way to advanced storage. Migration is logged in campaign history.\n"
+            "\n"
+            "Required:\n"
+            "- account_id (string): from search_accounts.account_id (NOT numeric)\n"
+            "- campaign_id (string)\n"
+            "- geo_targeting (object): MultiTargeting wrapper\n"
+            "\n"
+            "geo_targeting shape:\n"
+            "{\n"
+            "  \"state\": \"ALL\" | \"EXISTS\",\n"
+            "  \"value\": [\n"
+            "    { \"type\": \"INCLUDE\" | \"EXCLUDE\",\n"
+            "      \"value\": [\n"
+            "        { \"country\": \"US\", \"region\": null, \"dma\": null, \"city\": null, \"postal_code\": null }\n"
+            "      ]\n"
+            "    }\n"
+            "  ]\n"
+            "}\n"
+            "\n"
+            "Semantics:\n"
+            "- state=ALL clears all geo restrictions; send value: [].\n"
+            "- state=EXISTS applies the rules in value (must be non-empty).\n"
+            "- Each rule groups vectors of one type (INCLUDE or EXCLUDE).\n"
+            "- A vector may set one geo dimension or mix dimensions (country=US AND region=CA targets California specifically).\n"
+            "- Country: ISO-2 (e.g., \"US\").\n"
+            "- DMA codes are US-only.\n"
+            "- Server rejects: more than 200 exclude countries; sanctioned regions; invalid vector codes. The 4xx body is surfaced.\n"
+            "\n"
+            "Read-only fields are managed by the server. Do not include id, advertiser_id, status, etc.\n"
+            "\n"
+            "Examples:\n"
+            "\n"
+            "Target US and Canada, exclude Texas:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+            "  \"geo_targeting\": { \"state\": \"EXISTS\", \"value\": [\n"
+            "    {\"type\": \"INCLUDE\", \"value\": [{\"country\": \"US\"}, {\"country\": \"CA\"}]},\n"
+            "    {\"type\": \"EXCLUDE\", \"value\": [{\"country\": \"US\", \"region\": \"TX\"}]}\n"
+            "  ]}}\n"
+            "\n"
+            "Clear all geo (target worldwide):\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+            "  \"geo_targeting\": {\"state\": \"ALL\", \"value\": []} }"
+        ),
+        "schema": {
+            "type": "object",
+            "properties": {
+                "account_id": {"type": "string", "description": "Value from search_accounts.account_id (NOT numeric)."},
+                "campaign_id": {"type": "string", "description": "Campaign ID to update."},
+                "geo_targeting": {
+                    "type": "object",
+                    "description": "Advanced (MultiTargeting) geo wrapper. state=ALL with value=[] clears geo; state=EXISTS applies the rules in value.",
+                    "properties": {
+                        "state": {"type": "string", "enum": ["ALL", "EXISTS"]},
+                        "value": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE"]},
+                                    "value": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "country": {"type": ["string", "null"]},
+                                                "region": {"type": ["string", "null"]},
+                                                "dma": {"type": ["string", "null"]},
+                                                "city": {"type": ["string", "null"]},
+                                                "postal_code": {"type": ["string", "null"]},
+                                            },
+                                        },
+                                    },
+                                },
+                                "required": ["type", "value"],
+                            },
+                        },
+                    },
+                    "required": ["state", "value"],
+                },
+            },
+            "required": ["account_id", "campaign_id", "geo_targeting"],
+        },
+        "handler": "campaign_handlers.update_campaign_geo_advanced",
+        "category": "campaigns",
+        "annotations": {
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    },
+
     # Campaign Items Tools (READ-ONLY)
     "get_campaign_items": {
         "description": "Get all items for a campaign (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
