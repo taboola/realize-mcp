@@ -441,6 +441,92 @@ TOOL_REGISTRY = {
         },
     },
 
+    "update_campaign_my_audiences": {
+        "description": (
+            "Update first-party + custom audience targeting on a campaign. Posts to the dedicated "
+            "my_audiences sub-endpoint, replacing the campaign's current audience targeting "
+            "collection with the supplied rules.\n"
+            "\n"
+            "Required:\n"
+            "- account_id (string): from search_accounts.account_id (NOT numeric)\n"
+            "- campaign_id (string)\n"
+            "- targeting (object): {collection: [rules]}\n"
+            "\n"
+            "Each rule:\n"
+            "  {collection: [audience_id, ...], type: \"INCLUDE\" | \"EXCLUDE\"}\n"
+            "\n"
+            "audience_id values are numeric audience IDs (integers). Source via Realize UI or the "
+            "GET /backstage/api/1.0/{account_id}/my_audiences/{audience_id} reference endpoint.\n"
+            "\n"
+            "Semantics:\n"
+            "- Each rule groups audience IDs of one targeting type (INCLUDE or EXCLUDE).\n"
+            "- INCLUDE rules add the listed audiences; EXCLUDE rules suppress them.\n"
+            "- This endpoint REPLACES the entire audience targeting collection on each call. "
+            "Send the full desired set, not a delta.\n"
+            "- To clear audience targeting, send {\"collection\": []}.\n"
+            "- ALL is not part of this endpoint's vocab; only INCLUDE and EXCLUDE.\n"
+            "\n"
+            "NOT supported here:\n"
+            "- Lookalike audience targeting. Different shape (ruleId, similarityLevel) and endpoint; "
+            "separate tool forthcoming.\n"
+            "- Reading current audience targeting. Use get_campaign or a future read tool.\n"
+            "\n"
+            "Read-only fields are managed by the server. Do not include audience names, descriptions, etc.\n"
+            "\n"
+            "Examples:\n"
+            "\n"
+            "Include two audiences, exclude two:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+            "  \"targeting\": {\n"
+            "    \"collection\": [\n"
+            "      {\"collection\": [224820, 25287], \"type\": \"INCLUDE\"},\n"
+            "      {\"collection\": [19884, 29870], \"type\": \"EXCLUDE\"}\n"
+            "    ]\n"
+            "  } }\n"
+            "\n"
+            "Clear all audience targeting:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+            "  \"targeting\": {\"collection\": []} }"
+        ),
+        "schema": {
+            "type": "object",
+            "properties": {
+                "account_id": {"type": "string", "description": "Value from search_accounts.account_id (NOT numeric)."},
+                "campaign_id": {"type": "string", "description": "Campaign ID to update."},
+                "targeting": {
+                    "type": "object",
+                    "description": "Audience targeting wrapper. Send {collection: []} to clear.",
+                    "properties": {
+                        "collection": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "collection": {
+                                        "type": "array",
+                                        "items": {"type": "integer"},
+                                        "description": "Audience IDs to apply this rule to.",
+                                    },
+                                    "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE"]},
+                                },
+                                "required": ["collection", "type"],
+                            },
+                        },
+                    },
+                    "required": ["collection"],
+                },
+            },
+            "required": ["account_id", "campaign_id", "targeting"],
+        },
+        "handler": "campaign_handlers.update_campaign_my_audiences",
+        "category": "campaigns",
+        "annotations": {
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    },
+
     # Campaign Items Tools (READ-ONLY)
     "get_campaign_items": {
         "description": "Get all items for a campaign (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",

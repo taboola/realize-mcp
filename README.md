@@ -147,6 +147,18 @@ targeting   (object, required)
                     Omit sub_categories to target the entire family.
 ```
 
+**`update_campaign_my_audiences`** — Update first-party + custom audience targeting on a campaign. Posts to the dedicated `targeting/my_audiences` sub-endpoint with a flat `{collection: [rules]}` body. Replace-style: send the full desired targeting set on each call. Lookalike audiences are not handled by this tool.
+
+```
+account_id  (string, required)
+campaign_id (string, required)
+targeting   (object, required)
+  collection (array)   Rules; each rule:
+                       {collection: [<integer audience_id>, ...],
+                        type: INCLUDE | EXCLUDE}
+                       Send {collection: []} to clear all audience targeting.
+```
+
 ### Reporting (CSV Format)
 
 All report tools return CSV with a summary header. Every report requires these parameters:
