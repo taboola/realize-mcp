@@ -226,6 +226,7 @@ class TestUpdateCampaignWireMapping:
         ("comments", "internal", {}),
         ("daily_ad_delivery_model", "BALANCED", {}),
         ("traffic_allocation_mode", "OPTIMIZED", {}),
+        ("is_active", True, {}),
     ])
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
@@ -298,6 +299,26 @@ class TestUpdateCampaignWireMapping:
         )
         assert _post_body(mock_post) == {"traffic_allocation_mode": "EVEN"}
 
+    @pytest.mark.asyncio
+    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
+    async def test_solo_is_active_true_passes(self, mock_post):
+        mock_post.return_value = {"id": "c-123"}
+        await handle_call_tool(
+            "update_campaign",
+            {"account_id": "acme-inc", "campaign_id": "c-123", "is_active": True},
+        )
+        assert _post_body(mock_post) == {"is_active": True}
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
+    async def test_solo_is_active_false_passes(self, mock_post):
+        mock_post.return_value = {"id": "c-123"}
+        await handle_call_tool(
+            "update_campaign",
+            {"account_id": "acme-inc", "campaign_id": "c-123", "is_active": False},
+        )
+        assert _post_body(mock_post) == {"is_active": False}
+
 
 class TestUpdateCampaignSchema:
     @pytest.mark.asyncio
@@ -339,7 +360,7 @@ class TestUpdateCampaignSchema:
         assert update.inputSchema["required"] == ["account_id", "campaign_id"]
 
     @pytest.mark.asyncio
-    async def test_all_16_fields_present_as_optional_properties(self):
+    async def test_all_17_fields_present_as_optional_properties(self):
         from realize.realize_server import handle_list_tools
 
         tools = await handle_list_tools()
@@ -351,11 +372,20 @@ class TestUpdateCampaignSchema:
             "name", "marketing_objective", "branding_text", "spending_limit_model",
             "spending_limit", "daily_cap", "cpc", "bid_strategy", "target_cpa",
             "start_date", "end_date", "tracking_code", "cpc_cap", "comments",
-            "daily_ad_delivery_model", "traffic_allocation_mode",
+            "daily_ad_delivery_model", "traffic_allocation_mode", "is_active",
         }
         for f in expected_fields:
             assert f in props, f"missing schema property: {f}"
             assert f not in required, f"{f} should be optional"
+
+    @pytest.mark.asyncio
+    async def test_is_active_is_boolean_in_schema(self):
+        from realize.realize_server import handle_list_tools
+
+        tools = await handle_list_tools()
+        update = next(t for t in tools if t.name == "update_campaign")
+        ia = update.inputSchema["properties"]["is_active"]
+        assert ia["type"] == "boolean"
 
     @pytest.mark.asyncio
     async def test_daily_ad_delivery_model_enum(self):

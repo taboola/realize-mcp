@@ -117,9 +117,9 @@ TOOL_REGISTRY = {
             "    -> set bid_strategy (string enum) = TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE.\n"
             "       If bid_strategy = TARGET_CPA, set target_cpa (number). Omit cpc.\n"
             "\n"
-            "Optional scalars: start_date (string, YYYY-MM-DD), end_date (string, YYYY-MM-DD), tracking_code (string), cpc_cap (number), comments (string), daily_ad_delivery_model (string enum: BALANCED | STRICT), traffic_allocation_mode (string enum: OPTIMIZED | EVEN, default OPTIMIZED). If both dates set: end_date >= start_date.\n"
+            "Optional scalars: start_date (string, YYYY-MM-DD), end_date (string, YYYY-MM-DD), tracking_code (string), cpc_cap (number), comments (string), daily_ad_delivery_model (string enum: BALANCED | STRICT), traffic_allocation_mode (string enum: OPTIMIZED | EVEN, default OPTIMIZED), is_active (boolean: true to launch immediately, false or omit to start paused). If both dates set: end_date >= start_date.\n"
             "\n"
-            "Read-only - NEVER send: id, advertiser_id, status, approval_state, is_active, spent, policy_review, pricing_model.\n"
+            "Read-only - NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model.\n"
             "\n"
             "Not supported here. After creation, use these update tools to set them:\n"
             "- geo targeting: update_campaign_geo_classic | update_campaign_geo_advanced\n"
@@ -188,6 +188,13 @@ TOOL_REGISTRY = {
                         "OPTIMIZED (default) lets the algorithm serve higher-engagement items more often. "
                         "EVEN gives each item equal opportunity to compete (used for A/B-testing creatives during the exploratory phase)."
                     ),
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "description": (
+                        "true to launch the campaign immediately on creation; false or omitted to start paused. "
+                        "Even when is_active=true, the campaign will not serve until items are added and approval_state allows."
+                    ),
                 }
             },
             "required": ["account_id", "name", "marketing_objective", "branding_text", "spending_limit_model"]
@@ -230,6 +237,7 @@ TOOL_REGISTRY = {
             "- comments (string)\n"
             "- daily_ad_delivery_model (string enum): BALANCED | STRICT (ACCELERATED deprecated, no longer accepted)\n"
             "- traffic_allocation_mode (string enum): OPTIMIZED (default) | EVEN\n"
+            "- is_active (boolean): true to activate the campaign, false to pause. After create_campaign, campaigns ship paused; set is_active=true to launch.\n"
             "\n"
             "Conditional rules (apply when the gating field is in this request):\n"
             "- If you supply spending_limit_model = MONTHLY or ENTIRE, also supply spending_limit.\n"
@@ -243,8 +251,9 @@ TOOL_REGISTRY = {
             "- MOBILE_APP_INSTALL requires app fields (app_url, app_type, app_store) not yet supported here; switching to MOBILE_APP_INSTALL via this tool will likely 4xx.\n"
             "- Objective + bid_strategy combos must remain compatible.\n"
             "- Account permissions and policy review state may forbid certain edits.\n"
+            "- TERMINATED campaigns cannot be reactivated; approval_state separately gates whether is_active=true actually serves ads.\n"
             "\n"
-            "Read-only - NEVER send: id, advertiser_id, status, approval_state, is_active, spent, policy_review, pricing_model.\n"
+            "Read-only - NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model.\n"
             "\n"
             "Not supported here. Use these dedicated tools for non-scalar updates:\n"
             "- geo targeting: update_campaign_geo_classic | update_campaign_geo_advanced\n"
@@ -266,7 +275,13 @@ TOOL_REGISTRY = {
             "\n"
             "Switch budget model to monthly:\n"
             "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
-            "  \"spending_limit_model\": \"MONTHLY\", \"spending_limit\": 5000 }"
+            "  \"spending_limit_model\": \"MONTHLY\", \"spending_limit\": 5000 }\n"
+            "\n"
+            "Activate a paused campaign:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"is_active\": true }\n"
+            "\n"
+            "Pause a running campaign:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"is_active\": false }"
         ),
         "schema": {
             "type": "object",
@@ -316,6 +331,16 @@ TOOL_REGISTRY = {
                         "How traffic is split across the campaign's items. "
                         "OPTIMIZED (default) lets the algorithm serve higher-engagement items more often. "
                         "EVEN gives each item equal opportunity to compete (used for A/B-testing creatives during the exploratory phase)."
+                    ),
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "description": (
+                        "true to activate the campaign (set state to ACTIVE), false to pause. "
+                        "Re-sending the same value is a no-op. After create_campaign, "
+                        "campaigns are paused; set is_active=true to launch. "
+                        "TERMINATED campaigns cannot be reactivated; approval_state separately "
+                        "gates whether an active campaign actually serves ads."
                     ),
                 }
             },

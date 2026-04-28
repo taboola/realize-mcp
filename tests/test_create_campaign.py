@@ -270,3 +270,59 @@ class TestCreateCampaignDeliveryFields:
         tam = create.inputSchema["properties"]["traffic_allocation_mode"]
 
         assert set(tam["enum"]) == {"OPTIMIZED", "EVEN"}
+
+
+class TestCreateCampaignIsActive:
+    @pytest.mark.asyncio
+    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
+    async def test_includes_is_active_true(self, mock_post):
+        mock_post.return_value = {"id": "c-1"}
+
+        await handle_call_tool("create_campaign", _minimal_args(
+            cpc=0.5, spending_limit=100.0,
+            is_active=True,
+        ))
+
+        assert _post_body(mock_post)["is_active"] is True
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
+    async def test_includes_is_active_false(self, mock_post):
+        mock_post.return_value = {"id": "c-1"}
+
+        await handle_call_tool("create_campaign", _minimal_args(
+            cpc=0.5, spending_limit=100.0,
+            is_active=False,
+        ))
+
+        assert _post_body(mock_post)["is_active"] is False
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
+    async def test_omitted_is_active_not_in_body(self, mock_post):
+        mock_post.return_value = {"id": "c-1"}
+
+        await handle_call_tool("create_campaign", _minimal_args(
+            cpc=0.5, spending_limit=100.0,
+        ))
+
+        assert "is_active" not in _post_body(mock_post)
+
+    @pytest.mark.asyncio
+    async def test_is_active_is_boolean_in_schema(self):
+        from realize.realize_server import handle_list_tools
+
+        tools = await handle_list_tools()
+        create = next(t for t in tools if t.name == "create_campaign")
+        ia = create.inputSchema["properties"]["is_active"]
+
+        assert ia["type"] == "boolean"
+
+    @pytest.mark.asyncio
+    async def test_is_active_not_required(self):
+        from realize.realize_server import handle_list_tools
+
+        tools = await handle_list_tools()
+        create = next(t for t in tools if t.name == "create_campaign")
+
+        assert "is_active" not in create.inputSchema["required"]
