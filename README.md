@@ -109,6 +109,27 @@ cpc_cap              (number, optional)
 comments             (string, optional)
 ```
 
+**`update_campaign`** — Edit scalar fields on an existing campaign. Partial-merge: only supplied fields are updated; omitted fields keep their current value. Same 14 scalars accepted by `create_campaign`, all optional. At least one updatable field must be supplied. For non-scalar updates (geo, technology, audiences, schedule, conversion rules, publishers, contextual segments), use the dedicated tools below.
+
+```
+account_id           (string, required)   From search_accounts
+campaign_id          (string, required)   Campaign to update
+name                 (string, optional)
+marketing_objective  (string, optional)   BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC | WEBSITE_ENGAGEMENT |
+                                          LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL
+branding_text        (string, optional)
+spending_limit_model (string, optional)   NONE | MONTHLY | ENTIRE
+spending_limit       (number, optional)   Co-required when supplying spending_limit_model = MONTHLY or ENTIRE
+daily_cap            (number, optional)   Co-required when supplying spending_limit_model = NONE
+cpc                  (number, optional)
+bid_strategy         (string, optional)   SMART | FIXED | TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE
+target_cpa           (number, optional)   Co-required when supplying bid_strategy = TARGET_CPA
+start_date, end_date (string, optional)   YYYY-MM-DD; if both supplied, end_date >= start_date
+tracking_code        (string, optional)
+cpc_cap              (number, optional)
+comments             (string, optional)
+```
+
 **`update_campaign_geo_classic`** — Update one classic geo dimension on a campaign. Use when `get_campaign` shows no `geoTargeting` field. Sub-dimension mutex: at most one of `region | dma | city | postal_code` may be set at a time — clear the current dim with `type=ALL` before setting a new one.
 
 ```
@@ -201,6 +222,17 @@ publisher_bid_modifier      (object, optional)   {values: [{target: <publisher_n
                                                   cpc_modification is a CPC multiplier
                                                   (e.g. 1.25 = +25%, 0.8 = -20%).
                                                   Targets must be unique and finite.
+```
+
+**`update_campaign_contextual_segments`** — Replace the contextual segment targeting attached to a campaign. Posts to the dedicated `targeting/contextual_segments` sub-endpoint with a `{collection: [rules]}` body, mirroring the `update_campaign_my_audiences` shape. Full-replace: the supplied object overwrites current targeting wholesale. Send `{collection: []}` to clear all contextual targeting. At most one `INCLUDE` block and one `EXCLUDE` block; segment IDs are integers (e.g. `1900004`), authored in the Realize UI or read from `get_campaign`.
+
+```
+account_id          (string, required)   From search_accounts
+campaign_id         (string, required)
+contextual_segments (object, required)   {collection: [{type, collection}]}
+                                          type: INCLUDE | EXCLUDE
+                                          inner collection: [<segment_id_int>, ...]
+                                          Send {collection: []} to clear all.
 ```
 
 ### Reporting (CSV Format)

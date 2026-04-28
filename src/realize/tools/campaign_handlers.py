@@ -16,6 +16,7 @@ from realize.tools.techno import (
     validate_techno,
 )
 from realize.tools.audiences import validate_my_audiences
+from realize.tools.contextual_segments import validate_contextual_segments
 from realize.tools.schedule import to_wire_schedule, validate_schedule
 from realize.tools.conversion_rules import (
     to_wire_conversion_rules,
@@ -138,6 +139,63 @@ async def create_campaign(arguments: dict = None) -> List[types.TextContent]:
     return [types.TextContent(
         type="text",
         text=f"Campaign created in account {account_id}:\n{format_response(response)}"
+    )]
+
+
+_UPDATE_CAMPAIGN_BODY_FIELDS = (
+    "name", "marketing_objective", "branding_text", "spending_limit_model",
+    "spending_limit", "daily_cap", "cpc", "bid_strategy", "target_cpa",
+    "start_date", "end_date", "tracking_code", "cpc_cap", "comments",
+)
+
+
+def _validate_update_campaign_cross_fields(args: dict) -> None:
+    slm = args.get("spending_limit_model")
+    if slm in ("MONTHLY", "ENTIRE") and args.get("spending_limit") is None:
+        raise ToolInputError(
+            "spending_limit is required when spending_limit_model is MONTHLY or ENTIRE"
+        )
+    if slm == "NONE" and args.get("daily_cap") is None:
+        raise ToolInputError(
+            "daily_cap is required when spending_limit_model is NONE"
+        )
+    if args.get("bid_strategy") == "TARGET_CPA" and args.get("target_cpa") is None:
+        raise ToolInputError(
+            "target_cpa is required when bid_strategy is TARGET_CPA"
+        )
+    start_date = args.get("start_date")
+    end_date = args.get("end_date")
+    if start_date and end_date and end_date < start_date:
+        raise ToolInputError("end_date must be on or after start_date")
+
+
+async def update_campaign(arguments: dict = None) -> List[types.TextContent]:
+    """Update scalar fields on an existing campaign (write operation)."""
+    args = arguments or {}
+    account_id = args.get("account_id")
+    campaign_id = args.get("campaign_id")
+
+    is_valid, error_message = validate_account_id(account_id)
+    if not is_valid:
+        raise ToolInputError(error_message)
+
+    if not campaign_id:
+        raise ToolInputError("campaign_id is required")
+
+    body = {f: args[f] for f in _UPDATE_CAMPAIGN_BODY_FIELDS if args.get(f) is not None}
+    if not body:
+        raise ToolInputError("at least one updatable field must be supplied")
+
+    _validate_update_campaign_cross_fields(args)
+
+    response = await client.post(
+        f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}",
+        data=body,
+    )
+
+    return [types.TextContent(
+        type="text",
+        text=f"Campaign {campaign_id} updated:\n{format_response(response)}"
     )]
 
 
@@ -376,4 +434,31 @@ async def update_campaign_publishers(arguments: dict = None) -> List[types.TextC
     return [types.TextContent(
         type="text",
         text=f"Campaign {campaign_id} publishers updated:\n{format_response(response)}"
+    )]
+
+
+async def update_campaign_contextual_segments(arguments: dict = None) -> List[types.TextContent]:
+    """Replace contextual segment targeting on a campaign (write operation)."""
+    args = arguments or {}
+    account_id = args.get("account_id")
+    campaign_id = args.get("campaign_id")
+    contextual_segments = args.get("contextual_segments")
+
+    is_valid, error_message = validate_account_id(account_id)
+    if not is_valid:
+        raise ToolInputError(error_message)
+
+    if not campaign_id:
+        raise ToolInputError("campaign_id is required")
+
+    validate_contextual_segments(contextual_segments)
+
+    response = await client.post(
+        f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}/targeting/contextual_segments",
+        data=contextual_segments,
+    )
+
+    return [types.TextContent(
+        type="text",
+        text=f"Campaign {campaign_id} contextual segments updated:\n{format_response(response)}"
     )]

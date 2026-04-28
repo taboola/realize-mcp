@@ -182,6 +182,114 @@ TOOL_REGISTRY = {
         },
     },
 
+    "update_campaign": {
+        "description": (
+            "Edit scalar fields on an existing campaign. Partial-merge: only supplied fields are updated; "
+            "fields you omit keep their current value. Re-sending the same value is a no-op.\n"
+            "\n"
+            "All amounts (spending_limit, daily_cap, cpc, target_cpa, cpc_cap) are numbers in the account's default currency. Do not include a currency symbol or code.\n"
+            "\n"
+            "Required (always):\n"
+            "- account_id (string): value from `account_id` field of search_accounts response (NOT numeric)\n"
+            "- campaign_id (string): campaign to update\n"
+            "- at least one updatable field below\n"
+            "\n"
+            "Updatable scalars (all optional):\n"
+            "- name (string)\n"
+            "- marketing_objective (string enum): BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC | WEBSITE_ENGAGEMENT | LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL\n"
+            "- branding_text (string)\n"
+            "- spending_limit_model (string enum): NONE | MONTHLY | ENTIRE\n"
+            "- spending_limit (number)\n"
+            "- daily_cap (number)\n"
+            "- cpc (number)\n"
+            "- bid_strategy (string enum): SMART | FIXED | TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE\n"
+            "- target_cpa (number)\n"
+            "- start_date (string, YYYY-MM-DD)\n"
+            "- end_date (string, YYYY-MM-DD)\n"
+            "- tracking_code (string)\n"
+            "- cpc_cap (number)\n"
+            "- comments (string)\n"
+            "\n"
+            "Conditional rules (apply when the gating field is in this request):\n"
+            "- If you supply spending_limit_model = MONTHLY or ENTIRE, also supply spending_limit.\n"
+            "- If you supply spending_limit_model = NONE, also supply daily_cap.\n"
+            "- If you supply bid_strategy = TARGET_CPA, also supply target_cpa.\n"
+            "- If you supply BOTH start_date and end_date: end_date >= start_date.\n"
+            "- Solo updates of partner fields (e.g., changing only spending_limit, or only target_cpa) are allowed; the campaign's stored gating field is reused.\n"
+            "\n"
+            "Server-side constraints (will return 4xx if violated):\n"
+            "- Some marketing_objective transitions are rejected mid-flight.\n"
+            "- MOBILE_APP_INSTALL requires app fields (app_url, app_type, app_store) not yet supported here; switching to MOBILE_APP_INSTALL via this tool will likely 4xx.\n"
+            "- Objective + bid_strategy combos must remain compatible.\n"
+            "- Account permissions and policy review state may forbid certain edits.\n"
+            "\n"
+            "Read-only - NEVER send: id, advertiser_id, status, approval_state, is_active, spent, policy_review.\n"
+            "\n"
+            "Not supported here. Use these dedicated tools for non-scalar updates:\n"
+            "- geo targeting: update_campaign_geo_classic | update_campaign_geo_advanced\n"
+            "- technology targeting (platform / os / browser / connection_type): update_campaign_techno\n"
+            "- publisher / publisher-group targeting + per-publisher CPC bid modifiers: update_campaign_publishers\n"
+            "- first-party + custom audience targeting: update_campaign_my_audiences\n"
+            "- contextual segment targeting: update_campaign_contextual_segments\n"
+            "- activity schedule (dayparting): update_campaign_schedule\n"
+            "- conversion rule attachments: update_campaign_conversion_rules\n"
+            "\n"
+            "Examples:\n"
+            "\n"
+            "Rename and extend end date:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+            "  \"name\": \"Q2 Awareness v2\", \"end_date\": \"2026-09-30\" }\n"
+            "\n"
+            "Tighten target CPA:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"target_cpa\": 12.5 }\n"
+            "\n"
+            "Switch budget model to monthly:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+            "  \"spending_limit_model\": \"MONTHLY\", \"spending_limit\": 5000 }"
+        ),
+        "schema": {
+            "type": "object",
+            "properties": {
+                "account_id": {"type": "string", "description": "Value from `account_id` field of search_accounts response. NOT the numeric ID."},
+                "campaign_id": {"type": "string", "description": "Campaign ID to update."},
+                "name": {"type": "string", "description": "Campaign name."},
+                "marketing_objective": {
+                    "type": "string",
+                    "enum": ["BRAND_AWARENESS", "DRIVE_WEBSITE_TRAFFIC", "WEBSITE_ENGAGEMENT", "LEADS_GENERATION", "ONLINE_PURCHASES", "MOBILE_APP_INSTALL"],
+                    "description": "Business goal. See tool description for bidding rules per value.",
+                },
+                "branding_text": {"type": "string", "description": "Brand name shown with ads."},
+                "spending_limit_model": {
+                    "type": "string",
+                    "enum": ["NONE", "MONTHLY", "ENTIRE"],
+                    "description": "Budget model.",
+                },
+                "spending_limit": {"type": "number", "description": "Budget amount in account's default currency (e.g. 5000). Required when spending_limit_model is MONTHLY or ENTIRE."},
+                "daily_cap": {"type": "number", "description": "Daily spend cap in account's default currency (e.g. 50). Required when spending_limit_model=NONE; otherwise omit (backend computes)."},
+                "cpc": {"type": "number", "description": "Fixed cost per click in account's default currency (e.g. 0.25). Use with SMART/FIXED bid_strategy on awareness/traffic objectives."},
+                "bid_strategy": {
+                    "type": "string",
+                    "enum": ["SMART", "FIXED", "TARGET_CPA", "MAX_CONVERSIONS", "MAX_VALUE"],
+                    "description": "Bidding strategy. See tool description.",
+                },
+                "target_cpa": {"type": "number", "description": "Target cost per acquisition in account's default currency (e.g. 15). Required when bid_strategy=TARGET_CPA."},
+                "start_date": {"type": "string", "description": "YYYY-MM-DD. Optional; defaults to immediate."},
+                "end_date": {"type": "string", "description": "YYYY-MM-DD. Optional; omit for ongoing."},
+                "tracking_code": {"type": "string", "description": "Query string appended to item URLs."},
+                "cpc_cap": {"type": "number", "description": "Upper bound on bids in account's default currency (e.g. 1.50)."},
+                "comments": {"type": "string", "description": "Internal notes."}
+            },
+            "required": ["account_id", "campaign_id"]
+        },
+        "handler": "campaign_handlers.update_campaign",
+        "category": "campaigns",
+        "annotations": {
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    },
+
     "update_campaign_geo_classic": {
         "description": (
             "Update one classic geo targeting dimension on a campaign. Use this for campaigns that store "
@@ -838,6 +946,106 @@ TOOL_REGISTRY = {
             "required": ["account_id", "campaign_id"],
         },
         "handler": "campaign_handlers.update_campaign_publishers",
+        "category": "campaigns",
+        "annotations": {
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    },
+
+    "update_campaign_contextual_segments": {
+        "description": (
+            "Replace the contextual segment targeting attached to a campaign. Contextual "
+            "segments narrow delivery to pages whose content matches a Realize-curated topic "
+            "(e.g. automotive, finance) using INCLUDE/EXCLUDE rules over integer segment IDs.\n"
+            "\n"
+            "Required:\n"
+            "- account_id (string): from search_accounts.account_id (NOT numeric)\n"
+            "- campaign_id (string)\n"
+            "- contextual_segments (object): {\"collection\": [...]} where each entry is "
+            "{\"type\": INCLUDE | EXCLUDE, \"collection\": [<segment_id>, ...]}\n"
+            "\n"
+            "Semantics:\n"
+            "- Full-replace: the supplied object replaces the campaign's current contextual "
+            "targeting wholesale.\n"
+            "- To clear all contextual targeting, send contextual_segments: {\"collection\": []}.\n"
+            "- At most one INCLUDE block and one EXCLUDE block; duplicate types are rejected.\n"
+            "- Segment IDs are integers (e.g. 1900004), not names. They are not discoverable via "
+            "this MCP server — author them in the Realize UI or read them off an existing "
+            "campaign with get_campaign.\n"
+            "- To incrementally add or remove a single segment, first read the campaign with "
+            "get_campaign, modify the lists locally, then send the merged result. There is no "
+            "incremental ADD/REMOVE operation.\n"
+            "\n"
+            "Server-side constraints (will return 4xx if violated):\n"
+            "- Each segment ID must exist and be of contextual data type (not third-party).\n"
+            "- Campaign must support contextual targeting (account/campaign type dependent).\n"
+            "\n"
+            "Examples:\n"
+            "\n"
+            "Target three contextual segments:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+            "  \"contextual_segments\": {\"collection\": [\n"
+            "    {\"type\": \"INCLUDE\", \"collection\": [1900004, 1900024, 1900037]}\n"
+            "  ]} }\n"
+            "\n"
+            "Combine an include and exclude block:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+            "  \"contextual_segments\": {\"collection\": [\n"
+            "    {\"type\": \"INCLUDE\", \"collection\": [1900004, 1900024]},\n"
+            "    {\"type\": \"EXCLUDE\", \"collection\": [1900100]}\n"
+            "  ]} }\n"
+            "\n"
+            "Clear all contextual segment targeting:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+            "  \"contextual_segments\": {\"collection\": []} }"
+        ),
+        "schema": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string",
+                    "description": "Value from search_accounts.account_id (NOT numeric).",
+                },
+                "campaign_id": {
+                    "type": "string",
+                    "description": "Campaign ID to update.",
+                },
+                "contextual_segments": {
+                    "type": "object",
+                    "description": (
+                        "Full-replace contextual targeting. Send {\"collection\": []} to clear all."
+                    ),
+                    "properties": {
+                        "collection": {
+                            "type": "array",
+                            "description": (
+                                "List of rule blocks. At most one INCLUDE and one EXCLUDE."
+                            ),
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "enum": ["INCLUDE", "EXCLUDE"],
+                                    },
+                                    "collection": {
+                                        "type": "array",
+                                        "description": "Integer contextual segment IDs.",
+                                        "items": {"type": "integer"},
+                                    },
+                                },
+                                "required": ["type", "collection"],
+                            },
+                        },
+                    },
+                    "required": ["collection"],
+                },
+            },
+            "required": ["account_id", "campaign_id", "contextual_segments"],
+        },
+        "handler": "campaign_handlers.update_campaign_contextual_segments",
         "category": "campaigns",
         "annotations": {
             "destructiveHint": True,
