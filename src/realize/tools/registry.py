@@ -709,6 +709,137 @@ TOOL_REGISTRY = {
         },
     },
 
+    "update_campaign_publishers": {
+        "description": (
+            "Update publisher-level targeting on a campaign: which publishers run, which "
+            "publisher groups, and per-publisher CPC bid modifiers. Send any subset of the "
+            "three fields; at least one is required.\n"
+            "\n"
+            "Required:\n"
+            "- account_id (string): from search_accounts.account_id (NOT numeric)\n"
+            "- campaign_id (string)\n"
+            "- at least one of: publisher_targeting, publisher_groups_targeting, publisher_bid_modifier\n"
+            "\n"
+            "publisher_targeting (object, optional):\n"
+            "- {type: INCLUDE | EXCLUDE | ALL, value: [<publisher_name>, ...]}\n"
+            "- type=INCLUDE: only listed publishers run.\n"
+            "- type=EXCLUDE: listed publishers blocked, all others allowed.\n"
+            "- type=ALL: clear publisher targeting (send value=[]).\n"
+            "- Values are publisher NAMES (strings), not numeric IDs; the server resolves names.\n"
+            "\n"
+            "publisher_groups_targeting (object, optional):\n"
+            "- {type: INCLUDE | EXCLUDE | ALL, value: [<group_name>, ...]}\n"
+            "- Same INCLUDE / EXCLUDE / ALL semantics as publisher_targeting.\n"
+            "- Values are publisher-group NAMES (strings), not IDs.\n"
+            "- Account-level publisher-group restrictions can override campaign-level "
+            "INCLUDE/EXCLUDE; server may 4xx if a blocked group is targeted.\n"
+            "\n"
+            "publisher_bid_modifier (object, optional):\n"
+            "- {values: [{target: <publisher_name>, cpc_modification: <number>}]}\n"
+            "- FULL REPLACE: the supplied values replace the campaign's current per-publisher "
+            "modifiers wholesale. Omit a publisher to drop its modifier; send values=[] to clear all.\n"
+            "- cpc_modification is a multiplier on the campaign CPC (e.g. 1.25 = +25%, 0.8 = -20%).\n"
+            "- Each target must be unique; cpc_modification must be a finite number.\n"
+            "- To incrementally add/remove a single entry, first read the campaign with "
+            "get_campaign, modify the list locally, then send the merged result.\n"
+            "\n"
+            "Read-only fields are managed by the server. Do not include id, advertiser_id, status, etc.\n"
+            "\n"
+            "Examples:\n"
+            "\n"
+            "Block two publishers:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+            "  \"publisher_targeting\": {\"type\": \"EXCLUDE\", \"value\": [\"pub_alpha\", \"pub_beta\"]} }\n"
+            "\n"
+            "Restrict to a single publisher group:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+            "  \"publisher_groups_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"premium_news\"]} }\n"
+            "\n"
+            "Set per-publisher CPC modifiers (full replace):\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+            "  \"publisher_bid_modifier\": {\"values\": [\n"
+            "    {\"target\": \"pub_alpha\", \"cpc_modification\": 1.25},\n"
+            "    {\"target\": \"pub_gamma\", \"cpc_modification\": 0.8}\n"
+            "  ]} }\n"
+            "\n"
+            "Clear publisher targeting and all per-publisher CPC modifiers in one call:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+            "  \"publisher_targeting\": {\"type\": \"ALL\", \"value\": []},\n"
+            "  \"publisher_bid_modifier\": {\"values\": []} }"
+        ),
+        "schema": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string",
+                    "description": "Value from search_accounts.account_id (NOT numeric).",
+                },
+                "campaign_id": {
+                    "type": "string",
+                    "description": "Campaign ID to update.",
+                },
+                "publisher_targeting": {
+                    "type": "object",
+                    "description": "Optional. {type, value} block. value=[] when type=ALL. Values are publisher names.",
+                    "properties": {
+                        "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
+                        "value": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Publisher names (resolved server-side).",
+                        },
+                    },
+                    "required": ["type", "value"],
+                },
+                "publisher_groups_targeting": {
+                    "type": "object",
+                    "description": "Optional. {type, value} block. value=[] when type=ALL. Values are publisher-group names.",
+                    "properties": {
+                        "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
+                        "value": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Publisher-group names (resolved server-side).",
+                        },
+                    },
+                    "required": ["type", "value"],
+                },
+                "publisher_bid_modifier": {
+                    "type": "object",
+                    "description": "Optional. Full-replace list of per-publisher CPC modifiers. values=[] clears all.",
+                    "properties": {
+                        "values": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "target": {
+                                        "type": "string",
+                                        "description": "Publisher name.",
+                                    },
+                                    "cpc_modification": {
+                                        "type": "number",
+                                        "description": "CPC multiplier (e.g. 1.25 = +25%).",
+                                    },
+                                },
+                                "required": ["target", "cpc_modification"],
+                            },
+                        },
+                    },
+                    "required": ["values"],
+                },
+            },
+            "required": ["account_id", "campaign_id"],
+        },
+        "handler": "campaign_handlers.update_campaign_publishers",
+        "category": "campaigns",
+        "annotations": {
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    },
+
     # Campaign Items Tools (READ-ONLY)
     "get_campaign_items": {
         "description": "Get all items for a campaign (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",

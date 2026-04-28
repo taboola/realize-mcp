@@ -21,6 +21,12 @@ from realize.tools.conversion_rules import (
     to_wire_conversion_rules,
     validate_conversion_rules,
 )
+from realize.tools.publishers import (
+    to_wire_publisher_bid_modifier,
+    validate_publisher_bid_modifier,
+    validate_publisher_groups_targeting,
+    validate_publisher_targeting,
+)
 from realize.client import client
 
 
@@ -316,4 +322,58 @@ async def update_campaign_conversion_rules(arguments: dict = None) -> List[types
     return [types.TextContent(
         type="text",
         text=f"Campaign {campaign_id} conversion rules updated:\n{format_response(response)}"
+    )]
+
+
+async def update_campaign_publishers(arguments: dict = None) -> List[types.TextContent]:
+    """Update publisher targeting / publisher-groups targeting / publisher bid modifier (write operation)."""
+    args = arguments or {}
+    account_id = args.get("account_id")
+    campaign_id = args.get("campaign_id")
+    publisher_targeting = args.get("publisher_targeting")
+    publisher_groups_targeting = args.get("publisher_groups_targeting")
+    publisher_bid_modifier = args.get("publisher_bid_modifier")
+
+    is_valid, error_message = validate_account_id(account_id)
+    if not is_valid:
+        raise ToolInputError(error_message)
+
+    if not campaign_id:
+        raise ToolInputError("campaign_id is required")
+
+    if (
+        publisher_targeting is None
+        and publisher_groups_targeting is None
+        and publisher_bid_modifier is None
+    ):
+        raise ToolInputError(
+            "at least one of publisher_targeting, publisher_groups_targeting, "
+            "publisher_bid_modifier must be supplied"
+        )
+
+    body: dict = {}
+    if publisher_targeting is not None:
+        validate_publisher_targeting(publisher_targeting)
+        body["publisherTargeting"] = {
+            "type": publisher_targeting["type"],
+            "value": publisher_targeting["value"],
+        }
+    if publisher_groups_targeting is not None:
+        validate_publisher_groups_targeting(publisher_groups_targeting)
+        body["publisherGroupsTargeting"] = {
+            "type": publisher_groups_targeting["type"],
+            "value": publisher_groups_targeting["value"],
+        }
+    if publisher_bid_modifier is not None:
+        validate_publisher_bid_modifier(publisher_bid_modifier)
+        body["publisherBidModifier"] = to_wire_publisher_bid_modifier(publisher_bid_modifier)
+
+    response = await client.post(
+        f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}",
+        data=body,
+    )
+
+    return [types.TextContent(
+        type="text",
+        text=f"Campaign {campaign_id} publishers updated:\n{format_response(response)}"
     )]
