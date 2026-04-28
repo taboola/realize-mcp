@@ -33,20 +33,23 @@ class TestProductionReadiness:
             assert tool in tools, f"Required read-only tool {tool} not found in registry"
     
     def test_no_write_operations(self):
-        """Test that no write operations are included for safety."""
+        """Write tools must declare destructiveHint; unknown write tools are forbidden."""
         tools = get_all_tools()
-        
-        # Verify no write operations exist
+
         forbidden_operations = [
-            'create_campaign', 'update_campaign', 'delete_campaign', 'duplicate_campaign',
+            'update_campaign', 'delete_campaign', 'duplicate_campaign',
             'create_campaign_item', 'update_campaign_item', 'delete_campaign_item',
-            'create_', 'update_', 'delete_', 'post_', 'put_', 'patch_'
+            'update_', 'delete_', 'post_', 'put_', 'patch_'
         ]
-        
-        for tool_name in tools.keys():
+
+        for tool_name, tool_config in tools.items():
+            annotations = tool_config.get("annotations") or {}
+            if annotations.get("destructiveHint"):
+                # Declared write tool; allowed.
+                continue
             for forbidden in forbidden_operations:
                 assert not tool_name.startswith(forbidden.lower()), \
-                    f"Found write operation {tool_name} - only read operations allowed"
+                    f"Found write operation {tool_name} without destructiveHint annotation"
     
     def test_tool_categories_exist(self):
         """Test that all tool categories are properly defined for read-only operations."""

@@ -29,7 +29,7 @@ class TestMCPServerErrorHandling:
             ),
             (
                 httpx.HTTPStatusError("404 Not Found", request=Mock(), response=Mock(status_code=404)),
-                "404 Not Found",  # 4xx proxied
+                "Realize API returned 404",  # 4xx surfaces status + body
             ),
         ]
 
@@ -104,7 +104,7 @@ class TestMCPServerErrorHandling:
             with patch('realize.tools.auth_handlers.auth.get_auth_token') as mock_auth:
                 mock_auth.side_effect = error
 
-                with pytest.raises(Exception, match=f"{status} Unauthorized"):
+                with pytest.raises(Exception, match=f"Realize API returned {status}"):
                     await handle_call_tool("get_auth_token", {})
 
     @pytest.mark.asyncio
@@ -121,7 +121,7 @@ class TestMCPServerErrorHandling:
         with patch('realize.tools.account_handlers.client.get') as mock_get:
             mock_get.side_effect = rate_limit_error
 
-            with pytest.raises(Exception, match="429 Too Many Requests"):
+            with pytest.raises(Exception, match="Realize API returned 429"):
                 await handle_call_tool("search_accounts", {"query": "test"})
 
     @pytest.mark.asyncio

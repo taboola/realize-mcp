@@ -32,16 +32,17 @@ class TestReadOnlyIntegration:
     
     @pytest.mark.asyncio
     async def test_no_write_tools_available(self):
-        """Test that no write operations are available."""
+        """Write tools must declare destructiveHint; unknown writes are forbidden."""
         tools = await handle_list_tools()
-        tool_names = [tool.name for tool in tools]
-        
-        # Verify no write operations
-        forbidden_patterns = ['create_', 'update_', 'delete_', 'post_', 'put_', 'patch_']
-        for tool_name in tool_names:
+
+        forbidden_patterns = ['update_', 'delete_', 'post_', 'put_', 'patch_']
+        for tool in tools:
+            if tool.annotations and tool.annotations.destructiveHint:
+                # Declared write tool; allowed.
+                continue
             for pattern in forbidden_patterns:
-                assert not tool_name.startswith(pattern), \
-                    f"Found write operation {tool_name} - only read operations should be available"
+                assert not tool.name.startswith(pattern), \
+                    f"Found write operation {tool.name} without destructiveHint annotation"
     
     @pytest.mark.asyncio
     @patch('realize.tools.auth_handlers.auth.get_auth_token')

@@ -131,20 +131,19 @@ class TestToolRegistryEdgeCases:
     
     def test_no_tool_name_conflicts(self):
         """Test that there are no tool name conflicts across categories."""
-        all_tools = get_all_tools()
         categories = get_tool_categories()
-        
+
         seen_tools = set()
-        
+
         for category in categories:
             category_tools = get_tools_by_category(category)
-            
+
             for tool_name in category_tools:
                 assert tool_name not in seen_tools, f"Tool {tool_name} appears in multiple categories"
                 seen_tools.add(tool_name)
-        
-        # Should have seen all tools
-        assert len(seen_tools) == len(all_tools)
+
+        # Every registry entry should have been visited exactly once
+        assert seen_tools == set(TOOL_REGISTRY.keys())
 
 
 class TestToolHandlerImports:
@@ -210,19 +209,24 @@ class TestToolDescriptions:
     """Test tool descriptions for quality and consistency."""
     
     def test_all_descriptions_indicate_read_only(self):
-        """Test that all tool descriptions clearly indicate read-only nature."""
+        """Test that read-only tool descriptions clearly indicate read-only nature."""
         tools = get_all_tools()
-        
+
         read_only_indicators = ['read-only', 'get', 'retrieve', 'fetch', 'search', 'view', 'list']
-        
+
         for tool_name, tool_config in tools.items():
+            # Skip write tools (declared via destructiveHint annotation)
+            annotations = tool_config.get("annotations") or {}
+            if annotations.get("destructiveHint"):
+                continue
+
             description = tool_config['description'].lower()
-            
+
             # Should contain at least one read-only indicator
             has_indicator = any(indicator in description for indicator in read_only_indicators)
             assert has_indicator, \
                 f"Tool {tool_name} description doesn't clearly indicate read-only: {description}"
-            
+
             # Should not contain write indicators
             write_indicators = ['create', 'update', 'delete', 'modify', 'edit', 'write', 'post', 'put']
             has_write = any(indicator in description for indicator in write_indicators)
@@ -302,4 +306,4 @@ class TestToolTransportFiltering:
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, "-v"]) 
+    pytest.main([__file__, "-v"])

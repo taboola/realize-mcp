@@ -26,14 +26,18 @@ async def handle_list_tools() -> list[types.Tool]:
 
     tools = []
     for tool_name, tool_config in get_all_tools().items():
+        annotations = None
+        if "annotations" in tool_config:
+            annotations = types.ToolAnnotations(**tool_config["annotations"])
         tools.append(
             types.Tool(
                 name=tool_name,
                 description=tool_config["description"],
-                inputSchema=tool_config["schema"]
+                inputSchema=tool_config["schema"],
+                annotations=annotations,
             )
         )
-    
+
     return tools
 
 @server.call_tool()
@@ -81,6 +85,10 @@ async def handle_call_tool(
         elif handler_path == "campaign_handlers.get_campaign":
             from realize.tools.campaign_handlers import get_campaign
             result = await get_campaign(arguments)
+
+        elif handler_path == "campaign_handlers.create_campaign":
+            from realize.tools.campaign_handlers import create_campaign
+            result = await create_campaign(arguments)
 
         elif handler_path == "campaign_handlers.get_campaign_items":
             from realize.tools.campaign_handlers import get_campaign_items

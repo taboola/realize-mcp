@@ -83,7 +83,7 @@ TOOL_REGISTRY = {
                     "description": "Account ID (string from search_accounts response 'account_id' field - NOT numeric ID). Workflow: 1) search_accounts('query') 2) Use 'account_id' from results"
                 },
                 "campaign_id": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "Campaign ID to get details for"
                 }
             },
@@ -91,6 +91,89 @@ TOOL_REGISTRY = {
         },
         "handler": "campaign_handlers.get_campaign",
         "category": "campaigns"
+    },
+
+    "create_campaign": {
+        "description": (
+            "Create a campaign. Returns the created campaign object including `id` and `status=PAUSED`. Campaign will not serve until items are added and the campaign is activated.\n"
+            "\n"
+            "All amounts (spending_limit, daily_cap, cpc, target_cpa, cpc_cap) are numbers in the account's default currency. Do not include a currency symbol or code.\n"
+            "\n"
+            "Required (always):\n"
+            "- account_id (string): value from `account_id` field of search_accounts response (NOT numeric)\n"
+            "- name (string)\n"
+            "- marketing_objective (string enum): BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC | WEBSITE_ENGAGEMENT | LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL\n"
+            "- branding_text (string): brand name shown with ads\n"
+            "- spending_limit_model (string enum): NONE | MONTHLY | ENTIRE\n"
+            "\n"
+            "Required by spending_limit_model:\n"
+            "- MONTHLY or ENTIRE -> set spending_limit (number)\n"
+            "- NONE -> set daily_cap (number)\n"
+            "\n"
+            "Required by marketing_objective + bid_strategy:\n"
+            "- BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC | WEBSITE_ENGAGEMENT\n"
+            "    -> set cpc (number). bid_strategy (string enum) optional (SMART default, or FIXED). Omit target_cpa.\n"
+            "- LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL\n"
+            "    -> set bid_strategy (string enum) = TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE.\n"
+            "       If bid_strategy = TARGET_CPA, set target_cpa (number). Omit cpc.\n"
+            "\n"
+            "Optional scalars: start_date (string, YYYY-MM-DD), end_date (string, YYYY-MM-DD), tracking_code (string), cpc_cap (number), comments (string). If both dates set: end_date >= start_date.\n"
+            "\n"
+            "Read-only - NEVER send: id, advertiser_id, status, approval_state, is_active, spent, policy_review.\n"
+            "\n"
+            "Not supported here: targeting, audiences, conversion_rules, schedule. After creation, use update tools (forthcoming) to add these.\n"
+            "\n"
+            "Examples:\n"
+            "\n"
+            "Brand awareness, monthly budget:\n"
+            "{ \"account_id\": \"acme-inc\", \"name\": \"Q2 Awareness\", \"marketing_objective\": \"BRAND_AWARENESS\",\n"
+            "  \"branding_text\": \"Acme\", \"spending_limit_model\": \"MONTHLY\", \"spending_limit\": 5000, \"cpc\": 0.30 }\n"
+            "\n"
+            "Lead gen, target CPA:\n"
+            "{ \"account_id\": \"acme-inc\", \"name\": \"Q2 Leads\", \"marketing_objective\": \"LEADS_GENERATION\",\n"
+            "  \"branding_text\": \"Acme\", \"spending_limit_model\": \"ENTIRE\", \"spending_limit\": 10000,\n"
+            "  \"bid_strategy\": \"TARGET_CPA\", \"target_cpa\": 15 }"
+        ),
+        "schema": {
+            "type": "object",
+            "properties": {
+                "account_id": {"type": "string", "description": "Value from `account_id` field of search_accounts response. NOT the numeric ID."},
+                "name": {"type": "string", "description": "Campaign name."},
+                "marketing_objective": {
+                    "type": "string",
+                    "enum": ["BRAND_AWARENESS", "DRIVE_WEBSITE_TRAFFIC", "WEBSITE_ENGAGEMENT", "LEADS_GENERATION", "ONLINE_PURCHASES", "MOBILE_APP_INSTALL"],
+                    "description": "Business goal. See tool description for bidding rules per value.",
+                },
+                "branding_text": {"type": "string", "description": "Brand name shown with ads."},
+                "spending_limit_model": {
+                    "type": "string",
+                    "enum": ["NONE", "MONTHLY", "ENTIRE"],
+                    "description": "Budget model.",
+                },
+                "spending_limit": {"type": "number", "description": "Budget amount in account's default currency (e.g. 5000). Required when spending_limit_model is MONTHLY or ENTIRE."},
+                "daily_cap": {"type": "number", "description": "Daily spend cap in account's default currency (e.g. 50). Required when spending_limit_model=NONE; otherwise omit (backend computes)."},
+                "cpc": {"type": "number", "description": "Fixed cost per click in account's default currency (e.g. 0.25). Use with SMART/FIXED bid_strategy on awareness/traffic objectives."},
+                "bid_strategy": {
+                    "type": "string",
+                    "enum": ["SMART", "FIXED", "TARGET_CPA", "MAX_CONVERSIONS", "MAX_VALUE"],
+                    "description": "Bidding strategy. See tool description.",
+                },
+                "target_cpa": {"type": "number", "description": "Target cost per acquisition in account's default currency (e.g. 15). Required when bid_strategy=TARGET_CPA."},
+                "start_date": {"type": "string", "description": "YYYY-MM-DD. Optional; defaults to immediate."},
+                "end_date": {"type": "string", "description": "YYYY-MM-DD. Optional; omit for ongoing."},
+                "tracking_code": {"type": "string", "description": "Query string appended to item URLs."},
+                "cpc_cap": {"type": "number", "description": "Upper bound on bids in account's default currency (e.g. 1.50)."},
+                "comments": {"type": "string", "description": "Internal notes."}
+            },
+            "required": ["account_id", "name", "marketing_objective", "branding_text", "spending_limit_model"]
+        },
+        "handler": "campaign_handlers.create_campaign",
+        "category": "campaigns",
+        "annotations": {
+            "destructiveHint": True,
+            "idempotentHint": False,
+            "openWorldHint": True,
+        },
     },
 
     # Campaign Items Tools (READ-ONLY)
