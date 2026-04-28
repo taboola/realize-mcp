@@ -159,6 +159,21 @@ targeting   (object, required)
                        Send {collection: []} to clear all audience targeting.
 ```
 
+**`update_campaign_schedule`** — Update a campaign's activity schedule (dayparting). `mode=ALWAYS` runs continuously; `mode=CUSTOM` accepts INCLUDE/EXCLUDE rules per day-of-week + hour range, in the supplied IANA time zone. Server auto-fills missing days as INCLUDE 0–24, so callers do not need to enumerate all seven days.
+
+```
+account_id  (string, required)
+campaign_id (string, required)
+schedule    (object, required)
+  mode       (string)   ALWAYS | CUSTOM
+  time_zone  (string)   IANA name (e.g. "America/New_York"). Required when mode=CUSTOM.
+  rules      (array)    Required when mode=CUSTOM; omit when mode=ALWAYS.
+                        Each rule: {type: INCLUDE | EXCLUDE,
+                                    day:  MONDAY..SUNDAY,
+                                    from_hour:  int 0-23,
+                                    until_hour: int 1-24, must be > from_hour}
+```
+
 ### Reporting (CSV Format)
 
 All report tools return CSV with a summary header. Every report requires these parameters:

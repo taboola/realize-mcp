@@ -16,6 +16,7 @@ from realize.tools.techno import (
     validate_techno,
 )
 from realize.tools.audiences import validate_my_audiences
+from realize.tools.schedule import to_wire_schedule, validate_schedule
 from realize.client import client
 
 
@@ -253,4 +254,33 @@ async def update_campaign_my_audiences(arguments: dict = None) -> List[types.Tex
     return [types.TextContent(
         type="text",
         text=f"Campaign {campaign_id} my_audiences targeting updated:\n{format_response(response)}"
+    )]
+
+
+async def update_campaign_schedule(arguments: dict = None) -> List[types.TextContent]:
+    """Update a campaign's activity schedule (dayparting) (write operation)."""
+    args = arguments or {}
+    account_id = args.get("account_id")
+    campaign_id = args.get("campaign_id")
+    schedule = args.get("schedule")
+
+    is_valid, error_message = validate_account_id(account_id)
+    if not is_valid:
+        raise ToolInputError(error_message)
+
+    if not campaign_id:
+        raise ToolInputError("campaign_id is required")
+
+    validate_schedule(schedule)
+
+    body = {"activitySchedule": to_wire_schedule(schedule)}
+
+    response = await client.post(
+        f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}",
+        data=body,
+    )
+
+    return [types.TextContent(
+        type="text",
+        text=f"Campaign {campaign_id} activity schedule updated:\n{format_response(response)}"
     )]

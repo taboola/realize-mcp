@@ -527,6 +527,109 @@ TOOL_REGISTRY = {
         },
     },
 
+    "update_campaign_schedule": {
+        "description": (
+            "Update a campaign's activity schedule (dayparting). Sets when the campaign is allowed "
+            "to serve, by day-of-week + hour ranges, in the campaign's specified time zone.\n"
+            "\n"
+            "Required:\n"
+            "- account_id (string): from search_accounts.account_id (NOT numeric)\n"
+            "- campaign_id (string)\n"
+            "- schedule (object): {mode, time_zone?, rules?}\n"
+            "\n"
+            "Schedule shape:\n"
+            "- mode (string, required): \"ALWAYS\" | \"CUSTOM\"\n"
+            "- time_zone (string): IANA name (e.g. \"America/New_York\"). Required when mode=CUSTOM.\n"
+            "- rules (array): required when mode=CUSTOM, must be omitted (or []) when mode=ALWAYS.\n"
+            "\n"
+            "Each rule:\n"
+            "{\n"
+            "  type:       \"INCLUDE\" | \"EXCLUDE\",\n"
+            "  day:        \"MONDAY\" | \"TUESDAY\" | \"WEDNESDAY\" | \"THURSDAY\" | \"FRIDAY\" | \"SATURDAY\" | \"SUNDAY\",\n"
+            "  from_hour:  integer in [0, 23],\n"
+            "  until_hour: integer in [1, 24]   (must be > from_hour)\n"
+            "}\n"
+            "\n"
+            "Semantics:\n"
+            "- mode=ALWAYS: campaign serves every day, all hours; clears any prior CUSTOM schedule.\n"
+            "- mode=CUSTOM: rules array defines INCLUDE windows (when serving is allowed) and EXCLUDE windows "
+            "(when serving is suppressed). Days not mentioned default to INCLUDE 0-24 (server auto-fills); "
+            "you do not need to enumerate all seven days.\n"
+            "\n"
+            "Server-side constraints (will return 4xx if violated):\n"
+            "- Same day cannot have both INCLUDE and EXCLUDE rules. Pick one type per day.\n"
+            "- Time windows on the same day cannot overlap.\n"
+            "- The campaign's account must have the schedule permission enabled (else 403).\n"
+            "- Per-publisher minimum-window duration may apply (some publishers require windows of at least N consecutive hours).\n"
+            "- time_zone must be a supported IANA name.\n"
+            "\n"
+            "Read-only fields are managed by the server. Do not include id, advertiser_id, status, etc.\n"
+            "\n"
+            "Examples:\n"
+            "\n"
+            "Mon-Fri 9am-9pm Eastern, no weekends:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+            "  \"schedule\": {\n"
+            "    \"mode\": \"CUSTOM\",\n"
+            "    \"time_zone\": \"America/New_York\",\n"
+            "    \"rules\": [\n"
+            "      {\"type\": \"INCLUDE\", \"day\": \"MONDAY\",    \"from_hour\": 9, \"until_hour\": 21},\n"
+            "      {\"type\": \"INCLUDE\", \"day\": \"TUESDAY\",   \"from_hour\": 9, \"until_hour\": 21},\n"
+            "      {\"type\": \"INCLUDE\", \"day\": \"WEDNESDAY\", \"from_hour\": 9, \"until_hour\": 21},\n"
+            "      {\"type\": \"INCLUDE\", \"day\": \"THURSDAY\",  \"from_hour\": 9, \"until_hour\": 21},\n"
+            "      {\"type\": \"INCLUDE\", \"day\": \"FRIDAY\",    \"from_hour\": 9, \"until_hour\": 21},\n"
+            "      {\"type\": \"EXCLUDE\", \"day\": \"SATURDAY\",  \"from_hour\": 0, \"until_hour\": 24},\n"
+            "      {\"type\": \"EXCLUDE\", \"day\": \"SUNDAY\",    \"from_hour\": 0, \"until_hour\": 24}\n"
+            "    ]\n"
+            "  } }\n"
+            "\n"
+            "Always-on (clear schedule):\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+            "  \"schedule\": {\"mode\": \"ALWAYS\"} }"
+        ),
+        "schema": {
+            "type": "object",
+            "properties": {
+                "account_id": {"type": "string", "description": "Value from search_accounts.account_id (NOT numeric)."},
+                "campaign_id": {"type": "string", "description": "Campaign ID to update."},
+                "schedule": {
+                    "type": "object",
+                    "description": "Activity schedule (dayparting). mode=ALWAYS runs continuously; mode=CUSTOM applies the rules array in the supplied time_zone.",
+                    "properties": {
+                        "mode": {"type": "string", "enum": ["ALWAYS", "CUSTOM"]},
+                        "time_zone": {"type": "string", "description": "IANA timezone name. Required when mode=CUSTOM."},
+                        "rules": {
+                            "type": "array",
+                            "description": "Required when mode=CUSTOM. Omit or set [] when mode=ALWAYS.",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE"]},
+                                    "day": {
+                                        "type": "string",
+                                        "enum": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"],
+                                    },
+                                    "from_hour": {"type": "integer", "minimum": 0, "maximum": 23},
+                                    "until_hour": {"type": "integer", "minimum": 1, "maximum": 24},
+                                },
+                                "required": ["type", "day", "from_hour", "until_hour"],
+                            },
+                        },
+                    },
+                    "required": ["mode"],
+                },
+            },
+            "required": ["account_id", "campaign_id", "schedule"],
+        },
+        "handler": "campaign_handlers.update_campaign_schedule",
+        "category": "campaigns",
+        "annotations": {
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    },
+
     # Campaign Items Tools (READ-ONLY)
     "get_campaign_items": {
         "description": "Get all items for a campaign (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
