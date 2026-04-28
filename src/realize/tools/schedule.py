@@ -79,7 +79,6 @@ def validate_schedule(schedule: Any) -> None:
             raise ToolInputError("schedule.rules must be empty or omitted when mode=ALWAYS")
         return
 
-    # mode == CUSTOM
     if not isinstance(time_zone, str) or not time_zone:
         raise ToolInputError("schedule.time_zone is required when mode=CUSTOM (IANA name, e.g. 'America/New_York')")
 

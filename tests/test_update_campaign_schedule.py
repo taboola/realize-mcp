@@ -155,6 +155,37 @@ class TestScheduleValidation:
             )
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("field", ["from_hour", "until_hour"])
+    async def test_rejects_float_hour(self, field):
+        with pytest.raises(ToolInputError, match=f"{field} must be an integer"):
+            await handle_call_tool(
+                "update_campaign_schedule",
+                _args(schedule={
+                    "mode": "CUSTOM", "time_zone": "UTC",
+                    "rules": [_custom_rule(**{field: 9.5})],
+                }),
+            )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("missing_field,expected_match", [
+        ("type", r"rules\[0\].type must be one of"),
+        ("day", r"rules\[0\].day must be one of"),
+        ("from_hour", r"from_hour must be an integer"),
+        ("until_hour", r"until_hour must be an integer"),
+    ])
+    async def test_rejects_missing_required_rule_field(self, missing_field, expected_match):
+        rule = _custom_rule()
+        del rule[missing_field]
+        with pytest.raises(ToolInputError, match=expected_match):
+            await handle_call_tool(
+                "update_campaign_schedule",
+                _args(schedule={
+                    "mode": "CUSTOM", "time_zone": "UTC",
+                    "rules": [rule],
+                }),
+            )
+
+    @pytest.mark.asyncio
     async def test_rejects_rule_not_object(self):
         with pytest.raises(ToolInputError, match=r"rules\[0\] must be an object"):
             await handle_call_tool(
