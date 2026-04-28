@@ -106,6 +106,14 @@ class TestMyAudiencesValidation:
             )
 
     @pytest.mark.asyncio
+    async def test_rejects_null_id(self):
+        with pytest.raises(ToolInputError, match=r"\[0\].collection\[1\] must be an integer"):
+            await handle_call_tool(
+                "update_campaign_my_audiences",
+                _args(targeting={"collection": [{"collection": [1, None, 2], "type": "INCLUDE"}]}),
+            )
+
+    @pytest.mark.asyncio
     async def test_missing_campaign_id_raises(self):
         args = _args()
         del args["campaign_id"]

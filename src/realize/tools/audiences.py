@@ -4,11 +4,15 @@ from typing import Any
 from realize.tools.errors import ToolInputError
 
 
+# No ALL: my_audiences endpoint clears via empty outer collection, unlike geo/techno's type=ALL.
 _RULE_TYPES = ("INCLUDE", "EXCLUDE")
 
 
 def validate_my_audiences(targeting: Any) -> None:
     """Schema-level validation for update_campaign_my_audiences.
+
+    Note the public API reuses 'collection' for both the outer rule wrapper and the
+    inner audience-id list; the doubled key is intentional.
 
     Raises ToolInputError on the first violation.
     """
