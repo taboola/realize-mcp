@@ -132,6 +132,21 @@ geo_targeting (object, required)
                     A vector may set one dim or mix dims (e.g. country=US AND region=CA → California).
 ```
 
+**`update_campaign_techno`** — Update one technology targeting dimension on a campaign: device platform, operating system, browser, or network connection type. Outer wrapper is the same `Targeting<T>` shape as classic geo; the `value` items are strings for `platform | browser | connection_type` and `{os_family, sub_categories?}` objects for `os`.
+
+```
+account_id  (string, required)
+campaign_id (string, required)
+dimension   (string, required)   platform | os | browser | connection_type
+targeting   (object, required)
+  type   (string)   INCLUDE | EXCLUDE | ALL       value=[] required when type=ALL
+  value  (array)    Strings for platform|browser|connection_type
+                    (e.g. ["DESK","PHON"], ["Chrome"], ["WIFI"]).
+                    Objects for os: [{os_family, sub_categories?}]
+                    (e.g. [{os_family:"iOS", sub_categories:["iOS_16","iOS_17"]}]).
+                    Omit sub_categories to target the entire family.
+```
+
 ### Reporting (CSV Format)
 
 All report tools return CSV with a summary header. Every report requires these parameters:

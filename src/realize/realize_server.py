@@ -98,6 +98,10 @@ async def handle_call_tool(
             from realize.tools.campaign_handlers import update_campaign_geo_advanced
             result = await update_campaign_geo_advanced(arguments)
 
+        elif handler_path == "campaign_handlers.update_campaign_techno":
+            from realize.tools.campaign_handlers import update_campaign_techno
+            result = await update_campaign_techno(arguments)
+
         elif handler_path == "campaign_handlers.get_campaign_items":
             from realize.tools.campaign_handlers import get_campaign_items
             result = await get_campaign_items(arguments)

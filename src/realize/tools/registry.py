@@ -345,6 +345,102 @@ TOOL_REGISTRY = {
         },
     },
 
+    "update_campaign_techno": {
+        "description": (
+            "Update one technology targeting dimension on a campaign: "
+            "platform (device type), os (operating system), browser, or connection_type (network).\n"
+            "\n"
+            "Required:\n"
+            "- account_id (string): from search_accounts.account_id (NOT numeric)\n"
+            "- campaign_id (string)\n"
+            "- dimension (enum): platform | os | browser | connection_type\n"
+            "- targeting (object): {type: INCLUDE | EXCLUDE | ALL, value: [...]}\n"
+            "\n"
+            "Value shape depends on dimension:\n"
+            "- platform | browser | connection_type: array of strings.\n"
+            "- os: array of objects {os_family: string, sub_categories?: array of strings}. "
+            "Omit sub_categories to target the entire family.\n"
+            "\n"
+            "Semantics:\n"
+            "- type=INCLUDE: only matched values are targeted.\n"
+            "- type=EXCLUDE: matched values are excluded; everything else included.\n"
+            "- type=ALL: clear this dimension. Send value: []. (type=ALL with non-empty value is rejected.)\n"
+            "\n"
+            "Vocabulary (resolve via Realize UI or these upstream GET endpoints):\n"
+            "- platform: /resources/platforms (e.g. DESK | PHON | TBLT). Documented as INCLUDE-only in some references; "
+            "if the server rejects EXCLUDE/ALL on platform, the 4xx is surfaced unchanged.\n"
+            "- os: /resources/campaigns_properties/operating_systems (families) and "
+            "/resources/campaigns_properties/operating_systems/{osFamily} (sub-categories). "
+            "Examples: os_family in {Android, iOS, Windows, Mac OS X, Linux}; sub_categories example: [\"iOS_8.4\", \"iOS_9\"].\n"
+            "- browser: /resources/campaigns_properties/browsers (e.g. Chrome | Firefox | Safari | Edge).\n"
+            "- connection_type: /resources/campaigns_properties/connection_types (e.g. WIFI | CELLULAR | OTHER).\n"
+            "\n"
+            "Read-only fields are managed by the server. Do not include id, advertiser_id, status, etc.\n"
+            "\n"
+            "Examples:\n"
+            "\n"
+            "Exclude desktop:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"dimension\": \"platform\",\n"
+            "  \"targeting\": {\"type\": \"EXCLUDE\", \"value\": [\"DESK\"]} }\n"
+            "\n"
+            "Target Android entirely + iOS only on versions 16/17:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"dimension\": \"os\",\n"
+            "  \"targeting\": {\"type\": \"INCLUDE\", \"value\": [\n"
+            "    {\"os_family\": \"Android\"},\n"
+            "    {\"os_family\": \"iOS\", \"sub_categories\": [\"iOS_16\", \"iOS_17\"]}\n"
+            "  ]} }\n"
+            "\n"
+            "Clear browser targeting:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"dimension\": \"browser\",\n"
+            "  \"targeting\": {\"type\": \"ALL\", \"value\": []} }"
+        ),
+        "schema": {
+            "type": "object",
+            "properties": {
+                "account_id": {"type": "string", "description": "Value from search_accounts.account_id (NOT numeric)."},
+                "campaign_id": {"type": "string", "description": "Campaign ID to update."},
+                "dimension": {
+                    "type": "string",
+                    "enum": ["platform", "os", "browser", "connection_type"],
+                    "description": "Which technology targeting dimension to update.",
+                },
+                "targeting": {
+                    "type": "object",
+                    "properties": {
+                        "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
+                        "value": {
+                            "type": "array",
+                            "description": "Strings for platform|browser|connection_type. Objects {os_family, sub_categories?} for os.",
+                            "items": {
+                                "oneOf": [
+                                    {"type": "string"},
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "os_family": {"type": "string"},
+                                            "sub_categories": {"type": "array", "items": {"type": "string"}},
+                                        },
+                                        "required": ["os_family"],
+                                    },
+                                ]
+                            },
+                        },
+                    },
+                    "required": ["type", "value"],
+                    "description": "Targeting block. value=[] when type=ALL.",
+                },
+            },
+            "required": ["account_id", "campaign_id", "dimension", "targeting"],
+        },
+        "handler": "campaign_handlers.update_campaign_techno",
+        "category": "campaigns",
+        "annotations": {
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    },
+
     # Campaign Items Tools (READ-ONLY)
     "get_campaign_items": {
         "description": "Get all items for a campaign (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",

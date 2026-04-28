@@ -10,6 +10,11 @@ from realize.tools.geo import (
     validate_geo_advanced,
     validate_geo_classic,
 )
+from realize.tools.techno import (
+    techno_wire_field,
+    to_wire_techno_value,
+    validate_techno,
+)
 from realize.client import client
 
 
@@ -185,4 +190,39 @@ async def update_campaign_geo_advanced(arguments: dict = None) -> List[types.Tex
     return [types.TextContent(
         type="text",
         text=f"Campaign {campaign_id} advanced geo updated:\n{format_response(response)}"
+    )]
+
+
+async def update_campaign_techno(arguments: dict = None) -> List[types.TextContent]:
+    """Update one technology targeting dimension on a campaign (write operation)."""
+    args = arguments or {}
+    account_id = args.get("account_id")
+    campaign_id = args.get("campaign_id")
+    dimension = args.get("dimension")
+    targeting = args.get("targeting")
+
+    is_valid, error_message = validate_account_id(account_id)
+    if not is_valid:
+        raise ToolInputError(error_message)
+
+    if not campaign_id:
+        raise ToolInputError("campaign_id is required")
+
+    validate_techno(dimension, targeting)
+
+    body = {
+        techno_wire_field(dimension): {
+            "type": targeting["type"],
+            "value": to_wire_techno_value(dimension, targeting["value"]),
+        }
+    }
+
+    response = await client.post(
+        f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}",
+        data=body,
+    )
+
+    return [types.TextContent(
+        type="text",
+        text=f"Campaign {campaign_id} techno ({dimension}) updated:\n{format_response(response)}"
     )]
