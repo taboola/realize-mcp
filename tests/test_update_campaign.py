@@ -87,8 +87,8 @@ class TestUpdateCampaignCrossFieldValidation:
             )
 
     @pytest.mark.asyncio
-    async def test_bid_strategy_target_cpa_requires_target_cpa(self):
-        with pytest.raises(ToolInputError, match="target_cpa is required"):
+    async def test_bid_strategy_cpa_goal_requires_cpa_goal(self):
+        with pytest.raises(ToolInputError, match="cpa_goal is required"):
             await handle_call_tool(
                 "update_campaign",
                 _args(bid_strategy="TARGET_CPA"),
@@ -114,13 +114,13 @@ class TestUpdateCampaignCrossFieldValidation:
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_solo_target_cpa_passes(self, mock_post):
+    async def test_solo_cpa_goal_passes(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
         await handle_call_tool(
             "update_campaign",
-            {"account_id": "acme-inc", "campaign_id": "c-123", "target_cpa": 12.5},
+            {"account_id": "acme-inc", "campaign_id": "c-123", "cpa_goal": 12.5},
         )
-        assert _post_body(mock_post) == {"target_cpa": 12.5}
+        assert _post_body(mock_post) == {"cpa_goal": 12.5}
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
@@ -154,7 +154,7 @@ class TestUpdateCampaignCrossFieldValidation:
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_bid_strategy_max_conv_no_target_cpa_required(self, mock_post):
+    async def test_bid_strategy_max_conv_no_cpa_goal_required(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
         await handle_call_tool(
             "update_campaign",
@@ -218,7 +218,7 @@ class TestUpdateCampaignWireMapping:
         ("daily_cap", 50, {}),
         ("cpc", 0.25, {}),
         ("bid_strategy", "MAX_CONVERSIONS", {}),
-        ("target_cpa", 15, {}),
+        ("cpa_goal", 15, {}),
         ("start_date", "2026-05-01", {}),
         ("end_date", "2026-06-01", {}),
         ("tracking_code", "utm_source=foo", {}),
@@ -370,7 +370,7 @@ class TestUpdateCampaignSchema:
 
         expected_fields = {
             "name", "marketing_objective", "branding_text", "spending_limit_model",
-            "spending_limit", "daily_cap", "cpc", "bid_strategy", "target_cpa",
+            "spending_limit", "daily_cap", "cpc", "bid_strategy", "cpa_goal",
             "start_date", "end_date", "tracking_code", "cpc_cap", "comments",
             "daily_ad_delivery_model", "traffic_allocation_mode", "is_active",
         }

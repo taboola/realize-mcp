@@ -60,17 +60,17 @@ class TestCreateCampaignHappyPath:
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_includes_optional_target_cpa(self, mock_post):
+    async def test_includes_optional_cpa_goal(self, mock_post):
         mock_post.return_value = {"id": "c-1"}
 
         await handle_call_tool("create_campaign", _minimal_args(
             bid_strategy="TARGET_CPA",
-            target_cpa=5.0,
+            cpa_goal=5.0,
         ))
 
         body = _post_body(mock_post)
         assert body["bid_strategy"] == "TARGET_CPA"
-        assert body["target_cpa"] == 5.0
+        assert body["cpa_goal"] == 5.0
 
 
 class TestCreateCampaignValidation:

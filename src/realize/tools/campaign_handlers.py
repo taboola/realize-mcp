@@ -111,7 +111,7 @@ async def get_campaign_item(arguments: dict = None) -> List[types.TextContent]:
 _CREATE_CAMPAIGN_REQUIRED = ("name", "marketing_objective", "branding_text", "spending_limit_model")
 _CREATE_CAMPAIGN_BODY_FIELDS = (
     "name", "marketing_objective", "branding_text", "spending_limit_model",
-    "spending_limit", "daily_cap", "cpc", "bid_strategy", "target_cpa",
+    "spending_limit", "daily_cap", "cpc", "bid_strategy", "cpa_goal",
     "start_date", "end_date", "tracking_code", "cpc_cap", "comments",
     "daily_ad_delivery_model", "traffic_allocation_mode", "is_active",
 )
@@ -145,7 +145,7 @@ async def create_campaign(arguments: dict = None) -> List[types.TextContent]:
 
 _UPDATE_CAMPAIGN_BODY_FIELDS = (
     "name", "marketing_objective", "branding_text", "spending_limit_model",
-    "spending_limit", "daily_cap", "cpc", "bid_strategy", "target_cpa",
+    "spending_limit", "daily_cap", "cpc", "bid_strategy", "cpa_goal",
     "start_date", "end_date", "tracking_code", "cpc_cap", "comments",
     "daily_ad_delivery_model", "traffic_allocation_mode", "is_active",
 )
@@ -161,9 +161,9 @@ def _validate_update_campaign_cross_fields(args: dict) -> None:
         raise ToolInputError(
             "daily_cap is required when spending_limit_model is NONE"
         )
-    if args.get("bid_strategy") == "TARGET_CPA" and args.get("target_cpa") is None:
+    if args.get("bid_strategy") == "TARGET_CPA" and args.get("cpa_goal") is None:
         raise ToolInputError(
-            "target_cpa is required when bid_strategy is TARGET_CPA"
+            "cpa_goal is required when bid_strategy is TARGET_CPA"
         )
     start_date = args.get("start_date")
     end_date = args.get("end_date")

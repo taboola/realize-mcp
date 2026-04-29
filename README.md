@@ -102,7 +102,7 @@ spending_limit       (number, optional)   Required when model = MONTHLY or ENTIR
 daily_cap            (number, optional)   Required when model = NONE
 cpc                  (number, optional)   For BRAND_AWARENESS / DRIVE_WEBSITE_TRAFFIC / WEBSITE_ENGAGEMENT
 bid_strategy         (string, optional)   SMART | FIXED | TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE
-target_cpa           (number, optional)   Required when bid_strategy = TARGET_CPA
+cpa_goal           (number, optional)   Required when bid_strategy = TARGET_CPA
 start_date, end_date (string, optional)   YYYY-MM-DD
 tracking_code        (string, optional)
 cpc_cap              (number, optional)
@@ -126,7 +126,7 @@ spending_limit       (number, optional)   Co-required when supplying spending_li
 daily_cap            (number, optional)   Co-required when supplying spending_limit_model = NONE
 cpc                  (number, optional)
 bid_strategy         (string, optional)   SMART | FIXED | TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE
-target_cpa           (number, optional)   Co-required when supplying bid_strategy = TARGET_CPA
+cpa_goal           (number, optional)   Co-required when supplying bid_strategy = TARGET_CPA
 start_date, end_date (string, optional)   YYYY-MM-DD; if both supplied, end_date >= start_date
 tracking_code        (string, optional)
 cpc_cap              (number, optional)

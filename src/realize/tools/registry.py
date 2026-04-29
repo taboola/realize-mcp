@@ -97,7 +97,7 @@ TOOL_REGISTRY = {
         "description": (
             "Create a campaign. Returns the created campaign object including `id` and `status=PAUSED`. Campaign will not serve until items are added and the campaign is activated.\n"
             "\n"
-            "All amounts (spending_limit, daily_cap, cpc, target_cpa, cpc_cap) are numbers in the account's default currency. Do not include a currency symbol or code.\n"
+            "All amounts (spending_limit, daily_cap, cpc, cpa_goal, cpc_cap) are numbers in the account's default currency. Do not include a currency symbol or code.\n"
             "\n"
             "Required (always):\n"
             "- account_id (string): value from `account_id` field of search_accounts response (NOT numeric)\n"
@@ -112,14 +112,14 @@ TOOL_REGISTRY = {
             "\n"
             "Required by marketing_objective + bid_strategy:\n"
             "- BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC | WEBSITE_ENGAGEMENT\n"
-            "    -> set cpc (number). bid_strategy (string enum) optional (SMART default, or FIXED). Omit target_cpa.\n"
+            "    -> set cpc (number). bid_strategy (string enum) optional (SMART default, or FIXED). Omit cpa_goal.\n"
             "- LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL\n"
             "    -> set bid_strategy (string enum) = TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE.\n"
-            "       If bid_strategy = TARGET_CPA, set target_cpa (number). Omit cpc.\n"
+            "       If bid_strategy = TARGET_CPA, set cpa_goal (number). Omit cpc.\n"
             "\n"
             "Optional scalars: start_date (string, YYYY-MM-DD), end_date (string, YYYY-MM-DD), tracking_code (string), cpc_cap (number), comments (string), daily_ad_delivery_model (string enum: BALANCED | STRICT), traffic_allocation_mode (string enum: OPTIMIZED | EVEN, default OPTIMIZED), is_active (boolean: true to launch immediately, false or omit to start paused). If both dates set: end_date >= start_date.\n"
             "\n"
-            "Read-only - NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model.\n"
+            "Read-only - NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, target_cpa, target_cpa_learning_status. (target_cpa is server-recommended CPA range, not the user goal — set cpa_goal instead.)\n"
             "\n"
             "Not supported here. After creation, use these update tools to set them:\n"
             "- geo targeting: update_campaign_geo_classic | update_campaign_geo_advanced\n"
@@ -138,7 +138,7 @@ TOOL_REGISTRY = {
             "Lead gen, target CPA:\n"
             "{ \"account_id\": \"acme-inc\", \"name\": \"Q2 Leads\", \"marketing_objective\": \"LEADS_GENERATION\",\n"
             "  \"branding_text\": \"Acme\", \"spending_limit_model\": \"ENTIRE\", \"spending_limit\": 10000,\n"
-            "  \"bid_strategy\": \"TARGET_CPA\", \"target_cpa\": 15 }"
+            "  \"bid_strategy\": \"TARGET_CPA\", \"cpa_goal\": 15 }"
         ),
         "schema": {
             "type": "object",
@@ -164,7 +164,7 @@ TOOL_REGISTRY = {
                     "enum": ["SMART", "FIXED", "TARGET_CPA", "MAX_CONVERSIONS", "MAX_VALUE"],
                     "description": "Bidding strategy. See tool description.",
                 },
-                "target_cpa": {"type": "number", "description": "Target cost per acquisition in account's default currency (e.g. 15). Required when bid_strategy=TARGET_CPA."},
+                "cpa_goal": {"type": "number", "description": "Target cost per acquisition in account's default currency (e.g. 15). Required when bid_strategy=TARGET_CPA."},
                 "start_date": {"type": "string", "description": "YYYY-MM-DD. Optional; defaults to immediate."},
                 "end_date": {"type": "string", "description": "YYYY-MM-DD. Optional; omit for ongoing."},
                 "tracking_code": {"type": "string", "description": "Query string appended to item URLs."},
@@ -213,7 +213,7 @@ TOOL_REGISTRY = {
             "Edit scalar fields on an existing campaign. Partial-merge: only supplied fields are updated; "
             "fields you omit keep their current value. Re-sending the same value is a no-op.\n"
             "\n"
-            "All amounts (spending_limit, daily_cap, cpc, target_cpa, cpc_cap) are numbers in the account's default currency. Do not include a currency symbol or code.\n"
+            "All amounts (spending_limit, daily_cap, cpc, cpa_goal, cpc_cap) are numbers in the account's default currency. Do not include a currency symbol or code.\n"
             "\n"
             "Required (always):\n"
             "- account_id (string): value from `account_id` field of search_accounts response (NOT numeric)\n"
@@ -229,7 +229,7 @@ TOOL_REGISTRY = {
             "- daily_cap (number)\n"
             "- cpc (number)\n"
             "- bid_strategy (string enum): SMART | FIXED | TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE\n"
-            "- target_cpa (number)\n"
+            "- cpa_goal (number)\n"
             "- start_date (string, YYYY-MM-DD)\n"
             "- end_date (string, YYYY-MM-DD)\n"
             "- tracking_code (string)\n"
@@ -242,9 +242,9 @@ TOOL_REGISTRY = {
             "Conditional rules (apply when the gating field is in this request):\n"
             "- If you supply spending_limit_model = MONTHLY or ENTIRE, also supply spending_limit.\n"
             "- If you supply spending_limit_model = NONE, also supply daily_cap.\n"
-            "- If you supply bid_strategy = TARGET_CPA, also supply target_cpa.\n"
+            "- If you supply bid_strategy = TARGET_CPA, also supply cpa_goal.\n"
             "- If you supply BOTH start_date and end_date: end_date >= start_date.\n"
-            "- Solo updates of partner fields (e.g., changing only spending_limit, or only target_cpa) are allowed; the campaign's stored gating field is reused.\n"
+            "- Solo updates of partner fields (e.g., changing only spending_limit, or only cpa_goal) are allowed; the campaign's stored gating field is reused.\n"
             "\n"
             "Server-side constraints (will return 4xx if violated):\n"
             "- Some marketing_objective transitions are rejected mid-flight.\n"
@@ -253,7 +253,7 @@ TOOL_REGISTRY = {
             "- Account permissions and policy review state may forbid certain edits.\n"
             "- TERMINATED campaigns cannot be reactivated; approval_state separately gates whether is_active=true actually serves ads.\n"
             "\n"
-            "Read-only - NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model.\n"
+            "Read-only - NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, target_cpa, target_cpa_learning_status. (target_cpa is server-recommended CPA range, not the user goal — set cpa_goal instead.)\n"
             "\n"
             "Not supported here. Use these dedicated tools for non-scalar updates:\n"
             "- geo targeting: update_campaign_geo_classic | update_campaign_geo_advanced\n"
@@ -271,7 +271,7 @@ TOOL_REGISTRY = {
             "  \"name\": \"Q2 Awareness v2\", \"end_date\": \"2026-09-30\" }\n"
             "\n"
             "Tighten target CPA:\n"
-            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"target_cpa\": 12.5 }\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"cpa_goal\": 12.5 }\n"
             "\n"
             "Switch budget model to monthly:\n"
             "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
@@ -308,7 +308,7 @@ TOOL_REGISTRY = {
                     "enum": ["SMART", "FIXED", "TARGET_CPA", "MAX_CONVERSIONS", "MAX_VALUE"],
                     "description": "Bidding strategy. See tool description.",
                 },
-                "target_cpa": {"type": "number", "description": "Target cost per acquisition in account's default currency (e.g. 15). Required when bid_strategy=TARGET_CPA."},
+                "cpa_goal": {"type": "number", "description": "Target cost per acquisition in account's default currency (e.g. 15). Required when bid_strategy=TARGET_CPA."},
                 "start_date": {"type": "string", "description": "YYYY-MM-DD. Optional; defaults to immediate."},
                 "end_date": {"type": "string", "description": "YYYY-MM-DD. Optional; omit for ongoing."},
                 "tracking_code": {"type": "string", "description": "Query string appended to item URLs."},
