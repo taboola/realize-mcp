@@ -1,6 +1,6 @@
 # Realize MCP Server
 
-A Model Context Protocol (MCP) server that provides read-only access to Taboola's Realize API, enabling AI assistants to analyze campaigns, retrieve performance data, and generate reports through natural language. Install the MCP Server with stdio transport for single-user local use, or Streamable HTTP transport for multi-user deployment.
+A Model Context Protocol (MCP) server for Taboola's Realize API. Provides read access to accounts, campaigns, items, and reports, plus write access to create and update campaigns (including targeting, scheduling, audiences, and conversion rules). Install with stdio transport for single-user local use, or Streamable HTTP transport for multi-user deployment.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![Python](https://img.shields.io/badge/Python-3.10+-green.svg)](https://python.org) [![MCP](https://img.shields.io/badge/MCP-Compatible-orange.svg)](https://modelcontextprotocol.io/) [![Latest Version][mdversion-button]][md-pypi]
 
@@ -102,7 +102,7 @@ spending_limit       (number, optional)   Required when model = MONTHLY or ENTIR
 daily_cap            (number, optional)   Required when model = NONE
 cpc                  (number, optional)   For BRAND_AWARENESS / DRIVE_WEBSITE_TRAFFIC
 bid_strategy         (string, optional)   SMART | FIXED | TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE
-cpa_goal           (number, optional)   Required when bid_strategy = TARGET_CPA
+cpa_goal             (number, optional)   Required when bid_strategy = TARGET_CPA
 start_date, end_date (string, optional)   YYYY-MM-DD
 tracking_code        (string, optional)
 cpc_cap              (number, optional)
@@ -126,7 +126,7 @@ spending_limit       (number, optional)   Co-required when supplying spending_li
 daily_cap            (number, optional)   Co-required when supplying spending_limit_model = NONE
 cpc                  (number, optional)
 bid_strategy         (string, optional)   SMART | FIXED | TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE
-cpa_goal           (number, optional)   Co-required when supplying bid_strategy = TARGET_CPA
+cpa_goal             (number, optional)   Co-required when supplying bid_strategy = TARGET_CPA
 start_date, end_date (string, optional)   YYYY-MM-DD; if both supplied, end_date >= start_date
 tracking_code        (string, optional)
 cpc_cap              (number, optional)
@@ -136,7 +136,7 @@ traffic_allocation_mode    (string, optional)   OPTIMIZED (default) | EVEN
 is_active                  (boolean, optional)  true to activate, false to pause
 ```
 
-**`update_campaign_geo_classic`** — Update one classic geo dimension on a campaign. Use when `get_campaign` shows no `geoTargeting` field. Sub-dimension mutex: at most one of `region | dma | city | postal_code` may be set at a time — clear the current dim with `type=ALL` before setting a new one.
+**`update_campaign_geo_classic`** — Update one classic geo dimension on a campaign. Use when `get_campaign` shows no `geo_targeting` field. Sub-dimension mutex: at most one of `region | dma | city | postal_code` may be set at a time — clear the current dim with `type=ALL` before setting a new one.
 
 ```
 account_id  (string, required)
@@ -146,7 +146,7 @@ targeting   (object, required)   {type: INCLUDE | EXCLUDE | ALL, value: [string]
                                  value=[] required when type=ALL
 ```
 
-**`update_campaign_geo_advanced`** — Update geo using the advanced (MultiTargeting) shape. Use when `get_campaign` returns a populated `geoTargeting`. Sending advanced on a classic-stored campaign migrates the campaign one-way to advanced storage and clears classic fields.
+**`update_campaign_geo_advanced`** — Update geo using the advanced (MultiTargeting) shape. Use when `get_campaign` returns a populated `geo_targeting`. Sending advanced on a classic-stored campaign migrates the campaign one-way to advanced storage and clears classic fields.
 
 ```
 account_id    (string, required)
@@ -244,7 +244,7 @@ publisher_bid_modifier      (object, optional)   {values: [{target: <publisher_n
                                                   Targets must be unique and finite.
 ```
 
-**`update_campaign_contextual_segments`** — Replace the contextual segment targeting attached to a campaign. Posts to the dedicated `targeting/contextual_segments` sub-endpoint with a `{collection: [rules]}` body, mirroring the `update_campaign_my_audiences` shape. Full-replace: the supplied object overwrites current targeting wholesale. Send `{collection: []}` to clear all contextual targeting. At most one `INCLUDE` block and one `EXCLUDE` block; segment IDs are integers (e.g. `1900004`), authored in the Realize UI or read from `get_campaign`.
+**`update_campaign_contextual_segments`** — Update contextual segment targeting on a campaign. Full-replace `{collection: [rules]}`: the supplied object overwrites current targeting wholesale. Send `{collection: []}` to clear all contextual targeting. At most one `INCLUDE` block and one `EXCLUDE` block; segment IDs are integers (e.g. `1900004`), authored in the Realize UI or read from `get_campaign`.
 
 ```
 account_id          (string, required)   From search_accounts
