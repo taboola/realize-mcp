@@ -143,22 +143,6 @@ async def handle_call_tool(
             from realize.tools.resources import list_realize_resource
             result = await list_realize_resource(arguments)
 
-        elif handler_path == "account_lists.list_account_audiences":
-            from realize.tools.account_lists import list_account_audiences
-            result = await list_account_audiences(arguments)
-
-        elif handler_path == "account_lists.list_account_conversion_rules":
-            from realize.tools.account_lists import list_account_conversion_rules
-            result = await list_account_conversion_rules(arguments)
-
-        elif handler_path == "account_lists.list_account_publishers":
-            from realize.tools.account_lists import list_account_publishers
-            result = await list_account_publishers(arguments)
-
-        elif handler_path == "account_lists.list_account_contextual_segments":
-            from realize.tools.account_lists import list_account_contextual_segments
-            result = await list_account_contextual_segments(arguments)
-
         # Report handlers
         elif handler_path == "report_handlers.get_top_campaign_content_report":
             from realize.tools.report_handlers import get_top_campaign_content_report

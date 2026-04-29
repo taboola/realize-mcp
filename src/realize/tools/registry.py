@@ -514,7 +514,7 @@ TOOL_REGISTRY = {
             "\n"
             "Full-replace: the supplied my_audiences replaces the campaign's current audience targeting wholesale; send {\"collection\": []} to clear. Only INCLUDE and EXCLUDE are supported on this endpoint (no ALL).\n"
             "\n"
-            "Each rule groups audience IDs of one type: INCLUDE adds them as targets, EXCLUDE suppresses them. Discover valid audience IDs via list_account_audiences(account_id).\n"
+            "Each rule groups audience IDs of one type: INCLUDE adds them as targets, EXCLUDE suppresses them. audience_id values are integer IDs sourced from the Realize UI (Audiences section).\n"
             "\n"
             "For lookalike audiences, use update_campaign_lookalike_audience instead. To read current targeting, use get_campaign.\n"
             "\n"
@@ -575,7 +575,7 @@ TOOL_REGISTRY = {
             "\n"
             "Full-replace: the supplied lookalike_audience replaces the campaign's current lookalike targeting wholesale; send {\"collection\": []} to clear. Only INCLUDE is supported (server rejects EXCLUDE/ALL); the outer collection holds at most one block.\n"
             "\n"
-            "Each item is {rule_id, similarity_level}. Discover valid rule_ids via list_account_audiences(account_id) — lookalike entries appear alongside custom audiences in the unified response. similarity_level (%) depends on the audience subtype — CRM accepts 5/10/15/20/25; pixel accepts 5. The server resolves the subtype from rule_id and rejects mismatches.\n"
+            "Each item is {rule_id, similarity_level}. rule_id is the integer rule ID for a lookalike audience (from the Realize UI, Audiences > Lookalike). similarity_level (%) depends on the audience subtype — CRM accepts 5/10/15/20/25; pixel accepts 5. The server resolves the subtype from rule_id and rejects mismatches.\n"
             "\n"
             "Predictive (PBP) lookalikes are not supported via this MCP server (the platform only allows them at creation time, and create_campaign exposes no field for them). CRM and pixel lookalikes work normally.\n"
             "\n"
@@ -584,7 +584,7 @@ TOOL_REGISTRY = {
             "- Campaign must allow retargeting.\n"
             "- All rule_ids must resolve to lookalike-class audiences with valid CRM segments.\n"
             "\n"
-            "Reading current lookalike targeting is not supported — the lookalike block is filtered out of get_campaign; inspect via the Realize UI. For first-party + custom audiences, use update_campaign_my_audiences. Discover lookalike rule_ids via list_account_audiences(account_id).\n"
+            "Reading current lookalike targeting is not supported — the lookalike block is filtered out of get_campaign; inspect via the Realize UI. For first-party + custom audiences, use update_campaign_my_audiences.\n"
             "\n"
             "Example — add two CRM lookalikes:\n"
             "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
@@ -744,7 +744,7 @@ TOOL_REGISTRY = {
             "\n"
             "Full-replace: the supplied conversion_rules list replaces the campaign's current attachments wholesale; send [] to detach all. There is no incremental ADD/REMOVE — to change one rule, read the campaign with get_campaign, edit the list locally, send the merged result.\n"
             "\n"
-            "Discovery: list available rule ids via list_account_conversion_rules(account_id), or read them off an existing campaign via get_campaign (conversion_rules.rules[].id). Rules themselves are authored in the Realize UI (Conversions section).\n"
+            "Discovery: this tool does not list available rule ids. Rule ids are authored in the Realize UI (Conversions section) or can be read off an existing campaign via get_campaign (conversion_rules.rules[].id).\n"
             "\n"
             "Server-side constraints (returns 4xx if violated):\n"
             "- Each rule id must exist under the account.\n"
@@ -802,8 +802,6 @@ TOOL_REGISTRY = {
             "Full-replace, per field: each supplied field replaces the campaign's current value for that field wholesale; omitted fields are untouched.\n"
             "\n"
             "publisher_targeting and publisher_groups_targeting use {type: INCLUDE | EXCLUDE | ALL, value: [<name>, ...]}. INCLUDE restricts to listed names; EXCLUDE blocks them; ALL clears the dimension (send value=[]). Values are NAMES (strings), not IDs — server resolves them. Account-level group restrictions may override campaign-level INCLUDE/EXCLUDE and produce a 4xx.\n"
-            "\n"
-            "Discover valid publisher names via list_account_publishers(account_id, search_text?). Publisher-group names are not discoverable via this MCP server — obtain them out of band.\n"
             "\n"
             "publisher_bid_modifier uses {values: [{target: <publisher_name>, cpc_modification: <number>}]}. cpc_modification is a multiplier on the campaign CPC (1.25 = +25%, 0.8 = -20%). Each target must be unique. Send values=[] to clear all modifiers; omit a target to drop its modifier in this update.\n"
             "\n"
@@ -906,7 +904,7 @@ TOOL_REGISTRY = {
             "\n"
             "At most one INCLUDE block and one EXCLUDE block per request — duplicate types are rejected.\n"
             "\n"
-            "Discovery: list valid segment IDs via list_account_contextual_segments(account_id, country_codes?). Segment IDs are integers (e.g. 1900004), not names.\n"
+            "Discovery: segment IDs are integers (e.g. 1900004), not names. They are not discoverable via this MCP server — author them in the Realize UI or read them off an existing campaign with get_campaign.\n"
             "\n"
             "Server-side constraints (returns 4xx if violated):\n"
             "- Each segment ID must exist and be of contextual data type (not third-party).\n"
@@ -1076,88 +1074,6 @@ TOOL_REGISTRY = {
             "required": ["resource"],
         },
         "handler": "resources.list_realize_resource",
-        "category": "resources",
-    },
-
-    "list_account_audiences": {
-        "description": (
-            "List first-party + custom + lookalike audiences defined on an account (read-only). Use the resulting IDs as inputs to update_campaign_my_audiences (custom audience IDs) or update_campaign_lookalike_audience (lookalike rule_ids)."
-        ),
-        "schema": {
-            "type": "object",
-            "properties": {
-                "account_id": {
-                    "type": "string",
-                    "description": "Value from search_accounts.account_id (NOT numeric).",
-                },
-            },
-            "required": ["account_id"],
-        },
-        "handler": "account_lists.list_account_audiences",
-        "category": "resources",
-    },
-
-    "list_account_conversion_rules": {
-        "description": (
-            "List conversion rules defined on an account (read-only). Use the resulting rule IDs as inputs to update_campaign_conversion_rules."
-        ),
-        "schema": {
-            "type": "object",
-            "properties": {
-                "account_id": {
-                    "type": "string",
-                    "description": "Value from search_accounts.account_id (NOT numeric).",
-                },
-            },
-            "required": ["account_id"],
-        },
-        "handler": "account_lists.list_account_conversion_rules",
-        "category": "resources",
-    },
-
-    "list_account_publishers": {
-        "description": (
-            "List publishers an account is allowed to target (read-only). Optional `search_text` narrows the list. Use the resulting publisher names as inputs to update_campaign_publishers (publisher_targeting / publisher_bid_modifier values).\n"
-            "\n"
-            "Note: publisher-group names are not discoverable via this MCP server — obtain them out of band."
-        ),
-        "schema": {
-            "type": "object",
-            "properties": {
-                "account_id": {
-                    "type": "string",
-                    "description": "Value from search_accounts.account_id (NOT numeric).",
-                },
-                "search_text": {
-                    "type": "string",
-                    "description": "Optional substring to narrow the publisher list.",
-                },
-            },
-            "required": ["account_id"],
-        },
-        "handler": "account_lists.list_account_publishers",
-        "category": "resources",
-    },
-
-    "list_account_contextual_segments": {
-        "description": (
-            "List contextual segments available for targeting on an account (read-only). Optional `country_codes` (comma-separated ISO-2) narrows segments to those served in the given markets. Use the resulting integer segment IDs as inputs to update_campaign_contextual_segments."
-        ),
-        "schema": {
-            "type": "object",
-            "properties": {
-                "account_id": {
-                    "type": "string",
-                    "description": "Value from search_accounts.account_id (NOT numeric).",
-                },
-                "country_codes": {
-                    "type": "string",
-                    "description": "Optional comma-separated ISO-2 country codes (e.g. \"US,CA\").",
-                },
-            },
-            "required": ["account_id"],
-        },
-        "handler": "account_lists.list_account_contextual_segments",
         "category": "resources",
     },
 
