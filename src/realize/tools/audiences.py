@@ -21,6 +21,10 @@ def validate_my_audiences(my_audiences: Any) -> None:
     Note the public API reuses 'collection' for both the outer rule wrapper and the
     inner audience-id list; the doubled key is intentional.
 
+    Inner empty collection (e.g. [{"type": "INCLUDE", "collection": []}]) is a
+    server-accepted alternate clear path — MyAudiencesTargetingManager treats it
+    as "remove audiences targeting".
+
     Raises ToolInputError on the first violation.
     """
     if not isinstance(my_audiences, dict):
@@ -59,6 +63,10 @@ def validate_lookalike_audience(lookalike_audience: Any) -> None:
     Server rules enforced client-side: outer collection size <= 1, INCLUDE-only,
     rule_id positive int, similarity_level in cross-subtype union. Server further
     restricts similarity_level by audience subtype (resolved from rule_id).
+
+    Inner empty collection (e.g. [{"type": "INCLUDE", "collection": []}]) is a
+    server-accepted no-op — LookalikeAudienceTargetingManager early-returns from
+    validation when the inner list is empty.
 
     Raises ToolInputError on the first violation.
     """

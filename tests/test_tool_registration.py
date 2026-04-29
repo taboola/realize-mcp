@@ -79,7 +79,6 @@ class TestToolRegistryEdgeCases:
             'campaign_handlers.',
             'report_handlers.',
             'resources.',
-            'account_lists.',
         ]
         
         for tool_name, tool_config in tools.items():

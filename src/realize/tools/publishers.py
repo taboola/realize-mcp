@@ -19,8 +19,8 @@ def _validate_targeting_block(field_name: str, targeting: Any) -> None:
         )
 
     value = targeting.get("value")
-    if not isinstance(value, list) or not all(isinstance(v, str) and v for v in value):
-        raise ToolInputError(f"{field_name}.value must be a list of non-empty strings")
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise ToolInputError(f"{field_name}.value must be a list of strings")
 
     if t_type == "ALL" and value:
         raise ToolInputError(f"{field_name}.value must be empty when type=ALL (use [] to clear)")
@@ -59,9 +59,9 @@ def validate_publisher_bid_modifier(bid_modifier: Any) -> None:
             )
 
         target = entry.get("target")
-        if not isinstance(target, str) or not target:
+        if not isinstance(target, str):
             raise ToolInputError(
-                f"publisher_bid_modifier.values[{idx}].target must be a non-empty string"
+                f"publisher_bid_modifier.values[{idx}].target must be a string"
             )
 
         cpc_modification = entry.get("cpc_modification")

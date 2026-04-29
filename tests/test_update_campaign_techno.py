@@ -68,23 +68,12 @@ class TestTechnoValidation:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("dim", ["platform", "browser", "connection_type"])
     async def test_string_dim_rejects_object_items(self, dim):
-        with pytest.raises(ToolInputError, match="non-empty string"):
+        with pytest.raises(ToolInputError, match="must be a string"):
             await handle_call_tool(
                 "update_campaign_techno",
                 _args(
                     dimension=dim,
                     targeting={"type": "INCLUDE", "value": [{"os_family": "Android"}]},
-                ),
-            )
-
-    @pytest.mark.asyncio
-    async def test_string_dim_rejects_empty_strings(self):
-        with pytest.raises(ToolInputError, match="non-empty string"):
-            await handle_call_tool(
-                "update_campaign_techno",
-                _args(
-                    dimension="platform",
-                    targeting={"type": "INCLUDE", "value": [""]},
                 ),
             )
 
@@ -101,7 +90,7 @@ class TestTechnoValidation:
 
     @pytest.mark.asyncio
     async def test_os_dim_requires_os_family(self):
-        with pytest.raises(ToolInputError, match="os_family must be a non-empty string"):
+        with pytest.raises(ToolInputError, match="os_family must be a string"):
             await handle_call_tool(
                 "update_campaign_techno",
                 _args(
@@ -126,14 +115,14 @@ class TestTechnoValidation:
 
     @pytest.mark.asyncio
     async def test_os_dim_sub_categories_items_must_be_strings(self):
-        with pytest.raises(ToolInputError, match="sub_categories\\[0\\] must be a non-empty string"):
+        with pytest.raises(ToolInputError, match="sub_categories\\[0\\] must be a string"):
             await handle_call_tool(
                 "update_campaign_techno",
                 _args(
                     dimension="os",
                     targeting={
                         "type": "INCLUDE",
-                        "value": [{"os_family": "iOS", "sub_categories": [""]}],
+                        "value": [{"os_family": "iOS", "sub_categories": [123]}],
                     },
                 ),
             )

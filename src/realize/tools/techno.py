@@ -49,9 +49,9 @@ def validate_techno(dimension: Any, targeting: Any) -> None:
 
     if dimension in _STRING_VALUE_DIMENSIONS:
         for idx, item in enumerate(value):
-            if not isinstance(item, str) or not item:
+            if not isinstance(item, str):
                 raise ToolInputError(
-                    f"for dimension={dimension}, targeting.value[{idx}] must be a non-empty string"
+                    f"for dimension={dimension}, targeting.value[{idx}] must be a string"
                 )
         return
 
@@ -61,9 +61,9 @@ def validate_techno(dimension: Any, targeting: Any) -> None:
                 f"for dimension=os, targeting.value[{idx}] must be an object with os_family"
             )
         os_family = item.get("os_family")
-        if not isinstance(os_family, str) or not os_family:
+        if not isinstance(os_family, str):
             raise ToolInputError(
-                f"for dimension=os, targeting.value[{idx}].os_family must be a non-empty string"
+                f"for dimension=os, targeting.value[{idx}].os_family must be a string"
             )
         sub_categories = item.get("sub_categories")
         if sub_categories is None:
@@ -73,9 +73,9 @@ def validate_techno(dimension: Any, targeting: Any) -> None:
                 f"for dimension=os, targeting.value[{idx}].sub_categories must be a list of strings"
             )
         for sc_idx, sc in enumerate(sub_categories):
-            if not isinstance(sc, str) or not sc:
+            if not isinstance(sc, str):
                 raise ToolInputError(
-                    f"for dimension=os, targeting.value[{idx}].sub_categories[{sc_idx}] must be a non-empty string"
+                    f"for dimension=os, targeting.value[{idx}].sub_categories[{sc_idx}] must be a string"
                 )
 
 

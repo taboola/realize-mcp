@@ -109,7 +109,7 @@ async def get_campaign_item(arguments: dict = None) -> List[types.TextContent]:
 
 
 _CREATE_CAMPAIGN_REQUIRED = ("name", "marketing_objective", "branding_text", "spending_limit_model")
-_CREATE_CAMPAIGN_BODY_FIELDS = (
+_CAMPAIGN_BODY_FIELDS = (
     "name", "marketing_objective", "branding_text", "spending_limit_model",
     "spending_limit", "daily_cap", "cpc", "bid_strategy", "cpa_goal",
     "start_date", "end_date", "tracking_code", "cpc_cap", "comments",
@@ -130,7 +130,7 @@ async def create_campaign(arguments: dict = None) -> List[types.TextContent]:
     if missing:
         raise ToolInputError(f"Missing required field(s): {', '.join(missing)}")
 
-    body = {f: args[f] for f in _CREATE_CAMPAIGN_BODY_FIELDS if args.get(f) is not None}
+    body = {f: args[f] for f in _CAMPAIGN_BODY_FIELDS if args.get(f) is not None}
 
     response = await client.post(
         f"/{quote(account_id, safe='')}/campaigns",
@@ -141,34 +141,6 @@ async def create_campaign(arguments: dict = None) -> List[types.TextContent]:
         type="text",
         text=f"Campaign created in account {account_id}:\n{format_response(response)}"
     )]
-
-
-_UPDATE_CAMPAIGN_BODY_FIELDS = (
-    "name", "marketing_objective", "branding_text", "spending_limit_model",
-    "spending_limit", "daily_cap", "cpc", "bid_strategy", "cpa_goal",
-    "start_date", "end_date", "tracking_code", "cpc_cap", "comments",
-    "daily_ad_delivery_model", "traffic_allocation_mode", "is_active",
-)
-
-
-def _validate_update_campaign_cross_fields(args: dict) -> None:
-    slm = args.get("spending_limit_model")
-    if slm in ("MONTHLY", "ENTIRE") and args.get("spending_limit") is None:
-        raise ToolInputError(
-            "spending_limit is required when spending_limit_model is MONTHLY or ENTIRE"
-        )
-    if slm == "NONE" and args.get("daily_cap") is None:
-        raise ToolInputError(
-            "daily_cap is required when spending_limit_model is NONE"
-        )
-    if args.get("bid_strategy") == "TARGET_CPA" and args.get("cpa_goal") is None:
-        raise ToolInputError(
-            "cpa_goal is required when bid_strategy is TARGET_CPA"
-        )
-    start_date = args.get("start_date")
-    end_date = args.get("end_date")
-    if start_date and end_date and end_date < start_date:
-        raise ToolInputError("end_date must be on or after start_date")
 
 
 async def update_campaign(arguments: dict = None) -> List[types.TextContent]:
@@ -184,11 +156,9 @@ async def update_campaign(arguments: dict = None) -> List[types.TextContent]:
     if not campaign_id:
         raise ToolInputError("campaign_id is required")
 
-    body = {f: args[f] for f in _UPDATE_CAMPAIGN_BODY_FIELDS if args.get(f) is not None}
+    body = {f: args[f] for f in _CAMPAIGN_BODY_FIELDS if args.get(f) is not None}
     if not body:
         raise ToolInputError("at least one updatable field must be supplied")
-
-    _validate_update_campaign_cross_fields(args)
 
     response = await client.post(
         f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}",

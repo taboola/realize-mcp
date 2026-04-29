@@ -91,15 +91,6 @@ class TestPublisherTargetingValidation:
                 _args(publisher_targeting={"type": "INCLUDE", "value": []}),
             )
 
-    @pytest.mark.asyncio
-    async def test_empty_string_value_rejected(self):
-        with pytest.raises(ToolInputError, match="publisher_targeting.value must be a list"):
-            await handle_call_tool(
-                "update_campaign_publishers",
-                _args(publisher_targeting={"type": "INCLUDE", "value": [""]}),
-            )
-
-
 class TestPublisherGroupsTargetingValidation:
     @pytest.mark.asyncio
     async def test_invalid_type(self):
@@ -161,13 +152,13 @@ class TestPublisherBidModifierValidation:
             )
 
     @pytest.mark.asyncio
-    async def test_target_required_non_empty(self):
-        with pytest.raises(ToolInputError, match=r"values\[0\].target must be a non-empty string"):
+    async def test_target_must_be_string(self):
+        with pytest.raises(ToolInputError, match=r"values\[0\].target must be a string"):
             await handle_call_tool(
                 "update_campaign_publishers",
                 _args(
                     publisher_targeting=None,
-                    publisher_bid_modifier={"values": [{"target": "", "cpc_modification": 1.0}]},
+                    publisher_bid_modifier={"values": [{"target": 123, "cpc_modification": 1.0}]},
                 ),
             )
 
