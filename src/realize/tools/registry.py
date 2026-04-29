@@ -706,6 +706,123 @@ TOOL_REGISTRY = {
         },
     },
 
+    "update_campaign_lookalike_audience": {
+        "description": (
+            "Update lookalike audience targeting on a campaign. Posts to the dedicated "
+            "targeting/lookalike_audience sub-endpoint, replacing the campaign's current "
+            "lookalike audience targeting wholesale.\n"
+            "\n"
+            "Required:\n"
+            "- account_id (string): from search_accounts.account_id (NOT numeric)\n"
+            "- campaign_id (string)\n"
+            "- targeting (object): {collection: [block]}, where block is INCLUDE-only\n"
+            "\n"
+            "Block shape:\n"
+            "  {type: \"INCLUDE\", collection: [{rule_id, similarity_level}, ...]}\n"
+            "\n"
+            "Inner item:\n"
+            "- rule_id (integer): unip rule ID for a lookalike audience. Source via the Realize "
+            "UI or the GET /backstage/api/1.0/{account_id}/lookalike_audiences endpoint.\n"
+            "- similarity_level (integer): allowed values depend on the audience subtype: "
+            "CRM lookalike accepts 5/10/15/20/25; pixel lookalike accepts 5; predictive (PBP) "
+            "accepts 1/2/3/4/5. The server resolves the subtype from rule_id and rejects mismatches.\n"
+            "\n"
+            "Semantics:\n"
+            "- At most one block in the outer collection (server constraint).\n"
+            "- Only INCLUDE is supported (EXCLUDE/ALL are rejected by the server).\n"
+            "- Replace-style: send the full desired set on each call.\n"
+            "- To clear lookalike targeting, send {\"collection\": []}.\n"
+            "- Predictive (PBP) lookalikes can only be added at campaign creation time, not on "
+            "existing campaigns; the server rejects them via this update tool.\n"
+            "\n"
+            "Server-side preconditions (will return 4xx if violated):\n"
+            "- Account must have user-segments edit permission.\n"
+            "- Campaign must allow retargeting.\n"
+            "- All rule_ids must resolve to lookalike-class audiences with valid CRM segments.\n"
+            "\n"
+            "NOT supported here:\n"
+            "- First-party + custom audience targeting. Use update_campaign_my_audiences.\n"
+            "- Reading current lookalike targeting. The lookalike block is filtered out of "
+            "get_campaign; use the dedicated GET sub-endpoint if needed.\n"
+            "\n"
+            "Examples:\n"
+            "\n"
+            "Add two CRM lookalikes at 10% similarity:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+            "  \"targeting\": {\n"
+            "    \"collection\": [\n"
+            "      {\"type\": \"INCLUDE\", \"collection\": [\n"
+            "        {\"rule_id\": 1234567, \"similarity_level\": 10},\n"
+            "        {\"rule_id\": 7654321, \"similarity_level\": 5}\n"
+            "      ]}\n"
+            "    ]\n"
+            "  } }\n"
+            "\n"
+            "Clear lookalike targeting:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+            "  \"targeting\": {\"collection\": []} }"
+        ),
+        "schema": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string",
+                    "description": "Value from search_accounts.account_id (NOT numeric).",
+                },
+                "campaign_id": {
+                    "type": "string",
+                    "description": "Campaign ID to update.",
+                },
+                "targeting": {
+                    "type": "object",
+                    "description": "Lookalike audience targeting wrapper. Send {collection: []} to clear.",
+                    "properties": {
+                        "collection": {
+                            "type": "array",
+                            "maxItems": 1,
+                            "description": "At most one INCLUDE block. Empty list clears targeting.",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "type": {"type": "string", "enum": ["INCLUDE"]},
+                                    "collection": {
+                                        "type": "array",
+                                        "description": "List of {rule_id, similarity_level} objects.",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "rule_id": {
+                                                    "type": "integer",
+                                                    "description": "Unip rule ID for the lookalike audience.",
+                                                },
+                                                "similarity_level": {
+                                                    "type": "integer",
+                                                    "enum": [1, 2, 3, 4, 5, 10, 15, 20, 25],
+                                                    "description": "Similarity %. Server validates the subset allowed for this audience's subtype.",
+                                                },
+                                            },
+                                            "required": ["rule_id", "similarity_level"],
+                                        },
+                                    },
+                                },
+                                "required": ["type", "collection"],
+                            },
+                        },
+                    },
+                    "required": ["collection"],
+                },
+            },
+            "required": ["account_id", "campaign_id", "targeting"],
+        },
+        "handler": "campaign_handlers.update_campaign_lookalike_audience",
+        "category": "campaigns",
+        "annotations": {
+            "destructiveHint": True,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    },
+
     "update_campaign_schedule": {
         "description": (
             "Update a campaign's activity schedule (dayparting). Sets when the campaign is allowed "

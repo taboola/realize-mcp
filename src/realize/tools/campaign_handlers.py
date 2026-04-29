@@ -15,7 +15,7 @@ from realize.tools.techno import (
     to_wire_techno_value,
     validate_techno,
 )
-from realize.tools.audiences import validate_my_audiences
+from realize.tools.audiences import validate_lookalike_audience, validate_my_audiences
 from realize.tools.contextual_segments import validate_contextual_segments
 from realize.tools.schedule import to_wire_schedule, validate_schedule
 from realize.tools.conversion_rules import (
@@ -324,6 +324,33 @@ async def update_campaign_my_audiences(arguments: dict = None) -> List[types.Tex
     return [types.TextContent(
         type="text",
         text=f"Campaign {campaign_id} my_audiences targeting updated:\n{format_response(response)}"
+    )]
+
+
+async def update_campaign_lookalike_audience(arguments: dict = None) -> List[types.TextContent]:
+    """Update lookalike audience targeting on a campaign (write operation)."""
+    args = arguments or {}
+    account_id = args.get("account_id")
+    campaign_id = args.get("campaign_id")
+    targeting = args.get("targeting")
+
+    is_valid, error_message = validate_account_id(account_id)
+    if not is_valid:
+        raise ToolInputError(error_message)
+
+    if not campaign_id:
+        raise ToolInputError("campaign_id is required")
+
+    validate_lookalike_audience(targeting)
+
+    response = await client.post(
+        f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}/targeting/lookalike_audience",
+        data=targeting,
+    )
+
+    return [types.TextContent(
+        type="text",
+        text=f"Campaign {campaign_id} lookalike audience targeting updated:\n{format_response(response)}"
     )]
 
 

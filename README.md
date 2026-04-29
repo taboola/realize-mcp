@@ -174,7 +174,7 @@ targeting   (object, required)
                     Omit sub_categories to target the entire family.
 ```
 
-**`update_campaign_my_audiences`** — Update first-party + custom audience targeting on a campaign. Posts to the dedicated `targeting/my_audiences` sub-endpoint with a flat `{collection: [rules]}` body. Replace-style: send the full desired targeting set on each call. Lookalike audiences are not handled by this tool.
+**`update_campaign_my_audiences`** — Update first-party + custom audience targeting on a campaign. Posts to the dedicated `targeting/my_audiences` sub-endpoint with a flat `{collection: [rules]}` body. Replace-style: send the full desired targeting set on each call. Lookalike audiences live in `update_campaign_lookalike_audience`.
 
 ```
 account_id  (string, required)
@@ -184,6 +184,19 @@ targeting   (object, required)
                        {collection: [<integer audience_id>, ...],
                         type: INCLUDE | EXCLUDE}
                        Send {collection: []} to clear all audience targeting.
+```
+
+**`update_campaign_lookalike_audience`** — Update lookalike audience targeting via the dedicated `targeting/lookalike_audience` sub-endpoint. Replace-style. Only `INCLUDE` is supported (server rejects EXCLUDE/ALL); at most one block. `similarity_level` is a percentage; allowed values depend on subtype (CRM: 5/10/15/20/25; pixel: 5; predictive PBP: 1-5) — the server resolves the subtype from `rule_id` and rejects mismatches. PBP audiences are create-only; this update tool will reject them. Send `{collection: []}` to clear.
+
+```
+account_id  (string, required)
+campaign_id (string, required)
+targeting   (object, required)
+  collection (array, max 1 block)   At most one block; each block:
+                                    {type: INCLUDE,
+                                     collection: [{rule_id: <int>,
+                                                   similarity_level: <int>}]}
+                                    Send {collection: []} to clear.
 ```
 
 **`update_campaign_schedule`** — Update a campaign's activity schedule (dayparting). `mode=ALWAYS` runs continuously; `mode=CUSTOM` accepts INCLUDE/EXCLUDE rules per day-of-week + hour range, in the supplied IANA time zone. Server auto-fills missing days as INCLUDE 0–24, so callers do not need to enumerate all seven days.
