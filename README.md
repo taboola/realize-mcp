@@ -244,7 +244,7 @@ publisher_bid_modifier      (object, optional)   {values: [{target: <publisher_n
                                                   Targets must be unique and finite.
 ```
 
-**`update_campaign_contextual_segments`** — Update contextual segment targeting on a campaign. Full-replace `{collection: [rules]}`: the supplied object overwrites current targeting wholesale. Send `{collection: []}` to clear all contextual targeting. At most one `INCLUDE` block and one `EXCLUDE` block; segment IDs are integers (e.g. `1900004`), authored in the Realize UI or read from `get_campaign`.
+**`update_campaign_contextual_segments`** — Update contextual segment targeting on a campaign. Full-replace `{collection: [rules]}`: the supplied object overwrites current targeting wholesale. Send `{collection: []}` to clear all contextual targeting. At most one `INCLUDE` block and one `EXCLUDE` block; segment IDs are integers (e.g. `1900004`), authored in the Realize UI or discoverable via `list_account_contextual_segments`.
 
 ```
 account_id          (string, required)   From search_accounts
@@ -253,6 +253,47 @@ contextual_segments (object, required)   {collection: [{type, collection}]}
                                           type: INCLUDE | EXCLUDE
                                           inner collection: [<segment_id_int>, ...]
                                           Send {collection: []} to clear all.
+```
+
+### Resource Discovery
+
+These read-only tools surface the valid values that the campaign create/update tools accept (country codes, OS families, audience IDs, conversion rule IDs, etc.) so the LLM can construct correct payloads in-band rather than guessing or asking the operator to look things up.
+
+**`list_realize_resource`** — Look up a global Realize platform vocabulary. Picks from a fixed set of `resource` names; some require a parent argument under `args` (regions/dma/cities/postal_codes need `country_code`; operating_system_versions needs `os_family`). Response is a flat list of valid values.
+
+```
+resource (string, required)   countries | regions | dma | cities | postal_codes |
+                              platforms | operating_systems | operating_system_versions |
+                              browsers | connection_types | marketing_objectives |
+                              bid_strategies | spending_limit_models | time_zones
+args     (object, optional)   {country_code: "US"} for regions/dma/cities/postal_codes
+                              {os_family: "iOS"} for operating_system_versions
+```
+
+**`list_account_audiences`** — List first-party + custom + lookalike audiences on an account. Use the IDs as inputs to `update_campaign_my_audiences` (custom IDs) or `update_campaign_lookalike_audience` (lookalike `rule_id`s).
+
+```
+account_id (string, required)
+```
+
+**`list_account_conversion_rules`** — List conversion rules defined on an account. Use the rule IDs in `update_campaign_conversion_rules`.
+
+```
+account_id (string, required)
+```
+
+**`list_account_publishers`** — List publishers an account is allowed to target. Optional `search_text` narrows the list (helpful when an account has thousands of publishers). Use the resulting names in `update_campaign_publishers`. Publisher-group names are *not* discoverable in-band.
+
+```
+account_id  (string, required)
+search_text (string, optional)   Substring filter on publisher name.
+```
+
+**`list_account_contextual_segments`** — List contextual segments available on an account. Optional `country_codes` (comma-separated ISO-2) narrows segments to those served in the given markets. Use the segment IDs in `update_campaign_contextual_segments`.
+
+```
+account_id    (string, required)
+country_codes (string, optional)   e.g. "US,CA"
 ```
 
 ### Reporting (CSV Format)

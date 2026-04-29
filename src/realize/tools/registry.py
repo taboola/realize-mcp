@@ -105,6 +105,8 @@ TOOL_REGISTRY = {
             "- marketing_objective = LEADS_GENERATION, ONLINE_PURCHASES, or MOBILE_APP_INSTALL → send bid_strategy = TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE; if TARGET_CPA, also send cpa_goal; omit cpc.\n"
             "- If both start_date and end_date are sent: end_date >= start_date.\n"
             "\n"
+            "Authoritative enum values can be discovered via list_realize_resource: resource=\"marketing_objectives\" | \"bid_strategies\" | \"spending_limit_models\".\n"
+            "\n"
             "Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, target_cpa, target_cpa_learning_status. (`target_cpa` is the server-recommended CPA range; the user goal is `cpa_goal`.)\n"
             "\n"
             "Non-scalar setup is not supported here. After creation, use:\n"
@@ -203,6 +205,8 @@ TOOL_REGISTRY = {
             "- bid_strategy = TARGET_CPA → also send cpa_goal.\n"
             "- If both start_date and end_date are sent: end_date >= start_date.\n"
             "- Solo updates of a partner field (e.g. only spending_limit, or only cpa_goal) are allowed — the stored gating field is reused.\n"
+            "\n"
+            "Authoritative enum values can be discovered via list_realize_resource: resource=\"marketing_objectives\" | \"bid_strategies\" | \"spending_limit_models\".\n"
             "\n"
             "Server-side constraints (returns 4xx if violated):\n"
             "- Some marketing_objective transitions are rejected mid-flight; objective + bid_strategy must remain compatible.\n"
@@ -305,6 +309,8 @@ TOOL_REGISTRY = {
             "\n"
             "Use this only for campaigns stored in the classic shape. Call get_campaign first; if the response carries `geo_targeting`, use update_campaign_geo_advanced instead — sending classic on an advanced-stored campaign returns 4xx.\n"
             "\n"
+            "Discover valid codes via list_realize_resource: resource=\"countries\" for country codes; resource=\"regions\"|\"dma\"|\"cities\"|\"postal_codes\" with args.country_code for sub-dimension codes.\n"
+            "\n"
             "Server-side constraints (returns 4xx if violated):\n"
             "- Sub-dimension mutex: at most ONE of {region, dma, city, postal_code} on a campaign. To switch, first clear the current sub-dimension with type=ALL, then set the new one in a second call.\n"
             "- Sub-dimension write requires exactly one INCLUDE country already set. Region values are short-form (\"CA\"), not country-prefixed.\n"
@@ -360,6 +366,8 @@ TOOL_REGISTRY = {
             "Each rule groups vectors of one type (INCLUDE or EXCLUDE). A vector may target one dimension or mix several — country=US AND region=CA targets California specifically.\n"
             "\n"
             "Use this when the campaign already stores geo in the advanced shape (get_campaign returns `geo_targeting`). Sending advanced on a classic-storage campaign migrates it one-way to advanced storage, clearing classic fields; the migration is logged in campaign history.\n"
+            "\n"
+            "Discover valid codes via list_realize_resource: resource=\"countries\" for country codes; resource=\"regions\"|\"dma\"|\"cities\"|\"postal_codes\" with args.country_code for sub-dimension codes.\n"
             "\n"
             "Server-side constraints (returns 4xx if violated):\n"
             "- Country uses ISO-2 codes (e.g. \"US\"). DMA codes are US-only.\n"
@@ -434,7 +442,9 @@ TOOL_REGISTRY = {
             "- platform | browser | connection_type — array of strings.\n"
             "- os — array of {os_family, sub_categories?}. Omit sub_categories to target the full family.\n"
             "\n"
-            "Vocabulary (source values via the Realize UI targeting panels):\n"
+            "Discover valid values via list_realize_resource: resource=\"platforms\" | \"operating_systems\" | \"browsers\" | \"connection_types\" for top-level lists; resource=\"operating_system_versions\" with args.os_family for OS sub_categories.\n"
+            "\n"
+            "Common values (source authoritatively via the discovery tool above):\n"
             "- platform: DESK | PHON | TBLT. May be INCLUDE-only on some accounts; the server's 4xx is surfaced unchanged.\n"
             "- os: os_family in {Android, iOS, Windows, Mac OS X, Linux}; sub_categories like [\"iOS_16\", \"iOS_17\"].\n"
             "- browser: Chrome | Firefox | Safari | Edge.\n"
@@ -504,7 +514,7 @@ TOOL_REGISTRY = {
             "\n"
             "Full-replace: the supplied my_audiences replaces the campaign's current audience targeting wholesale; send {\"collection\": []} to clear. Only INCLUDE and EXCLUDE are supported on this endpoint (no ALL).\n"
             "\n"
-            "Each rule groups audience IDs of one type: INCLUDE adds them as targets, EXCLUDE suppresses them. audience_id values are integer IDs sourced from the Realize UI (Audiences section).\n"
+            "Each rule groups audience IDs of one type: INCLUDE adds them as targets, EXCLUDE suppresses them. Discover valid audience IDs via list_account_audiences(account_id).\n"
             "\n"
             "For lookalike audiences, use update_campaign_lookalike_audience instead. To read current targeting, use get_campaign.\n"
             "\n"
@@ -565,7 +575,7 @@ TOOL_REGISTRY = {
             "\n"
             "Full-replace: the supplied lookalike_audience replaces the campaign's current lookalike targeting wholesale; send {\"collection\": []} to clear. Only INCLUDE is supported (server rejects EXCLUDE/ALL); the outer collection holds at most one block.\n"
             "\n"
-            "Each item is {rule_id, similarity_level}. rule_id is the integer rule ID for a lookalike audience (from the Realize UI, Audiences > Lookalike). similarity_level (%) depends on the audience subtype — CRM accepts 5/10/15/20/25; pixel accepts 5. The server resolves the subtype from rule_id and rejects mismatches.\n"
+            "Each item is {rule_id, similarity_level}. Discover valid rule_ids via list_account_audiences(account_id) — lookalike entries appear alongside custom audiences in the unified response. similarity_level (%) depends on the audience subtype — CRM accepts 5/10/15/20/25; pixel accepts 5. The server resolves the subtype from rule_id and rejects mismatches.\n"
             "\n"
             "Predictive (PBP) lookalikes are not supported via this MCP server (the platform only allows them at creation time, and create_campaign exposes no field for them). CRM and pixel lookalikes work normally.\n"
             "\n"
@@ -574,7 +584,7 @@ TOOL_REGISTRY = {
             "- Campaign must allow retargeting.\n"
             "- All rule_ids must resolve to lookalike-class audiences with valid CRM segments.\n"
             "\n"
-            "Reading current lookalike targeting is not supported — the lookalike block is filtered out of get_campaign; inspect via the Realize UI. For first-party + custom audiences, use update_campaign_my_audiences.\n"
+            "Reading current lookalike targeting is not supported — the lookalike block is filtered out of get_campaign; inspect via the Realize UI. For first-party + custom audiences, use update_campaign_my_audiences. Discover lookalike rule_ids via list_account_audiences(account_id).\n"
             "\n"
             "Example — add two CRM lookalikes:\n"
             "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
@@ -662,7 +672,7 @@ TOOL_REGISTRY = {
             "Server-side constraints (returns 4xx if violated):\n"
             "- A given day cannot have both INCLUDE and EXCLUDE rules. Pick one type per day.\n"
             "- Time windows on the same day cannot overlap.\n"
-            "- time_zone must be a supported IANA name (required when mode=CUSTOM).\n"
+            "- time_zone must be a supported IANA name (required when mode=CUSTOM). Discover supported names via list_realize_resource(resource=\"time_zones\").\n"
             "- Account must have the schedule permission enabled (else 403).\n"
             "- Some publishers require minimum window durations.\n"
             "\n"
@@ -734,7 +744,7 @@ TOOL_REGISTRY = {
             "\n"
             "Full-replace: the supplied conversion_rules list replaces the campaign's current attachments wholesale; send [] to detach all. There is no incremental ADD/REMOVE — to change one rule, read the campaign with get_campaign, edit the list locally, send the merged result.\n"
             "\n"
-            "Discovery: this tool does not list available rule ids. Rule ids are authored in the Realize UI (Conversions section) or read off an existing campaign via get_campaign (conversion_rules.rules[].id).\n"
+            "Discovery: list available rule ids via list_account_conversion_rules(account_id), or read them off an existing campaign via get_campaign (conversion_rules.rules[].id). Rules themselves are authored in the Realize UI (Conversions section).\n"
             "\n"
             "Server-side constraints (returns 4xx if violated):\n"
             "- Each rule id must exist under the account.\n"
@@ -792,6 +802,8 @@ TOOL_REGISTRY = {
             "Full-replace, per field: each supplied field replaces the campaign's current value for that field wholesale; omitted fields are untouched.\n"
             "\n"
             "publisher_targeting and publisher_groups_targeting use {type: INCLUDE | EXCLUDE | ALL, value: [<name>, ...]}. INCLUDE restricts to listed names; EXCLUDE blocks them; ALL clears the dimension (send value=[]). Values are NAMES (strings), not IDs — server resolves them. Account-level group restrictions may override campaign-level INCLUDE/EXCLUDE and produce a 4xx.\n"
+            "\n"
+            "Discover valid publisher names via list_account_publishers(account_id, search_text?). Publisher-group names are not discoverable via this MCP server — obtain them out of band.\n"
             "\n"
             "publisher_bid_modifier uses {values: [{target: <publisher_name>, cpc_modification: <number>}]}. cpc_modification is a multiplier on the campaign CPC (1.25 = +25%, 0.8 = -20%). Each target must be unique. Send values=[] to clear all modifiers; omit a target to drop its modifier in this update.\n"
             "\n"
@@ -894,7 +906,7 @@ TOOL_REGISTRY = {
             "\n"
             "At most one INCLUDE block and one EXCLUDE block per request — duplicate types are rejected.\n"
             "\n"
-            "Discovery: segment IDs are integers (e.g. 1900004), not names. They are not discoverable via this MCP server — author them in the Realize UI or read them off an existing campaign with get_campaign.\n"
+            "Discovery: list valid segment IDs via list_account_contextual_segments(account_id, country_codes?). Segment IDs are integers (e.g. 1900004), not names.\n"
             "\n"
             "Server-side constraints (returns 4xx if violated):\n"
             "- Each segment ID must exist and be of contextual data type (not third-party).\n"
@@ -1005,6 +1017,148 @@ TOOL_REGISTRY = {
         },
         "handler": "campaign_handlers.get_campaign_item",
         "category": "campaign_items"
+    },
+
+    # Resource Discovery Tools (READ-ONLY) — surface valid values for campaign tool inputs.
+
+    "list_realize_resource": {
+        "description": (
+            "List valid values for a Realize platform vocabulary used by create_campaign and update_campaign_* targeting tools (countries, regions, OS families, browsers, time zones, etc.).\n"
+            "\n"
+            "Pick `resource` from the supported list. Some resources need an additional argument under `args`:\n"
+            "- `regions`, `dma`, `cities`, `postal_codes` need `args.country_code` (ISO-2, e.g. \"US\").\n"
+            "- `operating_system_versions` needs `args.os_family` (e.g. \"iOS\", \"Android\").\n"
+            "All other resources take no `args`.\n"
+            "\n"
+            "Returns a flat list of valid values. Use the values directly as inputs to the relevant write tool — for example, codes from resource=\"countries\" go into update_campaign_geo_classic / update_campaign_geo_advanced; values from resource=\"browsers\" go into update_campaign_techno; values from resource=\"time_zones\" go into update_campaign_schedule.\n"
+            "\n"
+            "Example — list US regions:\n"
+            "{ \"resource\": \"regions\", \"args\": {\"country_code\": \"US\"} }"
+        ),
+        "schema": {
+            "type": "object",
+            "properties": {
+                "resource": {
+                    "type": "string",
+                    "enum": [
+                        "countries",
+                        "regions",
+                        "dma",
+                        "cities",
+                        "postal_codes",
+                        "platforms",
+                        "operating_systems",
+                        "operating_system_versions",
+                        "browsers",
+                        "connection_types",
+                        "marketing_objectives",
+                        "bid_strategies",
+                        "spending_limit_models",
+                        "time_zones",
+                    ],
+                    "description": "Which Realize platform vocabulary to fetch.",
+                },
+                "args": {
+                    "type": "object",
+                    "description": "Required only for parametrised resources. See tool description.",
+                    "properties": {
+                        "country_code": {
+                            "type": "string",
+                            "description": "ISO-2 country code. Required for resource=regions|dma|cities|postal_codes.",
+                        },
+                        "os_family": {
+                            "type": "string",
+                            "description": "Required for resource=operating_system_versions (e.g. \"iOS\", \"Android\").",
+                        },
+                    },
+                },
+            },
+            "required": ["resource"],
+        },
+        "handler": "resources.list_realize_resource",
+        "category": "resources",
+    },
+
+    "list_account_audiences": {
+        "description": (
+            "List first-party + custom + lookalike audiences defined on an account (read-only). Use the resulting IDs as inputs to update_campaign_my_audiences (custom audience IDs) or update_campaign_lookalike_audience (lookalike rule_ids)."
+        ),
+        "schema": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string",
+                    "description": "Value from search_accounts.account_id (NOT numeric).",
+                },
+            },
+            "required": ["account_id"],
+        },
+        "handler": "account_lists.list_account_audiences",
+        "category": "resources",
+    },
+
+    "list_account_conversion_rules": {
+        "description": (
+            "List conversion rules defined on an account (read-only). Use the resulting rule IDs as inputs to update_campaign_conversion_rules."
+        ),
+        "schema": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string",
+                    "description": "Value from search_accounts.account_id (NOT numeric).",
+                },
+            },
+            "required": ["account_id"],
+        },
+        "handler": "account_lists.list_account_conversion_rules",
+        "category": "resources",
+    },
+
+    "list_account_publishers": {
+        "description": (
+            "List publishers an account is allowed to target (read-only). Optional `search_text` narrows the list. Use the resulting publisher names as inputs to update_campaign_publishers (publisher_targeting / publisher_bid_modifier values).\n"
+            "\n"
+            "Note: publisher-group names are not discoverable via this MCP server — obtain them out of band."
+        ),
+        "schema": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string",
+                    "description": "Value from search_accounts.account_id (NOT numeric).",
+                },
+                "search_text": {
+                    "type": "string",
+                    "description": "Optional substring to narrow the publisher list.",
+                },
+            },
+            "required": ["account_id"],
+        },
+        "handler": "account_lists.list_account_publishers",
+        "category": "resources",
+    },
+
+    "list_account_contextual_segments": {
+        "description": (
+            "List contextual segments available for targeting on an account (read-only). Optional `country_codes` (comma-separated ISO-2) narrows segments to those served in the given markets. Use the resulting integer segment IDs as inputs to update_campaign_contextual_segments."
+        ),
+        "schema": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string",
+                    "description": "Value from search_accounts.account_id (NOT numeric).",
+                },
+                "country_codes": {
+                    "type": "string",
+                    "description": "Optional comma-separated ISO-2 country codes (e.g. \"US,CA\").",
+                },
+            },
+            "required": ["account_id"],
+        },
+        "handler": "account_lists.list_account_contextual_segments",
+        "category": "resources",
     },
 
     # Reporting Tools (READ-ONLY)

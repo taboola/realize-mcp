@@ -77,7 +77,9 @@ class TestToolRegistryEdgeCases:
             'auth_handlers.',
             'account_handlers.',
             'campaign_handlers.',
-            'report_handlers.'
+            'report_handlers.',
+            'resources.',
+            'account_lists.',
         ]
         
         for tool_name, tool_config in tools.items():
@@ -157,21 +159,11 @@ class TestToolHandlerImports:
             handler_path = tool_config['handler']
             
             try:
-                # Parse handler path
-                if handler_path.startswith('auth_handlers.'):
-                    module_name = 'realize.tools.auth_handlers'
-                    function_name = handler_path.split('.', 1)[1]
-                elif handler_path.startswith('account_handlers.'):
-                    module_name = 'realize.tools.account_handlers'
-                    function_name = handler_path.split('.', 1)[1]
-                elif handler_path.startswith('campaign_handlers.'):
-                    module_name = 'realize.tools.campaign_handlers'
-                    function_name = handler_path.split('.', 1)[1]
-                elif handler_path.startswith('report_handlers.'):
-                    module_name = 'realize.tools.report_handlers'
-                    function_name = handler_path.split('.', 1)[1]
-                else:
-                    pytest.fail(f"Unknown handler pattern for tool {tool_name}: {handler_path}")
+                # Parse handler path: <module>.<function> under realize.tools.
+                module_prefix, _, function_name = handler_path.partition('.')
+                if not module_prefix or not function_name:
+                    pytest.fail(f"Malformed handler path for tool {tool_name}: {handler_path}")
+                module_name = f"realize.tools.{module_prefix}"
                 
                 # Try to import the module and function
                 import importlib
@@ -209,10 +201,17 @@ class TestToolDescriptions:
     """Test tool descriptions for quality and consistency."""
     
     def test_all_descriptions_indicate_read_only(self):
-        """Test that read-only tool descriptions clearly indicate read-only nature."""
+        """Read-only tool descriptions must contain at least one read verb.
+
+        The earlier check forbidding 'create'/'update' substrings was removed:
+        read tools now intentionally cross-reference write tools by name (e.g.
+        create_campaign, update_campaign_*) to point callers at the next step.
+        Write semantics are tracked authoritatively via the destructiveHint
+        annotation, not via substring sniffing.
+        """
         tools = get_all_tools()
 
-        read_only_indicators = ['read-only', 'get', 'retrieve', 'fetch', 'search', 'view', 'list']
+        read_only_indicators = ['read-only', 'get', 'retrieve', 'fetch', 'search', 'view', 'list', 'authenticate', 'discover']
 
         for tool_name, tool_config in tools.items():
             # Skip write tools (declared via destructiveHint annotation)
@@ -222,16 +221,9 @@ class TestToolDescriptions:
 
             description = tool_config['description'].lower()
 
-            # Should contain at least one read-only indicator
             has_indicator = any(indicator in description for indicator in read_only_indicators)
             assert has_indicator, \
                 f"Tool {tool_name} description doesn't clearly indicate read-only: {description}"
-
-            # Should not contain write indicators
-            write_indicators = ['create', 'update', 'delete', 'modify', 'edit', 'write', 'post', 'put']
-            has_write = any(indicator in description for indicator in write_indicators)
-            assert not has_write, \
-                f"Tool {tool_name} description contains write indicators: {description}"
     
     def test_descriptions_are_informative(self):
         """Test that descriptions are informative and helpful."""
