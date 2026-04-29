@@ -220,8 +220,9 @@ schedule    (object, required)
 account_id        (string, required)   From search_accounts
 campaign_id       (string, required)
 conversion_rules  (array, required)    Full-replace list of rule references.
-                                       Each item: {id: <conversion_rule_id>}
-                                       Send [] to detach all.
+                                       Each item: {id: <integer_rule_id>}
+                                       Send [] to detach all. Wire payload wraps the
+                                       list under `rules` to match get_campaign shape.
 ```
 
 **`update_campaign_publishers`** — Update publisher-level targeting on a campaign: which publishers run (`publisher_targeting`), which publisher groups (`publisher_groups_targeting`), and per-publisher CPC bid modifiers (`publisher_bid_modifier`). Send any subset of the three fields; at least one is required. Targeting blocks use the same `Targeting<String>` shape as classic geo, but values are publisher / group **names** (the server resolves names to IDs). The bid modifier is full-replace: omit a publisher to drop its modifier, send `values: []` to clear all. To incrementally add/remove a single entry, first read the campaign with `get_campaign`, modify locally, then send the merged result.

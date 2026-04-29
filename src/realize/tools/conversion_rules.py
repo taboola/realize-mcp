@@ -25,17 +25,21 @@ def validate_conversion_rules(rules: Any) -> None:
                 f"conversion_rules[{idx}] must be an object with an 'id' field"
             )
         rule_id = rule.get("id")
-        if not isinstance(rule_id, str) or not rule_id:
+        if (
+            not isinstance(rule_id, int)
+            or isinstance(rule_id, bool)
+            or rule_id <= 0
+        ):
             raise ToolInputError(
-                f"conversion_rules[{idx}].id must be a non-empty string"
+                f"conversion_rules[{idx}].id must be a positive integer"
             )
         if rule_id in seen:
             raise ToolInputError(
-                f"conversion_rules[{idx}].id duplicate: {rule_id!r} appears more than once"
+                f"conversion_rules[{idx}].id duplicate: {rule_id} appears more than once"
             )
         seen.add(rule_id)
 
 
-def to_wire_conversion_rules(rules: List[Dict[str, Any]]) -> List[Dict[str, str]]:
-    """Project to the minimal {id} reference shape the Campaign update endpoint accepts."""
-    return [{"id": r["id"]} for r in rules]
+def to_wire_conversion_rules(rules: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, int]]]:
+    """Project to the APICampaignUnipRules wire shape: {rules: [{id}]}."""
+    return {"rules": [{"id": r["id"]} for r in rules]}

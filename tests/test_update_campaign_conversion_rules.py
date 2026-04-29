@@ -20,7 +20,7 @@ def _args(**overrides):
     base = {
         "account_id": "acme-inc",
         "campaign_id": "c-123",
-        "conversion_rules": [{"id": "rule_purchase"}],
+        "conversion_rules": [{"id": 1234567}],
     }
     base.update(overrides)
     return base
@@ -46,7 +46,7 @@ class TestConversionRulesValidation:
         with pytest.raises(ToolInputError, match="conversion_rules must be a list"):
             await handle_call_tool(
                 "update_campaign_conversion_rules",
-                _args(conversion_rules={"id": "rule_purchase"}),
+                _args(conversion_rules={"id": 1234567}),
             )
 
     @pytest.mark.asyncio
@@ -61,31 +61,47 @@ class TestConversionRulesValidation:
         with pytest.raises(ToolInputError, match=r"conversion_rules\[0\] must be an object"):
             await handle_call_tool(
                 "update_campaign_conversion_rules",
-                _args(conversion_rules=["rule_purchase"]),
+                _args(conversion_rules=[1234567]),
             )
 
     @pytest.mark.asyncio
     async def test_rejects_missing_id(self):
-        with pytest.raises(ToolInputError, match=r"conversion_rules\[0\].id must be a non-empty string"):
+        with pytest.raises(ToolInputError, match=r"conversion_rules\[0\].id must be a positive integer"):
             await handle_call_tool(
                 "update_campaign_conversion_rules",
                 _args(conversion_rules=[{}]),
             )
 
     @pytest.mark.asyncio
-    async def test_rejects_empty_id(self):
-        with pytest.raises(ToolInputError, match=r"conversion_rules\[0\].id must be a non-empty string"):
+    async def test_rejects_string_id(self):
+        with pytest.raises(ToolInputError, match=r"conversion_rules\[0\].id must be a positive integer"):
             await handle_call_tool(
                 "update_campaign_conversion_rules",
-                _args(conversion_rules=[{"id": ""}]),
+                _args(conversion_rules=[{"id": "1234567"}]),
             )
 
     @pytest.mark.asyncio
-    async def test_rejects_non_string_id(self):
-        with pytest.raises(ToolInputError, match=r"conversion_rules\[0\].id must be a non-empty string"):
+    async def test_rejects_zero_id(self):
+        with pytest.raises(ToolInputError, match=r"conversion_rules\[0\].id must be a positive integer"):
             await handle_call_tool(
                 "update_campaign_conversion_rules",
-                _args(conversion_rules=[{"id": 12345}]),
+                _args(conversion_rules=[{"id": 0}]),
+            )
+
+    @pytest.mark.asyncio
+    async def test_rejects_negative_id(self):
+        with pytest.raises(ToolInputError, match=r"conversion_rules\[0\].id must be a positive integer"):
+            await handle_call_tool(
+                "update_campaign_conversion_rules",
+                _args(conversion_rules=[{"id": -1}]),
+            )
+
+    @pytest.mark.asyncio
+    async def test_rejects_bool_id(self):
+        with pytest.raises(ToolInputError, match=r"conversion_rules\[0\].id must be a positive integer"):
+            await handle_call_tool(
+                "update_campaign_conversion_rules",
+                _args(conversion_rules=[{"id": True}]),
             )
 
     @pytest.mark.asyncio
@@ -93,15 +109,15 @@ class TestConversionRulesValidation:
         with pytest.raises(ToolInputError, match=r"conversion_rules\[1\].id duplicate"):
             await handle_call_tool(
                 "update_campaign_conversion_rules",
-                _args(conversion_rules=[{"id": "rule_a"}, {"id": "rule_a"}]),
+                _args(conversion_rules=[{"id": 1234567}, {"id": 1234567}]),
             )
 
     @pytest.mark.asyncio
     async def test_reports_index_in_error_for_second_item(self):
-        with pytest.raises(ToolInputError, match=r"conversion_rules\[1\].id must be a non-empty string"):
+        with pytest.raises(ToolInputError, match=r"conversion_rules\[1\].id must be a positive integer"):
             await handle_call_tool(
                 "update_campaign_conversion_rules",
-                _args(conversion_rules=[{"id": "rule_a"}, {"id": ""}]),
+                _args(conversion_rules=[{"id": 1234567}, {"id": "bad"}]),
             )
 
 
@@ -129,13 +145,14 @@ class TestConversionRulesWire:
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_body_wraps_in_conversion_rules_key(self, mock_post):
+    async def test_body_wraps_list_under_conversion_rules_rules(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
 
         await handle_call_tool("update_campaign_conversion_rules", _args())
 
         body = _post_body(mock_post)
         assert set(body.keys()) == {"conversion_rules"}
+        assert set(body["conversion_rules"].keys()) == {"rules"}
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
@@ -144,16 +161,16 @@ class TestConversionRulesWire:
 
         await handle_call_tool(
             "update_campaign_conversion_rules",
-            _args(conversion_rules=[{"id": "rule_a"}, {"id": "rule_b"}]),
+            _args(conversion_rules=[{"id": 1234567}, {"id": 7654321}]),
         )
 
         assert _post_body(mock_post) == {
-            "conversion_rules": [{"id": "rule_a"}, {"id": "rule_b"}]
+            "conversion_rules": {"rules": [{"id": 1234567}, {"id": 7654321}]}
         }
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_empty_list_passes_through(self, mock_post):
+    async def test_empty_list_clears_via_empty_rules(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
 
         await handle_call_tool(
@@ -161,7 +178,7 @@ class TestConversionRulesWire:
             _args(conversion_rules=[]),
         )
 
-        assert _post_body(mock_post) == {"conversion_rules": []}
+        assert _post_body(mock_post) == {"conversion_rules": {"rules": []}}
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
@@ -171,11 +188,13 @@ class TestConversionRulesWire:
         await handle_call_tool(
             "update_campaign_conversion_rules",
             _args(conversion_rules=[
-                {"id": "rule_a", "display_name": "ignored", "type": "BASIC"},
+                {"id": 1234567, "display_name": "ignored", "type": "BASIC"},
             ]),
         )
 
-        assert _post_body(mock_post) == {"conversion_rules": [{"id": "rule_a"}]}
+        assert _post_body(mock_post) == {
+            "conversion_rules": {"rules": [{"id": 1234567}]}
+        }
 
 
 class TestConversionRulesAnnotations:
