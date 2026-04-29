@@ -7,11 +7,11 @@ from realize.tools.errors import ToolInputError
 CLASSIC_DIMENSIONS: Tuple[str, ...] = ("country", "region", "dma", "city", "postal_code")
 
 _CLASSIC_WIRE_FIELD: Dict[str, str] = {
-    "country": "countryTargeting",
-    "region": "regionCountryTargeting",
-    "dma": "dmaCountryTargeting",
-    "city": "cityTargeting",
-    "postal_code": "postalCodeTargeting",
+    "country": "country_targeting",
+    "region": "region_country_targeting",
+    "dma": "dma_country_targeting",
+    "city": "city_targeting",
+    "postal_code": "postal_code_targeting",
 }
 
 _CLASSIC_TYPES = ("INCLUDE", "EXCLUDE", "ALL")
@@ -23,7 +23,7 @@ _ADVANCED_VECTOR_DIM_WIRE: Dict[str, str] = {
     "region": "region",
     "dma": "dma",
     "city": "city",
-    "postal_code": "postalCode",
+    "postal_code": "postal_code",
 }
 
 
@@ -105,8 +105,7 @@ def validate_geo_advanced(geo: Any) -> None:
 def to_wire_geo_advanced(geo: Dict[str, Any]) -> Dict[str, Any]:
     """Convert validated advanced geo input to APICampaign wire shape.
 
-    - snake_case keys -> camelCase (postal_code -> postalCode)
-    - Drops null geo dims from vectors so the wire payload is minimal.
+    Drops null geo dims from vectors so the wire payload is minimal.
     Caller-provided 'state'/'type' values pass through unchanged.
     """
     rules_out: List[Dict[str, Any]] = []

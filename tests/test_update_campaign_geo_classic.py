@@ -81,11 +81,11 @@ class TestClassicValidation:
 class TestClassicWireMapping:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("dimension,wire_field", [
-        ("country", "countryTargeting"),
-        ("region", "regionCountryTargeting"),
-        ("dma", "dmaCountryTargeting"),
-        ("city", "cityTargeting"),
-        ("postal_code", "postalCodeTargeting"),
+        ("country", "country_targeting"),
+        ("region", "region_country_targeting"),
+        ("dma", "dma_country_targeting"),
+        ("city", "city_targeting"),
+        ("postal_code", "postal_code_targeting"),
     ])
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
     async def test_dimension_maps_to_wire_field(self, mock_post, dimension, wire_field):
@@ -136,7 +136,7 @@ class TestClassicWireMapping:
             _args(dimension="city", targeting={"type": "ALL", "value": []}),
         )
 
-        assert _post_body(mock_post) == {"cityTargeting": {"type": "ALL", "value": []}}
+        assert _post_body(mock_post) == {"city_targeting": {"type": "ALL", "value": []}}
 
 
 class TestClassicAnnotations:

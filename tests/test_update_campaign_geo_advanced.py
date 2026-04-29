@@ -111,18 +111,18 @@ class TestAdvancedValidation:
 class TestAdvancedWire:
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_posts_geoTargeting_only(self, mock_post):
+    async def test_posts_geo_targeting_only(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
 
         await handle_call_tool("update_campaign_geo_advanced", _args())
 
         body = _post_body(mock_post)
-        assert set(body.keys()) == {"geoTargeting"}
+        assert set(body.keys()) == {"geo_targeting"}
         assert _post_endpoint(mock_post) == "/acme-inc/campaigns/c-123"
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_camelcases_postal_code(self, mock_post):
+    async def test_postal_code_preserved(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
 
         await handle_call_tool(
@@ -135,10 +135,8 @@ class TestAdvancedWire:
             }),
         )
 
-        vec = _post_body(mock_post)["geoTargeting"]["value"][0]["value"][0]
-        assert "postalCode" in vec
-        assert vec["postalCode"] == "94110"
-        assert "postal_code" not in vec
+        vec = _post_body(mock_post)["geo_targeting"]["value"][0]["value"][0]
+        assert vec == {"country": "US", "postal_code": "94110"}
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
@@ -156,7 +154,7 @@ class TestAdvancedWire:
             }),
         )
 
-        vec = _post_body(mock_post)["geoTargeting"]["value"][0]["value"][0]
+        vec = _post_body(mock_post)["geo_targeting"]["value"][0]["value"][0]
         assert vec == {"country": "US"}
 
     @pytest.mark.asyncio
@@ -169,7 +167,7 @@ class TestAdvancedWire:
             _args(geo_targeting={"state": "ALL", "value": []}),
         )
 
-        assert _post_body(mock_post)["geoTargeting"] == {"state": "ALL", "value": []}
+        assert _post_body(mock_post)["geo_targeting"] == {"state": "ALL", "value": []}
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
@@ -191,7 +189,7 @@ class TestAdvancedWire:
             }),
         )
 
-        gt = _post_body(mock_post)["geoTargeting"]
+        gt = _post_body(mock_post)["geo_targeting"]
         assert gt["state"] == "EXISTS"
         assert gt["value"][0]["type"] == "INCLUDE"
         assert gt["value"][0]["value"] == [{"country": "US"}, {"country": "CA"}]

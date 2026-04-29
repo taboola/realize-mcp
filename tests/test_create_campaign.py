@@ -147,7 +147,7 @@ class TestCreateCampaignAnnotations:
         mo = create.inputSchema["properties"]["marketing_objective"]
 
         assert set(mo["enum"]) == {
-            "BRAND_AWARENESS", "DRIVE_WEBSITE_TRAFFIC", "WEBSITE_ENGAGEMENT",
+            "BRAND_AWARENESS", "DRIVE_WEBSITE_TRAFFIC",
             "LEADS_GENERATION", "ONLINE_PURCHASES", "MOBILE_APP_INSTALL",
         }
 

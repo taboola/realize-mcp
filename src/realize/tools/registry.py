@@ -102,7 +102,7 @@ TOOL_REGISTRY = {
             "Required (always):\n"
             "- account_id (string): value from `account_id` field of search_accounts response (NOT numeric)\n"
             "- name (string)\n"
-            "- marketing_objective (string enum): BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC | WEBSITE_ENGAGEMENT | LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL\n"
+            "- marketing_objective (string enum): BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC | LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL\n"
             "- branding_text (string): brand name shown with ads\n"
             "- spending_limit_model (string enum): NONE | MONTHLY | ENTIRE\n"
             "\n"
@@ -111,7 +111,7 @@ TOOL_REGISTRY = {
             "- NONE -> set daily_cap (number)\n"
             "\n"
             "Required by marketing_objective + bid_strategy:\n"
-            "- BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC | WEBSITE_ENGAGEMENT\n"
+            "- BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC\n"
             "    -> set cpc (number). bid_strategy (string enum) optional (SMART default, or FIXED). Omit cpa_goal.\n"
             "- LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL\n"
             "    -> set bid_strategy (string enum) = TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE.\n"
@@ -143,11 +143,11 @@ TOOL_REGISTRY = {
         "schema": {
             "type": "object",
             "properties": {
-                "account_id": {"type": "string", "description": "Value from `account_id` field of search_accounts response. NOT the numeric ID."},
+                "account_id": {"type": "string", "description": "Value from search_accounts.account_id (NOT numeric)."},
                 "name": {"type": "string", "description": "Campaign name."},
                 "marketing_objective": {
                     "type": "string",
-                    "enum": ["BRAND_AWARENESS", "DRIVE_WEBSITE_TRAFFIC", "WEBSITE_ENGAGEMENT", "LEADS_GENERATION", "ONLINE_PURCHASES", "MOBILE_APP_INSTALL"],
+                    "enum": ["BRAND_AWARENESS", "DRIVE_WEBSITE_TRAFFIC", "LEADS_GENERATION", "ONLINE_PURCHASES", "MOBILE_APP_INSTALL"],
                     "description": "Business goal. See tool description for bidding rules per value.",
                 },
                 "branding_text": {"type": "string", "description": "Brand name shown with ads."},
@@ -222,7 +222,7 @@ TOOL_REGISTRY = {
             "\n"
             "Updatable scalars (all optional):\n"
             "- name (string)\n"
-            "- marketing_objective (string enum): BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC | WEBSITE_ENGAGEMENT | LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL\n"
+            "- marketing_objective (string enum): BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC | LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL\n"
             "- branding_text (string)\n"
             "- spending_limit_model (string enum): NONE | MONTHLY | ENTIRE\n"
             "- spending_limit (number)\n"
@@ -286,12 +286,12 @@ TOOL_REGISTRY = {
         "schema": {
             "type": "object",
             "properties": {
-                "account_id": {"type": "string", "description": "Value from `account_id` field of search_accounts response. NOT the numeric ID."},
+                "account_id": {"type": "string", "description": "Value from search_accounts.account_id (NOT numeric)."},
                 "campaign_id": {"type": "string", "description": "Campaign ID to update."},
                 "name": {"type": "string", "description": "Campaign name."},
                 "marketing_objective": {
                     "type": "string",
-                    "enum": ["BRAND_AWARENESS", "DRIVE_WEBSITE_TRAFFIC", "WEBSITE_ENGAGEMENT", "LEADS_GENERATION", "ONLINE_PURCHASES", "MOBILE_APP_INSTALL"],
+                    "enum": ["BRAND_AWARENESS", "DRIVE_WEBSITE_TRAFFIC", "LEADS_GENERATION", "ONLINE_PURCHASES", "MOBILE_APP_INSTALL"],
                     "description": "Business goal. See tool description for bidding rules per value.",
                 },
                 "branding_text": {"type": "string", "description": "Brand name shown with ads."},
@@ -359,7 +359,7 @@ TOOL_REGISTRY = {
         "description": (
             "Update one classic geo targeting dimension on a campaign. Use this for campaigns that store "
             "geo in the classic shape. Call get_campaign first to detect which shape is in use: "
-            "if the response has `geoTargeting`, use update_campaign_geo_advanced instead.\n"
+            "if the response has `geo_targeting`, use update_campaign_geo_advanced instead.\n"
             "\n"
             "Required:\n"
             "- account_id (string): from search_accounts.account_id (NOT numeric)\n"
@@ -380,7 +380,7 @@ TOOL_REGISTRY = {
             "- Region values are short-form (e.g., \"CA\"), NOT prefixed with country.\n"
             "- Country=ALL with empty value clears all sub-location restrictions on the campaign in one call.\n"
             "- The campaign's allowGeoTargeting flag may forbid geo updates entirely.\n"
-            "- The campaign must currently use classic storage (no `geoTargeting` field set). "
+            "- The campaign must currently use classic storage (no `geo_targeting` field set). "
             "Setting classic on an advanced-stored campaign returns 4xx.\n"
             "\n"
             "Examples:\n"
@@ -545,14 +545,13 @@ TOOL_REGISTRY = {
             "- type=EXCLUDE: matched values are excluded; everything else included.\n"
             "- type=ALL: clear this dimension. Send value: []. (type=ALL with non-empty value is rejected.)\n"
             "\n"
-            "Vocabulary (resolve via Realize UI or these upstream GET endpoints):\n"
-            "- platform: /resources/platforms (e.g. DESK | PHON | TBLT). Documented as INCLUDE-only in some references; "
+            "Vocabulary (source values via the Realize UI targeting panels):\n"
+            "- platform: e.g. DESK | PHON | TBLT. Documented as INCLUDE-only in some references; "
             "if the server rejects EXCLUDE/ALL on platform, the 4xx is surfaced unchanged.\n"
-            "- os: /resources/campaigns_properties/operating_systems (families) and "
-            "/resources/campaigns_properties/operating_systems/{osFamily} (sub-categories). "
-            "Examples: os_family in {Android, iOS, Windows, Mac OS X, Linux}; sub_categories example: [\"iOS_8.4\", \"iOS_9\"].\n"
-            "- browser: /resources/campaigns_properties/browsers (e.g. Chrome | Firefox | Safari | Edge).\n"
-            "- connection_type: /resources/campaigns_properties/connection_types (e.g. WIFI | CELLULAR | OTHER).\n"
+            "- os: os_family in {Android, iOS, Windows, Mac OS X, Linux}; sub_categories example: [\"iOS_8.4\", \"iOS_9\"]. "
+            "Omit sub_categories to target the full family.\n"
+            "- browser: e.g. Chrome | Firefox | Safari | Edge.\n"
+            "- connection_type: e.g. WIFI | CELLULAR | OTHER.\n"
             "\n"
             "Read-only fields are managed by the server. Do not include id, advertiser_id, status, etc.\n"
             "\n"
@@ -634,8 +633,8 @@ TOOL_REGISTRY = {
             "Each rule:\n"
             "  {collection: [audience_id, ...], type: \"INCLUDE\" | \"EXCLUDE\"}\n"
             "\n"
-            "audience_id values are numeric audience IDs (integers). Source via Realize UI or the "
-            "GET /backstage/api/1.0/{account_id}/my_audiences/{audience_id} reference endpoint.\n"
+            "audience_id values are numeric audience IDs (integers). Source via the Realize UI "
+            "(Audiences section).\n"
             "\n"
             "Semantics:\n"
             "- Each rule groups audience IDs of one targeting type (INCLUDE or EXCLUDE).\n"
@@ -646,9 +645,8 @@ TOOL_REGISTRY = {
             "- ALL is not part of this endpoint's vocab; only INCLUDE and EXCLUDE.\n"
             "\n"
             "NOT supported here:\n"
-            "- Lookalike audience targeting. Different shape (ruleId, similarityLevel) and endpoint; "
-            "separate tool forthcoming.\n"
-            "- Reading current audience targeting. Use get_campaign or a future read tool.\n"
+            "- Lookalike audience targeting. Use update_campaign_lookalike_audience.\n"
+            "- Reading current audience targeting. Use get_campaign.\n"
             "\n"
             "Read-only fields are managed by the server. Do not include audience names, descriptions, etc.\n"
             "\n"
@@ -721,8 +719,8 @@ TOOL_REGISTRY = {
             "  {type: \"INCLUDE\", collection: [{rule_id, similarity_level}, ...]}\n"
             "\n"
             "Inner item:\n"
-            "- rule_id (integer): unip rule ID for a lookalike audience. Source via the Realize "
-            "UI or the GET /backstage/api/1.0/{account_id}/lookalike_audiences endpoint.\n"
+            "- rule_id (integer): rule ID for a lookalike audience. Source via the Realize "
+            "UI (Audiences > Lookalike).\n"
             "- similarity_level (integer): allowed values depend on the audience subtype: "
             "CRM lookalike accepts 5/10/15/20/25; pixel lookalike accepts 5; predictive (PBP) "
             "accepts 1/2/3/4/5. The server resolves the subtype from rule_id and rejects mismatches.\n"
@@ -743,7 +741,7 @@ TOOL_REGISTRY = {
             "NOT supported here:\n"
             "- First-party + custom audience targeting. Use update_campaign_my_audiences.\n"
             "- Reading current lookalike targeting. The lookalike block is filtered out of "
-            "get_campaign; use the dedicated GET sub-endpoint if needed.\n"
+            "get_campaign; use the Realize UI to inspect.\n"
             "\n"
             "Examples:\n"
             "\n"

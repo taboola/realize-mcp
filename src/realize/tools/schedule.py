@@ -90,10 +90,10 @@ def validate_schedule(schedule: Any) -> None:
 
 
 def to_wire_schedule(schedule: Dict[str, Any]) -> Dict[str, Any]:
-    """Convert validated schedule input to the APICampaign.activitySchedule wire shape.
+    """Convert validated schedule input to the APICampaign.activity_schedule wire shape.
 
-    snake_case -> camelCase for time_zone/from_hour/until_hour. Mode-specific shaping:
-    ALWAYS emits only mode (+ timeZone if caller provided one); CUSTOM emits full body.
+    Mode-specific shaping: ALWAYS emits only mode (+ time_zone if caller provided one);
+    CUSTOM emits full body.
     """
     mode = schedule["mode"]
     out: Dict[str, Any] = {"mode": mode}
@@ -101,17 +101,17 @@ def to_wire_schedule(schedule: Dict[str, Any]) -> Dict[str, Any]:
     if mode == "ALWAYS":
         time_zone = schedule.get("time_zone")
         if isinstance(time_zone, str) and time_zone:
-            out["timeZone"] = time_zone
+            out["time_zone"] = time_zone
         return out
 
-    out["timeZone"] = schedule["time_zone"]
+    out["time_zone"] = schedule["time_zone"]
     rules_out: List[Dict[str, Any]] = []
     for rule in schedule["rules"]:
         rules_out.append({
             "type": rule["type"],
             "day": rule["day"],
-            "fromHour": rule["from_hour"],
-            "untilHour": rule["until_hour"],
+            "from_hour": rule["from_hour"],
+            "until_hour": rule["until_hour"],
         })
     out["rules"] = rules_out
     return out

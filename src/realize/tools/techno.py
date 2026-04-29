@@ -7,10 +7,10 @@ from realize.tools.errors import ToolInputError
 TECHNO_DIMENSIONS: Tuple[str, ...] = ("platform", "os", "browser", "connection_type")
 
 _TECHNO_WIRE_FIELD: Dict[str, str] = {
-    "platform": "platformTargeting",
-    "os": "osTargeting",
-    "browser": "browserTargeting",
-    "connection_type": "connectionTypeTargeting",
+    "platform": "platform_targeting",
+    "os": "os_targeting",
+    "browser": "browser_targeting",
+    "connection_type": "connection_type_targeting",
 }
 
 _TECHNO_TYPES = ("INCLUDE", "EXCLUDE", "ALL")
@@ -83,16 +83,16 @@ def to_wire_techno_value(dimension: str, value: List[Any]) -> List[Any]:
     """Convert validated targeting.value to wire shape.
 
     String dims (platform/browser/connection_type) pass through unchanged.
-    For dimension=os: snake_case keys -> camelCase, drop empty/null sub_categories.
+    For dimension=os: drop empty/null sub_categories.
     """
     if dimension in _STRING_VALUE_DIMENSIONS:
         return value
 
     out: List[Dict[str, Any]] = []
     for item in value:
-        wire_item: Dict[str, Any] = {"osFamily": item["os_family"]}
+        wire_item: Dict[str, Any] = {"os_family": item["os_family"]}
         sub_categories = item.get("sub_categories")
         if sub_categories:
-            wire_item["subCategories"] = list(sub_categories)
+            wire_item["sub_categories"] = list(sub_categories)
         out.append(wire_item)
     return out

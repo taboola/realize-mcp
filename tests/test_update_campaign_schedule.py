@@ -241,7 +241,7 @@ class TestScheduleWire:
             _args(schedule={"mode": "ALWAYS"}),
         )
 
-        assert _post_body(mock_post) == {"activitySchedule": {"mode": "ALWAYS"}}
+        assert _post_body(mock_post) == {"activity_schedule": {"mode": "ALWAYS"}}
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
@@ -254,12 +254,12 @@ class TestScheduleWire:
         )
 
         assert _post_body(mock_post) == {
-            "activitySchedule": {"mode": "ALWAYS", "timeZone": "America/Los_Angeles"}
+            "activity_schedule": {"mode": "ALWAYS", "time_zone": "America/Los_Angeles"}
         }
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_custom_mode_camelcases_keys(self, mock_post):
+    async def test_custom_mode_wire_keys(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
 
         await handle_call_tool(
@@ -275,25 +275,25 @@ class TestScheduleWire:
         )
 
         assert _post_body(mock_post) == {
-            "activitySchedule": {
+            "activity_schedule": {
                 "mode": "CUSTOM",
-                "timeZone": "America/New_York",
+                "time_zone": "America/New_York",
                 "rules": [
-                    {"type": "INCLUDE", "day": "MONDAY", "fromHour": 9, "untilHour": 21},
-                    {"type": "EXCLUDE", "day": "SUNDAY", "fromHour": 0, "untilHour": 24},
+                    {"type": "INCLUDE", "day": "MONDAY", "from_hour": 9, "until_hour": 21},
+                    {"type": "EXCLUDE", "day": "SUNDAY", "from_hour": 0, "until_hour": 24},
                 ],
             }
         }
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_body_wraps_in_activitySchedule_key(self, mock_post):
+    async def test_body_wraps_in_activity_schedule_key(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
 
         await handle_call_tool("update_campaign_schedule", _args())
 
         body = _post_body(mock_post)
-        assert set(body.keys()) == {"activitySchedule"}
+        assert set(body.keys()) == {"activity_schedule"}
 
 
 class TestScheduleAnnotations:

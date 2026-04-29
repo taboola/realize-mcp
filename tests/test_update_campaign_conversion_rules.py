@@ -129,13 +129,13 @@ class TestConversionRulesWire:
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_body_wraps_in_conversionRules_key(self, mock_post):
+    async def test_body_wraps_in_conversion_rules_key(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
 
         await handle_call_tool("update_campaign_conversion_rules", _args())
 
         body = _post_body(mock_post)
-        assert set(body.keys()) == {"conversionRules"}
+        assert set(body.keys()) == {"conversion_rules"}
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
@@ -148,7 +148,7 @@ class TestConversionRulesWire:
         )
 
         assert _post_body(mock_post) == {
-            "conversionRules": [{"id": "rule_a"}, {"id": "rule_b"}]
+            "conversion_rules": [{"id": "rule_a"}, {"id": "rule_b"}]
         }
 
     @pytest.mark.asyncio
@@ -161,7 +161,7 @@ class TestConversionRulesWire:
             _args(conversion_rules=[]),
         )
 
-        assert _post_body(mock_post) == {"conversionRules": []}
+        assert _post_body(mock_post) == {"conversion_rules": []}
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
@@ -175,7 +175,7 @@ class TestConversionRulesWire:
             ]),
         )
 
-        assert _post_body(mock_post) == {"conversionRules": [{"id": "rule_a"}]}
+        assert _post_body(mock_post) == {"conversion_rules": [{"id": "rule_a"}]}
 
 
 class TestConversionRulesAnnotations:

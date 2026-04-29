@@ -252,7 +252,7 @@ async def update_campaign_geo_advanced(arguments: dict = None) -> List[types.Tex
 
     validate_geo_advanced(geo_targeting)
 
-    body = {"geoTargeting": to_wire_geo_advanced(geo_targeting)}
+    body = {"geo_targeting": to_wire_geo_advanced(geo_targeting)}
 
     response = await client.post(
         f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}",
@@ -370,7 +370,7 @@ async def update_campaign_schedule(arguments: dict = None) -> List[types.TextCon
 
     validate_schedule(schedule)
 
-    body = {"activitySchedule": to_wire_schedule(schedule)}
+    body = {"activity_schedule": to_wire_schedule(schedule)}
 
     response = await client.post(
         f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}",
@@ -399,7 +399,7 @@ async def update_campaign_conversion_rules(arguments: dict = None) -> List[types
 
     validate_conversion_rules(conversion_rules)
 
-    body = {"conversionRules": to_wire_conversion_rules(conversion_rules)}
+    body = {"conversion_rules": to_wire_conversion_rules(conversion_rules)}
 
     response = await client.post(
         f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}",
@@ -441,19 +441,19 @@ async def update_campaign_publishers(arguments: dict = None) -> List[types.TextC
     body: dict = {}
     if publisher_targeting is not None:
         validate_publisher_targeting(publisher_targeting)
-        body["publisherTargeting"] = {
+        body["publisher_targeting"] = {
             "type": publisher_targeting["type"],
             "value": publisher_targeting["value"],
         }
     if publisher_groups_targeting is not None:
         validate_publisher_groups_targeting(publisher_groups_targeting)
-        body["publisherGroupsTargeting"] = {
+        body["publisher_groups_targeting"] = {
             "type": publisher_groups_targeting["type"],
             "value": publisher_groups_targeting["value"],
         }
     if publisher_bid_modifier is not None:
         validate_publisher_bid_modifier(publisher_bid_modifier)
-        body["publisherBidModifier"] = to_wire_publisher_bid_modifier(publisher_bid_modifier)
+        body["publisher_bid_modifier"] = to_wire_publisher_bid_modifier(publisher_bid_modifier)
 
     response = await client.post(
         f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}",

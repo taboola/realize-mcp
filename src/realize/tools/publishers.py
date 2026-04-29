@@ -82,11 +82,11 @@ def validate_publisher_bid_modifier(bid_modifier: Any) -> None:
 
 
 def to_wire_publisher_bid_modifier(bid_modifier: Dict[str, Any]) -> Dict[str, Any]:
-    """Convert validated bid modifier to APICampaign wire shape (cpc_modification -> cpcModification)."""
+    """Convert validated bid modifier to APICampaign wire shape."""
     out_values: List[Dict[str, Any]] = []
     for entry in bid_modifier.get("values", []):
         out_values.append({
             "target": entry["target"],
-            "cpcModification": float(entry["cpc_modification"]),
+            "cpc_modification": float(entry["cpc_modification"]),
         })
     return {"values": out_values}

@@ -243,7 +243,7 @@ class TestPublisherBidModifierValidation:
 class TestPublishersWireMapping:
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_publisher_targeting_maps_to_camelcase(self, mock_post):
+    async def test_publisher_targeting_maps_to_wire(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
 
         await handle_call_tool(
@@ -252,12 +252,12 @@ class TestPublishersWireMapping:
         )
 
         assert _post_body(mock_post) == {
-            "publisherTargeting": {"type": "EXCLUDE", "value": ["pub_a", "pub_b"]}
+            "publisher_targeting": {"type": "EXCLUDE", "value": ["pub_a", "pub_b"]}
         }
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_publisher_groups_targeting_maps_to_camelcase(self, mock_post):
+    async def test_publisher_groups_targeting_maps_to_wire(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
 
         await handle_call_tool(
@@ -269,12 +269,12 @@ class TestPublishersWireMapping:
         )
 
         assert _post_body(mock_post) == {
-            "publisherGroupsTargeting": {"type": "INCLUDE", "value": ["g1"]}
+            "publisher_groups_targeting": {"type": "INCLUDE", "value": ["g1"]}
         }
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_bid_modifier_camelcases_cpc_modification(self, mock_post):
+    async def test_bid_modifier_passes_cpc_modification(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
 
         await handle_call_tool(
@@ -291,10 +291,10 @@ class TestPublishersWireMapping:
         )
 
         assert _post_body(mock_post) == {
-            "publisherBidModifier": {
+            "publisher_bid_modifier": {
                 "values": [
-                    {"target": "pub_a", "cpcModification": 1.25},
-                    {"target": "pub_b", "cpcModification": 0.8},
+                    {"target": "pub_a", "cpc_modification": 1.25},
+                    {"target": "pub_b", "cpc_modification": 0.8},
                 ]
             }
         }
@@ -312,7 +312,7 @@ class TestPublishersWireMapping:
             ),
         )
 
-        assert _post_body(mock_post) == {"publisherBidModifier": {"values": []}}
+        assert _post_body(mock_post) == {"publisher_bid_modifier": {"values": []}}
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
@@ -325,7 +325,7 @@ class TestPublishersWireMapping:
         )
 
         assert _post_body(mock_post) == {
-            "publisherTargeting": {"type": "ALL", "value": []}
+            "publisher_targeting": {"type": "ALL", "value": []}
         }
 
     @pytest.mark.asyncio
@@ -345,10 +345,10 @@ class TestPublishersWireMapping:
         )
 
         assert _post_body(mock_post) == {
-            "publisherTargeting": {"type": "EXCLUDE", "value": ["pub_a"]},
-            "publisherGroupsTargeting": {"type": "INCLUDE", "value": ["g1"]},
-            "publisherBidModifier": {
-                "values": [{"target": "pub_b", "cpcModification": 1.5}]
+            "publisher_targeting": {"type": "EXCLUDE", "value": ["pub_a"]},
+            "publisher_groups_targeting": {"type": "INCLUDE", "value": ["g1"]},
+            "publisher_bid_modifier": {
+                "values": [{"target": "pub_b", "cpc_modification": 1.5}]
             },
         }
 
@@ -389,7 +389,7 @@ class TestPublishersWireMapping:
         )
 
         body = _post_body(mock_post)
-        cpc = body["publisherBidModifier"]["values"][0]["cpcModification"]
+        cpc = body["publisher_bid_modifier"]["values"][0]["cpc_modification"]
         assert isinstance(cpc, float)
         assert cpc == 1.0
 

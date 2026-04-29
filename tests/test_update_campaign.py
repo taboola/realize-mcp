@@ -329,7 +329,7 @@ class TestUpdateCampaignSchema:
         update = next(t for t in tools if t.name == "update_campaign")
         mo = update.inputSchema["properties"]["marketing_objective"]
         assert set(mo["enum"]) == {
-            "BRAND_AWARENESS", "DRIVE_WEBSITE_TRAFFIC", "WEBSITE_ENGAGEMENT",
+            "BRAND_AWARENESS", "DRIVE_WEBSITE_TRAFFIC",
             "LEADS_GENERATION", "ONLINE_PURCHASES", "MOBILE_APP_INSTALL",
         }
 

@@ -94,13 +94,13 @@ These tools mutate campaign state and are annotated `destructiveHint: true` for 
 ```
 account_id           (string, required)   From search_accounts
 name                 (string, required)
-marketing_objective  (string, required)   BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC | WEBSITE_ENGAGEMENT |
+marketing_objective  (string, required)   BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC |
                                           LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL
 branding_text        (string, required)   Brand name shown with ads
 spending_limit_model (string, required)   NONE | MONTHLY | ENTIRE
 spending_limit       (number, optional)   Required when model = MONTHLY or ENTIRE
 daily_cap            (number, optional)   Required when model = NONE
-cpc                  (number, optional)   For BRAND_AWARENESS / DRIVE_WEBSITE_TRAFFIC / WEBSITE_ENGAGEMENT
+cpc                  (number, optional)   For BRAND_AWARENESS / DRIVE_WEBSITE_TRAFFIC
 bid_strategy         (string, optional)   SMART | FIXED | TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE
 cpa_goal           (number, optional)   Required when bid_strategy = TARGET_CPA
 start_date, end_date (string, optional)   YYYY-MM-DD
@@ -118,7 +118,7 @@ is_active                  (boolean, optional)  true to launch immediately, fals
 account_id           (string, required)   From search_accounts
 campaign_id          (string, required)   Campaign to update
 name                 (string, optional)
-marketing_objective  (string, optional)   BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC | WEBSITE_ENGAGEMENT |
+marketing_objective  (string, optional)   BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC |
                                           LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL
 branding_text        (string, optional)
 spending_limit_model (string, optional)   NONE | MONTHLY | ENTIRE

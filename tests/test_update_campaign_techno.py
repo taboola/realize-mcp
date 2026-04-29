@@ -154,9 +154,9 @@ class TestTechnoValidation:
 class TestTechnoWireMapping:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("dimension,wire_field,value", [
-        ("platform", "platformTargeting", ["DESK"]),
-        ("browser", "browserTargeting", ["Chrome"]),
-        ("connection_type", "connectionTypeTargeting", ["WIFI"]),
+        ("platform", "platform_targeting", ["DESK"]),
+        ("browser", "browser_targeting", ["Chrome"]),
+        ("connection_type", "connection_type_targeting", ["WIFI"]),
     ])
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
     async def test_string_dimension_maps_to_wire_field(self, mock_post, dimension, wire_field, value):
@@ -187,8 +187,8 @@ class TestTechnoWireMapping:
         )
 
         body = _post_body(mock_post)
-        assert "osTargeting" in body
-        assert set(body.keys()) == {"osTargeting"}
+        assert "os_targeting" in body
+        assert set(body.keys()) == {"os_targeting"}
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
@@ -221,7 +221,7 @@ class TestTechnoWireMapping:
             _args(dimension="browser", targeting={"type": "ALL", "value": []}),
         )
 
-        assert _post_body(mock_post) == {"browserTargeting": {"type": "ALL", "value": []}}
+        assert _post_body(mock_post) == {"browser_targeting": {"type": "ALL", "value": []}}
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
@@ -237,12 +237,12 @@ class TestTechnoWireMapping:
         )
 
         assert _post_body(mock_post) == {
-            "platformTargeting": {"type": "INCLUDE", "value": ["DESK", "PHON", "TBLT"]}
+            "platform_targeting": {"type": "INCLUDE", "value": ["DESK", "PHON", "TBLT"]}
         }
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_os_dim_camelcases_keys(self, mock_post):
+    async def test_os_dim_wire_keys(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
 
         await handle_call_tool(
@@ -260,11 +260,11 @@ class TestTechnoWireMapping:
         )
 
         assert _post_body(mock_post) == {
-            "osTargeting": {
+            "os_targeting": {
                 "type": "INCLUDE",
                 "value": [
-                    {"osFamily": "Android"},
-                    {"osFamily": "iOS", "subCategories": ["iOS_16", "iOS_17"]},
+                    {"os_family": "Android"},
+                    {"os_family": "iOS", "sub_categories": ["iOS_16", "iOS_17"]},
                 ],
             }
         }
@@ -283,7 +283,7 @@ class TestTechnoWireMapping:
         )
 
         assert _post_body(mock_post) == {
-            "osTargeting": {"type": "INCLUDE", "value": [{"osFamily": "Android"}]}
+            "os_targeting": {"type": "INCLUDE", "value": [{"os_family": "Android"}]}
         }
 
     @pytest.mark.asyncio
@@ -303,7 +303,7 @@ class TestTechnoWireMapping:
         )
 
         assert _post_body(mock_post) == {
-            "osTargeting": {"type": "INCLUDE", "value": [{"osFamily": "Android"}]}
+            "os_targeting": {"type": "INCLUDE", "value": [{"os_family": "Android"}]}
         }
 
     @pytest.mark.asyncio
@@ -323,9 +323,9 @@ class TestTechnoWireMapping:
         )
 
         assert _post_body(mock_post) == {
-            "osTargeting": {
+            "os_targeting": {
                 "type": "INCLUDE",
-                "value": [{"osFamily": "iOS", "subCategories": ["iOS_8.4", "iOS_9"]}],
+                "value": [{"os_family": "iOS", "sub_categories": ["iOS_8.4", "iOS_9"]}],
             }
         }
 
