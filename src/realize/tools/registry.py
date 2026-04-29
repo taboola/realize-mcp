@@ -136,7 +136,7 @@ TOOL_REGISTRY = {
                 "spending_limit_model": {
                     "type": "string",
                     "enum": ["NONE", "MONTHLY", "ENTIRE"],
-                    "description": "Budget model.",
+                    "description": "Budget model. NONE = no overall cap (uses daily_cap). MONTHLY = monthly cap. ENTIRE = lifetime cap.",
                 },
                 "spending_limit": {"type": "number", "description": "Budget amount in account's default currency (e.g. 5000). Required when spending_limit_model is MONTHLY or ENTIRE."},
                 "daily_cap": {"type": "number", "description": "Daily spend cap in account's default currency (e.g. 50). Required when spending_limit_model=NONE; otherwise omit (backend computes)."},
@@ -229,7 +229,7 @@ TOOL_REGISTRY = {
             "type": "object",
             "properties": {
                 "account_id": {"type": "string", "description": "Value from search_accounts.account_id (NOT numeric)."},
-                "campaign_id": {"type": "string", "description": "Campaign ID to update."},
+                "campaign_id": {"type": "string", "description": "Campaign ID."},
                 "name": {"type": "string", "description": "Campaign name."},
                 "marketing_objective": {
                     "type": "string",
@@ -240,7 +240,7 @@ TOOL_REGISTRY = {
                 "spending_limit_model": {
                     "type": "string",
                     "enum": ["NONE", "MONTHLY", "ENTIRE"],
-                    "description": "Budget model.",
+                    "description": "Budget model. NONE = no overall cap (uses daily_cap). MONTHLY = monthly cap. ENTIRE = lifetime cap.",
                 },
                 "spending_limit": {"type": "number", "description": "Budget amount in account's default currency (e.g. 5000). Required when spending_limit_model is MONTHLY or ENTIRE."},
                 "daily_cap": {"type": "number", "description": "Daily spend cap in account's default currency (e.g. 50). Required when spending_limit_model=NONE; otherwise omit (backend computes)."},
@@ -324,7 +324,7 @@ TOOL_REGISTRY = {
             "type": "object",
             "properties": {
                 "account_id": {"type": "string", "description": "Value from search_accounts.account_id (NOT numeric)."},
-                "campaign_id": {"type": "string", "description": "Campaign ID to update."},
+                "campaign_id": {"type": "string", "description": "Campaign ID."},
                 "dimension": {
                     "type": "string",
                     "enum": ["country", "region", "dma", "city", "postal_code"],
@@ -337,7 +337,7 @@ TOOL_REGISTRY = {
                         "value": {"type": "array", "items": {"type": "string"}},
                     },
                     "required": ["type", "value"],
-                    "description": "Targeting block. value=[] when type=ALL.",
+                    "description": "Targeting block: {type, value}. value=[] when type=ALL.",
                 },
             },
             "required": ["account_id", "campaign_id", "dimension", "targeting"],
@@ -380,10 +380,10 @@ TOOL_REGISTRY = {
             "type": "object",
             "properties": {
                 "account_id": {"type": "string", "description": "Value from search_accounts.account_id (NOT numeric)."},
-                "campaign_id": {"type": "string", "description": "Campaign ID to update."},
+                "campaign_id": {"type": "string", "description": "Campaign ID."},
                 "geo_targeting": {
                     "type": "object",
-                    "description": "Advanced (MultiTargeting) geo wrapper. state=ALL with value=[] clears geo; state=EXISTS applies the rules in value.",
+                    "description": "MultiTargeting wrapper: {state, value}. state=ALL with value=[] clears geo.",
                     "properties": {
                         "state": {"type": "string", "enum": ["ALL", "EXISTS"]},
                         "value": {
@@ -455,7 +455,7 @@ TOOL_REGISTRY = {
             "type": "object",
             "properties": {
                 "account_id": {"type": "string", "description": "Value from search_accounts.account_id (NOT numeric)."},
-                "campaign_id": {"type": "string", "description": "Campaign ID to update."},
+                "campaign_id": {"type": "string", "description": "Campaign ID."},
                 "dimension": {
                     "type": "string",
                     "enum": ["platform", "os", "browser", "connection_type"],
@@ -484,7 +484,7 @@ TOOL_REGISTRY = {
                         },
                     },
                     "required": ["type", "value"],
-                    "description": "Targeting block. value=[] when type=ALL.",
+                    "description": "Targeting block: {type, value}. value=[] when type=ALL.",
                 },
             },
             "required": ["account_id", "campaign_id", "dimension", "targeting"],
@@ -524,10 +524,10 @@ TOOL_REGISTRY = {
             "type": "object",
             "properties": {
                 "account_id": {"type": "string", "description": "Value from search_accounts.account_id (NOT numeric)."},
-                "campaign_id": {"type": "string", "description": "Campaign ID to update."},
+                "campaign_id": {"type": "string", "description": "Campaign ID."},
                 "my_audiences": {
                     "type": "object",
-                    "description": "First-party + custom audience targeting. Send {collection: []} to clear; see tool description for full shape.",
+                    "description": "First-party + custom audience targeting. Send {collection: []} to clear.",
                     "properties": {
                         "collection": {
                             "type": "array",
@@ -599,11 +599,11 @@ TOOL_REGISTRY = {
                 },
                 "campaign_id": {
                     "type": "string",
-                    "description": "Campaign ID to update.",
+                    "description": "Campaign ID.",
                 },
                 "lookalike_audience": {
                     "type": "object",
-                    "description": "Lookalike audience targeting. Send {collection: []} to clear; see tool description for full shape.",
+                    "description": "Lookalike audience targeting. Send {collection: []} to clear.",
                     "properties": {
                         "collection": {
                             "type": "array",
@@ -689,10 +689,10 @@ TOOL_REGISTRY = {
             "type": "object",
             "properties": {
                 "account_id": {"type": "string", "description": "Value from search_accounts.account_id (NOT numeric)."},
-                "campaign_id": {"type": "string", "description": "Campaign ID to update."},
+                "campaign_id": {"type": "string", "description": "Campaign ID."},
                 "schedule": {
                     "type": "object",
-                    "description": "Activity schedule (dayparting). mode=ALWAYS runs continuously; mode=CUSTOM applies the rules array in the supplied time_zone.",
+                    "description": "Activity schedule (dayparting): {mode, time_zone?, rules?}. mode=ALWAYS clears any custom schedule.",
                     "properties": {
                         "mode": {"type": "string", "enum": ["ALWAYS", "CUSTOM"]},
                         "time_zone": {"type": "string", "description": "IANA timezone name. Required when mode=CUSTOM."},
@@ -757,11 +757,11 @@ TOOL_REGISTRY = {
                 },
                 "campaign_id": {
                     "type": "string",
-                    "description": "Campaign ID to update.",
+                    "description": "Campaign ID.",
                 },
                 "conversion_rules": {
                     "type": "array",
-                    "description": "Full-replace list of rule references. Send [] to detach all.",
+                    "description": "List of {id} rule references. Send [] to detach all.",
                     "items": {
                         "type": "object",
                         "properties": {
@@ -822,11 +822,11 @@ TOOL_REGISTRY = {
                 },
                 "campaign_id": {
                     "type": "string",
-                    "description": "Campaign ID to update.",
+                    "description": "Campaign ID.",
                 },
                 "publisher_targeting": {
                     "type": "object",
-                    "description": "Optional. {type, value} block. value=[] when type=ALL. Values are publisher names.",
+                    "description": "{type, value}. value=[] when type=ALL. Values are publisher names (not IDs).",
                     "properties": {
                         "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
                         "value": {
@@ -839,7 +839,7 @@ TOOL_REGISTRY = {
                 },
                 "publisher_groups_targeting": {
                     "type": "object",
-                    "description": "Optional. {type, value} block. value=[] when type=ALL. Values are publisher-group names.",
+                    "description": "{type, value}. value=[] when type=ALL. Values are publisher-group names (not IDs).",
                     "properties": {
                         "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
                         "value": {
@@ -852,7 +852,7 @@ TOOL_REGISTRY = {
                 },
                 "publisher_bid_modifier": {
                     "type": "object",
-                    "description": "Optional. Full-replace list of per-publisher CPC modifiers. values=[] clears all.",
+                    "description": "{values: [{target, cpc_modification}]}. values=[] clears all.",
                     "properties": {
                         "values": {
                             "type": "array",
@@ -920,13 +920,11 @@ TOOL_REGISTRY = {
                 },
                 "campaign_id": {
                     "type": "string",
-                    "description": "Campaign ID to update.",
+                    "description": "Campaign ID.",
                 },
                 "contextual_segments": {
                     "type": "object",
-                    "description": (
-                        "Full-replace contextual targeting. Send {\"collection\": []} to clear all."
-                    ),
+                    "description": "Contextual segment targeting: {collection}. Send {collection: []} to clear.",
                     "properties": {
                         "collection": {
                             "type": "array",
