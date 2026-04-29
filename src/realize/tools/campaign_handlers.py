@@ -305,7 +305,7 @@ async def update_campaign_my_audiences(arguments: dict = None) -> List[types.Tex
     args = arguments or {}
     account_id = args.get("account_id")
     campaign_id = args.get("campaign_id")
-    targeting = args.get("targeting")
+    my_audiences = args.get("my_audiences")
 
     is_valid, error_message = validate_account_id(account_id)
     if not is_valid:
@@ -314,11 +314,11 @@ async def update_campaign_my_audiences(arguments: dict = None) -> List[types.Tex
     if not campaign_id:
         raise ToolInputError("campaign_id is required")
 
-    validate_my_audiences(targeting)
+    validate_my_audiences(my_audiences)
 
     response = await client.post(
         f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}/targeting/my_audiences",
-        data=targeting,
+        data=my_audiences,
     )
 
     return [types.TextContent(
@@ -332,7 +332,7 @@ async def update_campaign_lookalike_audience(arguments: dict = None) -> List[typ
     args = arguments or {}
     account_id = args.get("account_id")
     campaign_id = args.get("campaign_id")
-    targeting = args.get("targeting")
+    lookalike_audience = args.get("lookalike_audience")
 
     is_valid, error_message = validate_account_id(account_id)
     if not is_valid:
@@ -341,11 +341,11 @@ async def update_campaign_lookalike_audience(arguments: dict = None) -> List[typ
     if not campaign_id:
         raise ToolInputError("campaign_id is required")
 
-    validate_lookalike_audience(targeting)
+    validate_lookalike_audience(lookalike_audience)
 
     response = await client.post(
         f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}/targeting/lookalike_audience",
-        data=targeting,
+        data=lookalike_audience,
     )
 
     return [types.TextContent(

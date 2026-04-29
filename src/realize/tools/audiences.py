@@ -15,7 +15,7 @@ _LOOKALIKE_TYPES = ("INCLUDE",)
 _LOOKALIKE_SIMILARITY_LEVELS = (1, 2, 3, 4, 5, 10, 15, 20, 25)
 
 
-def validate_my_audiences(targeting: Any) -> None:
+def validate_my_audiences(my_audiences: Any) -> None:
     """Schema-level validation for update_campaign_my_audiences.
 
     Note the public API reuses 'collection' for both the outer rule wrapper and the
@@ -23,37 +23,37 @@ def validate_my_audiences(targeting: Any) -> None:
 
     Raises ToolInputError on the first violation.
     """
-    if not isinstance(targeting, dict):
-        raise ToolInputError("targeting must be an object with a 'collection' field")
+    if not isinstance(my_audiences, dict):
+        raise ToolInputError("my_audiences must be an object with a 'collection' field")
 
-    collection = targeting.get("collection")
+    collection = my_audiences.get("collection")
     if not isinstance(collection, list):
-        raise ToolInputError("targeting.collection must be a list of rules (use [] to clear)")
+        raise ToolInputError("my_audiences.collection must be a list of rules (use [] to clear)")
 
     for idx, rule in enumerate(collection):
         if not isinstance(rule, dict):
-            raise ToolInputError(f"targeting.collection[{idx}] must be an object")
+            raise ToolInputError(f"my_audiences.collection[{idx}] must be an object")
 
         r_type = rule.get("type")
         if r_type not in _RULE_TYPES:
             raise ToolInputError(
-                f"targeting.collection[{idx}].type must be one of: {', '.join(_RULE_TYPES)}"
+                f"my_audiences.collection[{idx}].type must be one of: {', '.join(_RULE_TYPES)}"
             )
 
         ids = rule.get("collection")
         if not isinstance(ids, list):
             raise ToolInputError(
-                f"targeting.collection[{idx}].collection must be a list of integer audience IDs"
+                f"my_audiences.collection[{idx}].collection must be a list of integer audience IDs"
             )
 
         for id_idx, audience_id in enumerate(ids):
             if not isinstance(audience_id, int) or isinstance(audience_id, bool):
                 raise ToolInputError(
-                    f"targeting.collection[{idx}].collection[{id_idx}] must be an integer audience ID"
+                    f"my_audiences.collection[{idx}].collection[{id_idx}] must be an integer audience ID"
                 )
 
 
-def validate_lookalike_audience(targeting: Any) -> None:
+def validate_lookalike_audience(lookalike_audience: Any) -> None:
     """Schema-level validation for update_campaign_lookalike_audience.
 
     Server rules enforced client-side: outer collection size <= 1, INCLUDE-only,
@@ -62,38 +62,38 @@ def validate_lookalike_audience(targeting: Any) -> None:
 
     Raises ToolInputError on the first violation.
     """
-    if not isinstance(targeting, dict):
-        raise ToolInputError("targeting must be an object with a 'collection' field")
+    if not isinstance(lookalike_audience, dict):
+        raise ToolInputError("lookalike_audience must be an object with a 'collection' field")
 
-    collection = targeting.get("collection")
+    collection = lookalike_audience.get("collection")
     if not isinstance(collection, list):
-        raise ToolInputError("targeting.collection must be a list of rules (use [] to clear)")
+        raise ToolInputError("lookalike_audience.collection must be a list of rules (use [] to clear)")
 
     if len(collection) > 1:
         raise ToolInputError(
-            "targeting.collection may contain at most one block (server constraint)"
+            "lookalike_audience.collection may contain at most one block (server constraint)"
         )
 
     for idx, rule in enumerate(collection):
         if not isinstance(rule, dict):
-            raise ToolInputError(f"targeting.collection[{idx}] must be an object")
+            raise ToolInputError(f"lookalike_audience.collection[{idx}] must be an object")
 
         r_type = rule.get("type")
         if r_type not in _LOOKALIKE_TYPES:
             raise ToolInputError(
-                f"targeting.collection[{idx}].type must be 'INCLUDE' (server rejects EXCLUDE/ALL for lookalike)"
+                f"lookalike_audience.collection[{idx}].type must be 'INCLUDE' (server rejects EXCLUDE/ALL for lookalike)"
             )
 
         items = rule.get("collection")
         if not isinstance(items, list):
             raise ToolInputError(
-                f"targeting.collection[{idx}].collection must be a list of {{rule_id, similarity_level}} objects"
+                f"lookalike_audience.collection[{idx}].collection must be a list of {{rule_id, similarity_level}} objects"
             )
 
         for item_idx, item in enumerate(items):
             if not isinstance(item, dict):
                 raise ToolInputError(
-                    f"targeting.collection[{idx}].collection[{item_idx}] must be an object with rule_id and similarity_level"
+                    f"lookalike_audience.collection[{idx}].collection[{item_idx}] must be an object with rule_id and similarity_level"
                 )
 
             rule_id = item.get("rule_id")
@@ -103,7 +103,7 @@ def validate_lookalike_audience(targeting: Any) -> None:
                 or rule_id <= 0
             ):
                 raise ToolInputError(
-                    f"targeting.collection[{idx}].collection[{item_idx}].rule_id must be a positive integer"
+                    f"lookalike_audience.collection[{idx}].collection[{item_idx}].rule_id must be a positive integer"
                 )
 
             similarity = item.get("similarity_level")
@@ -113,6 +113,6 @@ def validate_lookalike_audience(targeting: Any) -> None:
                 or similarity not in _LOOKALIKE_SIMILARITY_LEVELS
             ):
                 raise ToolInputError(
-                    f"targeting.collection[{idx}].collection[{item_idx}].similarity_level must be one of: "
+                    f"lookalike_audience.collection[{idx}].collection[{item_idx}].similarity_level must be one of: "
                     f"{', '.join(str(v) for v in _LOOKALIKE_SIMILARITY_LEVELS)}"
                 )

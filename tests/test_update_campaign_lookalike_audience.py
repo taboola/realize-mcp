@@ -20,7 +20,7 @@ def _args(**overrides):
     base = {
         "account_id": "acme-inc",
         "campaign_id": "c-123",
-        "targeting": {
+        "lookalike_audience": {
             "collection": [
                 {
                     "type": "INCLUDE",
@@ -51,30 +51,30 @@ class TestLookalikeValidation:
             )
 
     @pytest.mark.asyncio
-    async def test_rejects_targeting_not_object(self):
-        with pytest.raises(ToolInputError, match="targeting must be an object"):
+    async def test_rejects_lookalike_audience_not_object(self):
+        with pytest.raises(ToolInputError, match="lookalike_audience must be an object"):
             await handle_call_tool(
-                "update_campaign_lookalike_audience", _args(targeting=[])
+                "update_campaign_lookalike_audience", _args(lookalike_audience=[])
             )
 
     @pytest.mark.asyncio
     async def test_rejects_missing_collection(self):
-        with pytest.raises(ToolInputError, match="targeting.collection must be a list"):
+        with pytest.raises(ToolInputError, match="lookalike_audience.collection must be a list"):
             await handle_call_tool(
-                "update_campaign_lookalike_audience", _args(targeting={})
+                "update_campaign_lookalike_audience", _args(lookalike_audience={})
             )
 
     @pytest.mark.asyncio
     async def test_rejects_collection_not_a_list(self):
-        with pytest.raises(ToolInputError, match="targeting.collection must be a list"):
+        with pytest.raises(ToolInputError, match="lookalike_audience.collection must be a list"):
             await handle_call_tool(
                 "update_campaign_lookalike_audience",
-                _args(targeting={"collection": "INCLUDE"}),
+                _args(lookalike_audience={"collection": "INCLUDE"}),
             )
 
     @pytest.mark.asyncio
     async def test_rejects_outer_collection_size_gt_1(self):
-        targeting = {
+        lookalike_audience = {
             "collection": [
                 {"type": "INCLUDE", "collection": [{"rule_id": 1, "similarity_level": 5}]},
                 {"type": "INCLUDE", "collection": [{"rule_id": 2, "similarity_level": 5}]},
@@ -82,15 +82,15 @@ class TestLookalikeValidation:
         }
         with pytest.raises(ToolInputError, match="at most one block"):
             await handle_call_tool(
-                "update_campaign_lookalike_audience", _args(targeting=targeting)
+                "update_campaign_lookalike_audience", _args(lookalike_audience=lookalike_audience)
             )
 
     @pytest.mark.asyncio
     async def test_rejects_block_not_object(self):
-        with pytest.raises(ToolInputError, match=r"targeting.collection\[0\] must be an object"):
+        with pytest.raises(ToolInputError, match=r"lookalike_audience.collection\[0\] must be an object"):
             await handle_call_tool(
                 "update_campaign_lookalike_audience",
-                _args(targeting={"collection": ["INCLUDE"]}),
+                _args(lookalike_audience={"collection": ["INCLUDE"]}),
             )
 
     @pytest.mark.asyncio
@@ -98,7 +98,7 @@ class TestLookalikeValidation:
         with pytest.raises(ToolInputError, match="must be 'INCLUDE'"):
             await handle_call_tool(
                 "update_campaign_lookalike_audience",
-                _args(targeting={"collection": [{"collection": []}]}),
+                _args(lookalike_audience={"collection": [{"collection": []}]}),
             )
 
     @pytest.mark.asyncio
@@ -106,7 +106,7 @@ class TestLookalikeValidation:
         with pytest.raises(ToolInputError, match="must be 'INCLUDE'"):
             await handle_call_tool(
                 "update_campaign_lookalike_audience",
-                _args(targeting={"collection": [{"type": "EXCLUDE", "collection": []}]}),
+                _args(lookalike_audience={"collection": [{"type": "EXCLUDE", "collection": []}]}),
             )
 
     @pytest.mark.asyncio
@@ -114,7 +114,7 @@ class TestLookalikeValidation:
         with pytest.raises(ToolInputError, match="must be 'INCLUDE'"):
             await handle_call_tool(
                 "update_campaign_lookalike_audience",
-                _args(targeting={"collection": [{"type": "ALL", "collection": []}]}),
+                _args(lookalike_audience={"collection": [{"type": "ALL", "collection": []}]}),
             )
 
     @pytest.mark.asyncio
@@ -122,7 +122,7 @@ class TestLookalikeValidation:
         with pytest.raises(ToolInputError, match=r"\[0\].collection must be a list"):
             await handle_call_tool(
                 "update_campaign_lookalike_audience",
-                _args(targeting={"collection": [{"type": "INCLUDE", "collection": 1}]}),
+                _args(lookalike_audience={"collection": [{"type": "INCLUDE", "collection": 1}]}),
             )
 
     @pytest.mark.asyncio
@@ -130,7 +130,7 @@ class TestLookalikeValidation:
         with pytest.raises(ToolInputError, match=r"\[0\].collection\[0\] must be an object"):
             await handle_call_tool(
                 "update_campaign_lookalike_audience",
-                _args(targeting={"collection": [{"type": "INCLUDE", "collection": [123]}]}),
+                _args(lookalike_audience={"collection": [{"type": "INCLUDE", "collection": [123]}]}),
             )
 
     @pytest.mark.asyncio
@@ -138,7 +138,7 @@ class TestLookalikeValidation:
         with pytest.raises(ToolInputError, match="rule_id must be a positive integer"):
             await handle_call_tool(
                 "update_campaign_lookalike_audience",
-                _args(targeting={"collection": [{"type": "INCLUDE", "collection": [{"similarity_level": 5}]}]}),
+                _args(lookalike_audience={"collection": [{"type": "INCLUDE", "collection": [{"similarity_level": 5}]}]}),
             )
 
     @pytest.mark.asyncio
@@ -146,7 +146,7 @@ class TestLookalikeValidation:
         with pytest.raises(ToolInputError, match="similarity_level must be one of"):
             await handle_call_tool(
                 "update_campaign_lookalike_audience",
-                _args(targeting={"collection": [{"type": "INCLUDE", "collection": [{"rule_id": 1}]}]}),
+                _args(lookalike_audience={"collection": [{"type": "INCLUDE", "collection": [{"rule_id": 1}]}]}),
             )
 
     @pytest.mark.asyncio
@@ -154,7 +154,7 @@ class TestLookalikeValidation:
         with pytest.raises(ToolInputError, match="rule_id must be a positive integer"):
             await handle_call_tool(
                 "update_campaign_lookalike_audience",
-                _args(targeting={"collection": [{"type": "INCLUDE", "collection": [{"rule_id": "1", "similarity_level": 5}]}]}),
+                _args(lookalike_audience={"collection": [{"type": "INCLUDE", "collection": [{"rule_id": "1", "similarity_level": 5}]}]}),
             )
 
     @pytest.mark.asyncio
@@ -162,7 +162,7 @@ class TestLookalikeValidation:
         with pytest.raises(ToolInputError, match="rule_id must be a positive integer"):
             await handle_call_tool(
                 "update_campaign_lookalike_audience",
-                _args(targeting={"collection": [{"type": "INCLUDE", "collection": [{"rule_id": 1.5, "similarity_level": 5}]}]}),
+                _args(lookalike_audience={"collection": [{"type": "INCLUDE", "collection": [{"rule_id": 1.5, "similarity_level": 5}]}]}),
             )
 
     @pytest.mark.asyncio
@@ -170,7 +170,7 @@ class TestLookalikeValidation:
         with pytest.raises(ToolInputError, match="rule_id must be a positive integer"):
             await handle_call_tool(
                 "update_campaign_lookalike_audience",
-                _args(targeting={"collection": [{"type": "INCLUDE", "collection": [{"rule_id": True, "similarity_level": 5}]}]}),
+                _args(lookalike_audience={"collection": [{"type": "INCLUDE", "collection": [{"rule_id": True, "similarity_level": 5}]}]}),
             )
 
     @pytest.mark.asyncio
@@ -178,7 +178,7 @@ class TestLookalikeValidation:
         with pytest.raises(ToolInputError, match="rule_id must be a positive integer"):
             await handle_call_tool(
                 "update_campaign_lookalike_audience",
-                _args(targeting={"collection": [{"type": "INCLUDE", "collection": [{"rule_id": 0, "similarity_level": 5}]}]}),
+                _args(lookalike_audience={"collection": [{"type": "INCLUDE", "collection": [{"rule_id": 0, "similarity_level": 5}]}]}),
             )
 
     @pytest.mark.parametrize("similarity", [7, 100, -1, 0, 6])
@@ -187,7 +187,7 @@ class TestLookalikeValidation:
         with pytest.raises(ToolInputError, match="similarity_level must be one of"):
             await handle_call_tool(
                 "update_campaign_lookalike_audience",
-                _args(targeting={"collection": [{"type": "INCLUDE", "collection": [{"rule_id": 1, "similarity_level": similarity}]}]}),
+                _args(lookalike_audience={"collection": [{"type": "INCLUDE", "collection": [{"rule_id": 1, "similarity_level": similarity}]}]}),
             )
 
     @pytest.mark.asyncio
@@ -195,7 +195,7 @@ class TestLookalikeValidation:
         with pytest.raises(ToolInputError, match="similarity_level must be one of"):
             await handle_call_tool(
                 "update_campaign_lookalike_audience",
-                _args(targeting={"collection": [{"type": "INCLUDE", "collection": [{"rule_id": 1, "similarity_level": True}]}]}),
+                _args(lookalike_audience={"collection": [{"type": "INCLUDE", "collection": [{"rule_id": 1, "similarity_level": True}]}]}),
             )
 
     @pytest.mark.asyncio
@@ -203,7 +203,7 @@ class TestLookalikeValidation:
         with pytest.raises(ToolInputError, match=r"\[0\].collection\[0\] must be an object"):
             await handle_call_tool(
                 "update_campaign_lookalike_audience",
-                _args(targeting={"collection": [{"type": "INCLUDE", "collection": [None]}]}),
+                _args(lookalike_audience={"collection": [{"type": "INCLUDE", "collection": [None]}]}),
             )
 
 
@@ -229,7 +229,7 @@ class TestLookalikeWire:
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
     async def test_body_passes_through_unchanged(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
-        targeting = {
+        lookalike_audience = {
             "collection": [
                 {
                     "type": "INCLUDE",
@@ -241,9 +241,9 @@ class TestLookalikeWire:
             ]
         }
         await handle_call_tool(
-            "update_campaign_lookalike_audience", _args(targeting=targeting)
+            "update_campaign_lookalike_audience", _args(lookalike_audience=lookalike_audience)
         )
-        assert _post_body(mock_post) == targeting
+        assert _post_body(mock_post) == lookalike_audience
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
@@ -251,7 +251,7 @@ class TestLookalikeWire:
         mock_post.return_value = {"id": "c-123"}
         await handle_call_tool(
             "update_campaign_lookalike_audience",
-            _args(targeting={"collection": []}),
+            _args(lookalike_audience={"collection": []}),
         )
         assert _post_body(mock_post) == {"collection": []}
 
@@ -259,33 +259,33 @@ class TestLookalikeWire:
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
     async def test_empty_block_collection_accepted(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
-        targeting = {"collection": [{"type": "INCLUDE", "collection": []}]}
+        lookalike_audience = {"collection": [{"type": "INCLUDE", "collection": []}]}
         await handle_call_tool(
-            "update_campaign_lookalike_audience", _args(targeting=targeting)
+            "update_campaign_lookalike_audience", _args(lookalike_audience=lookalike_audience)
         )
-        assert _post_body(mock_post) == targeting
+        assert _post_body(mock_post) == lookalike_audience
 
     @pytest.mark.parametrize("similarity", [1, 2, 3, 4, 5])
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
     async def test_pbp_similarity_levels_accepted(self, mock_post, similarity):
         mock_post.return_value = {"id": "c-123"}
-        targeting = {"collection": [{"type": "INCLUDE", "collection": [{"rule_id": 1, "similarity_level": similarity}]}]}
+        lookalike_audience = {"collection": [{"type": "INCLUDE", "collection": [{"rule_id": 1, "similarity_level": similarity}]}]}
         await handle_call_tool(
-            "update_campaign_lookalike_audience", _args(targeting=targeting)
+            "update_campaign_lookalike_audience", _args(lookalike_audience=lookalike_audience)
         )
-        assert _post_body(mock_post) == targeting
+        assert _post_body(mock_post) == lookalike_audience
 
     @pytest.mark.parametrize("similarity", [5, 10, 15, 20, 25])
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
     async def test_crm_similarity_levels_accepted(self, mock_post, similarity):
         mock_post.return_value = {"id": "c-123"}
-        targeting = {"collection": [{"type": "INCLUDE", "collection": [{"rule_id": 1, "similarity_level": similarity}]}]}
+        lookalike_audience = {"collection": [{"type": "INCLUDE", "collection": [{"rule_id": 1, "similarity_level": similarity}]}]}
         await handle_call_tool(
-            "update_campaign_lookalike_audience", _args(targeting=targeting)
+            "update_campaign_lookalike_audience", _args(lookalike_audience=lookalike_audience)
         )
-        assert _post_body(mock_post) == targeting
+        assert _post_body(mock_post) == lookalike_audience
 
 
 class TestLookalikeAnnotations:

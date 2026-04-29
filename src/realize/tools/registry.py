@@ -5,7 +5,7 @@ import copy
 TOOL_REGISTRY = {
     # Authentication & Token Tools
     "get_auth_token": {
-        "description": "Authenticate with Realize API using client credentials (read-only)",
+        "description": "Authenticate with the Realize API using client credentials (read-only).",
         "schema": {
             "type": "object",
             "properties": {},
@@ -16,7 +16,7 @@ TOOL_REGISTRY = {
     },
     
     "get_token_details": {
-        "description": "Get details about current authentication token (read-only)",
+        "description": "Get details about the current authentication token (read-only).",
         "schema": {
             "type": "object", 
             "properties": {},
@@ -28,26 +28,26 @@ TOOL_REGISTRY = {
     
     # Account Management Tools
     "search_accounts": {
-        "description": "Search for accounts by numeric ID or text query to get account_id values needed for other tools (read-only). Returns account data including 'account_id' field (camelCase string) required for campaign and report operations. WORKFLOW: Use this tool FIRST to get account_id values, then use those values with other tools. PAGINATION: page_size (1-10, default: 10) and page (default: 1). Keep page_size the same across all pages to avoid duplicate/missing results. Check 'Total' in response metadata for full match count.",
+        "description": "Search for accounts by numeric ID or text query (read-only). Use this first — every other tool's account_id parameter takes the value from the `account_id` field returned here. Response metadata includes `Total` (full match count across all pages) so the caller knows whether more pages remain.\n\nPagination: page (default 1), page_size (1-10, default 10). Keep page_size constant across pages to avoid duplicate or missing results.",
         "schema": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Account ID (numeric), search term (text), or '*' to list all accounts. Use the returned 'account_id' field for other tool operations."
+                    "description": "Numeric account ID, text search term, or '*' to list all accounts."
                 },
                 "page": {
                     "type": "integer",
                     "default": 1,
                     "minimum": 1,
-                    "description": "Page number for pagination (default: 1)"
+                    "description": "Page number (default 1)."
                 },
                 "page_size": {
                     "type": "integer",
                     "default": 10,
                     "minimum": 1,
                     "maximum": 10,
-                    "description": "Records per page (default: 10, max: 10)"
+                    "description": "Records per page (1-10, default 10)."
                 }
             },
             "required": ["query"]
@@ -58,13 +58,13 @@ TOOL_REGISTRY = {
     
     # Campaign Management Tools (READ-ONLY)
     "get_all_campaigns": {
-        "description": "Get all campaigns for an account (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
+        "description": "List all campaigns on a Realize account (read-only).",
         "schema": {
             "type": "object",
             "properties": {
                 "account_id": {
                     "type": "string",
-                    "description": "Account ID (string from search_accounts response 'account_id' field - NOT numeric ID). Workflow: 1) search_accounts('query') 2) Use 'account_id' from results"
+                    "description": "Value from search_accounts.account_id (NOT numeric)."
                 }
             },
             "required": ["account_id"]
@@ -74,17 +74,17 @@ TOOL_REGISTRY = {
     },
 
     "get_campaign": {
-        "description": "Get specific campaign details (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
+        "description": "Get details for one campaign on a Realize account (read-only).",
         "schema": {
             "type": "object",
             "properties": {
                 "account_id": {
                     "type": "string",
-                    "description": "Account ID (string from search_accounts response 'account_id' field - NOT numeric ID). Workflow: 1) search_accounts('query') 2) Use 'account_id' from results"
+                    "description": "Value from search_accounts.account_id (NOT numeric)."
                 },
                 "campaign_id": {
                     "type": "string",
-                    "description": "Campaign ID to get details for"
+                    "description": "Campaign ID."
                 }
             },
             "required": ["account_id", "campaign_id"]
@@ -95,47 +95,29 @@ TOOL_REGISTRY = {
 
     "create_campaign": {
         "description": (
-            "Create a campaign. Returns the created campaign object including `id` and `status=PAUSED`. Campaign will not serve until items are added and the campaign is activated.\n"
+            "Create a campaign on a Realize account. Returns the created campaign including `id` and `status=PAUSED`; campaigns ship paused and do not serve until items are added (set `is_active=true` to launch on creation).\n"
             "\n"
-            "All amounts (spending_limit, daily_cap, cpc, cpa_goal, cpc_cap) are numbers in the account's default currency. Do not include a currency symbol or code.\n"
+            "All amounts (spending_limit, daily_cap, cpc, cpa_goal, cpc_cap) are numbers in the account's default currency — no currency symbol or code.\n"
             "\n"
-            "Required (always):\n"
-            "- account_id (string): value from `account_id` field of search_accounts response (NOT numeric)\n"
-            "- name (string)\n"
-            "- marketing_objective (string enum): BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC | LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL\n"
-            "- branding_text (string): brand name shown with ads\n"
-            "- spending_limit_model (string enum): NONE | MONTHLY | ENTIRE\n"
+            "Conditional rules (schema enforces required fields; these add cross-field rules the schema can't):\n"
+            "- spending_limit_model = MONTHLY or ENTIRE → also send spending_limit. NONE → also send daily_cap.\n"
+            "- marketing_objective = BRAND_AWARENESS or DRIVE_WEBSITE_TRAFFIC → send cpc; bid_strategy optional (SMART default, or FIXED); omit cpa_goal.\n"
+            "- marketing_objective = LEADS_GENERATION, ONLINE_PURCHASES, or MOBILE_APP_INSTALL → send bid_strategy = TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE; if TARGET_CPA, also send cpa_goal; omit cpc.\n"
+            "- If both start_date and end_date are sent: end_date >= start_date.\n"
             "\n"
-            "Required by spending_limit_model:\n"
-            "- MONTHLY or ENTIRE -> set spending_limit (number)\n"
-            "- NONE -> set daily_cap (number)\n"
+            "Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, target_cpa, target_cpa_learning_status. (`target_cpa` is the server-recommended CPA range; the user goal is `cpa_goal`.)\n"
             "\n"
-            "Required by marketing_objective + bid_strategy:\n"
-            "- BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC\n"
-            "    -> set cpc (number). bid_strategy (string enum) optional (SMART default, or FIXED). Omit cpa_goal.\n"
-            "- LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL\n"
-            "    -> set bid_strategy (string enum) = TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE.\n"
-            "       If bid_strategy = TARGET_CPA, set cpa_goal (number). Omit cpc.\n"
+            "Non-scalar setup is not supported here. After creation, use:\n"
+            "- update_campaign_geo_classic | update_campaign_geo_advanced — geo targeting\n"
+            "- update_campaign_techno — platform / os / browser / connection_type\n"
+            "- update_campaign_publishers — publisher + group targeting + per-publisher CPC modifiers\n"
+            "- update_campaign_my_audiences — first-party + custom audience targeting\n"
+            "- update_campaign_lookalike_audience — CRM/pixel lookalike targeting\n"
+            "- update_campaign_contextual_segments — contextual segment targeting\n"
+            "- update_campaign_schedule — activity schedule (dayparting)\n"
+            "- update_campaign_conversion_rules — conversion rule attachments\n"
             "\n"
-            "Optional scalars: start_date (string, YYYY-MM-DD), end_date (string, YYYY-MM-DD), tracking_code (string), cpc_cap (number), comments (string), daily_ad_delivery_model (string enum: BALANCED | STRICT), traffic_allocation_mode (string enum: OPTIMIZED | EVEN, default OPTIMIZED), is_active (boolean: true to launch immediately, false or omit to start paused). If both dates set: end_date >= start_date.\n"
-            "\n"
-            "Read-only - NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, target_cpa, target_cpa_learning_status. (target_cpa is server-recommended CPA range, not the user goal — set cpa_goal instead.)\n"
-            "\n"
-            "Not supported here. After creation, use these update tools to set them:\n"
-            "- geo targeting: update_campaign_geo_classic | update_campaign_geo_advanced\n"
-            "- technology targeting (platform / os / browser / connection_type): update_campaign_techno\n"
-            "- publisher / publisher-group targeting + per-publisher CPC bid modifiers: update_campaign_publishers\n"
-            "- first-party + custom audience targeting: update_campaign_my_audiences\n"
-            "- activity schedule (dayparting): update_campaign_schedule\n"
-            "- conversion rule attachments: update_campaign_conversion_rules\n"
-            "\n"
-            "Examples:\n"
-            "\n"
-            "Brand awareness, monthly budget:\n"
-            "{ \"account_id\": \"acme-inc\", \"name\": \"Q2 Awareness\", \"marketing_objective\": \"BRAND_AWARENESS\",\n"
-            "  \"branding_text\": \"Acme\", \"spending_limit_model\": \"MONTHLY\", \"spending_limit\": 5000, \"cpc\": 0.30 }\n"
-            "\n"
-            "Lead gen, target CPA:\n"
+            "Example — lead gen with target CPA:\n"
             "{ \"account_id\": \"acme-inc\", \"name\": \"Q2 Leads\", \"marketing_objective\": \"LEADS_GENERATION\",\n"
             "  \"branding_text\": \"Acme\", \"spending_limit_model\": \"ENTIRE\", \"spending_limit\": 10000,\n"
             "  \"bid_strategy\": \"TARGET_CPA\", \"cpa_goal\": 15 }"
@@ -210,78 +192,38 @@ TOOL_REGISTRY = {
 
     "update_campaign": {
         "description": (
-            "Edit scalar fields on an existing campaign. Partial-merge: only supplied fields are updated; "
-            "fields you omit keep their current value. Re-sending the same value is a no-op.\n"
+            "Update scalar fields on an existing campaign.\n"
             "\n"
-            "All amounts (spending_limit, daily_cap, cpc, cpa_goal, cpc_cap) are numbers in the account's default currency. Do not include a currency symbol or code.\n"
+            "Partial-merge: only supplied fields update; omitted fields keep their current value. Re-sending the same value is a no-op. Send at least one updatable field besides account_id and campaign_id.\n"
             "\n"
-            "Required (always):\n"
-            "- account_id (string): value from `account_id` field of search_accounts response (NOT numeric)\n"
-            "- campaign_id (string): campaign to update\n"
-            "- at least one updatable field below\n"
+            "All amounts (spending_limit, daily_cap, cpc, cpa_goal, cpc_cap) are numbers in the account's default currency — no currency symbol or code.\n"
             "\n"
-            "Updatable scalars (all optional):\n"
-            "- name (string)\n"
-            "- marketing_objective (string enum): BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC | LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL\n"
-            "- branding_text (string)\n"
-            "- spending_limit_model (string enum): NONE | MONTHLY | ENTIRE\n"
-            "- spending_limit (number)\n"
-            "- daily_cap (number)\n"
-            "- cpc (number)\n"
-            "- bid_strategy (string enum): SMART | FIXED | TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE\n"
-            "- cpa_goal (number)\n"
-            "- start_date (string, YYYY-MM-DD)\n"
-            "- end_date (string, YYYY-MM-DD)\n"
-            "- tracking_code (string)\n"
-            "- cpc_cap (number)\n"
-            "- comments (string)\n"
-            "- daily_ad_delivery_model (string enum): BALANCED | STRICT (ACCELERATED deprecated, no longer accepted)\n"
-            "- traffic_allocation_mode (string enum): OPTIMIZED (default) | EVEN\n"
-            "- is_active (boolean): true to activate the campaign, false to pause. After create_campaign, campaigns ship paused; set is_active=true to launch.\n"
+            "Conditional rules (apply only when the gating field is in this request):\n"
+            "- spending_limit_model = MONTHLY or ENTIRE → also send spending_limit. NONE → also send daily_cap.\n"
+            "- bid_strategy = TARGET_CPA → also send cpa_goal.\n"
+            "- If both start_date and end_date are sent: end_date >= start_date.\n"
+            "- Solo updates of a partner field (e.g. only spending_limit, or only cpa_goal) are allowed — the stored gating field is reused.\n"
             "\n"
-            "Conditional rules (apply when the gating field is in this request):\n"
-            "- If you supply spending_limit_model = MONTHLY or ENTIRE, also supply spending_limit.\n"
-            "- If you supply spending_limit_model = NONE, also supply daily_cap.\n"
-            "- If you supply bid_strategy = TARGET_CPA, also supply cpa_goal.\n"
-            "- If you supply BOTH start_date and end_date: end_date >= start_date.\n"
-            "- Solo updates of partner fields (e.g., changing only spending_limit, or only cpa_goal) are allowed; the campaign's stored gating field is reused.\n"
-            "\n"
-            "Server-side constraints (will return 4xx if violated):\n"
-            "- Some marketing_objective transitions are rejected mid-flight.\n"
-            "- MOBILE_APP_INSTALL requires app fields (app_url, app_type, app_store) not yet supported here; switching to MOBILE_APP_INSTALL via this tool will likely 4xx.\n"
-            "- Objective + bid_strategy combos must remain compatible.\n"
+            "Server-side constraints (returns 4xx if violated):\n"
+            "- Some marketing_objective transitions are rejected mid-flight; objective + bid_strategy must remain compatible.\n"
+            "- MOBILE_APP_INSTALL requires app fields (app_url, app_type, app_store) not exposed here; switching into it via this tool will 4xx.\n"
+            "- TERMINATED campaigns cannot be reactivated. approval_state separately gates whether is_active=true actually serves ads.\n"
             "- Account permissions and policy review state may forbid certain edits.\n"
-            "- TERMINATED campaigns cannot be reactivated; approval_state separately gates whether is_active=true actually serves ads.\n"
             "\n"
-            "Read-only - NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, target_cpa, target_cpa_learning_status. (target_cpa is server-recommended CPA range, not the user goal — set cpa_goal instead.)\n"
+            "Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, target_cpa, target_cpa_learning_status. (`target_cpa` is the server-recommended CPA range; the user goal is `cpa_goal`.)\n"
             "\n"
-            "Not supported here. Use these dedicated tools for non-scalar updates:\n"
-            "- geo targeting: update_campaign_geo_classic | update_campaign_geo_advanced\n"
-            "- technology targeting (platform / os / browser / connection_type): update_campaign_techno\n"
-            "- publisher / publisher-group targeting + per-publisher CPC bid modifiers: update_campaign_publishers\n"
-            "- first-party + custom audience targeting: update_campaign_my_audiences\n"
-            "- contextual segment targeting: update_campaign_contextual_segments\n"
-            "- activity schedule (dayparting): update_campaign_schedule\n"
-            "- conversion rule attachments: update_campaign_conversion_rules\n"
+            "Non-scalar updates are not supported here. Use:\n"
+            "- update_campaign_geo_classic | update_campaign_geo_advanced — geo targeting\n"
+            "- update_campaign_techno — platform / os / browser / connection_type\n"
+            "- update_campaign_publishers — publisher + group targeting + per-publisher CPC modifiers\n"
+            "- update_campaign_my_audiences — first-party + custom audience targeting\n"
+            "- update_campaign_lookalike_audience — CRM/pixel lookalike targeting\n"
+            "- update_campaign_contextual_segments — contextual segment targeting\n"
+            "- update_campaign_schedule — activity schedule (dayparting)\n"
+            "- update_campaign_conversion_rules — conversion rule attachments\n"
             "\n"
-            "Examples:\n"
-            "\n"
-            "Rename and extend end date:\n"
-            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
-            "  \"name\": \"Q2 Awareness v2\", \"end_date\": \"2026-09-30\" }\n"
-            "\n"
-            "Tighten target CPA:\n"
-            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"cpa_goal\": 12.5 }\n"
-            "\n"
-            "Switch budget model to monthly:\n"
-            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
-            "  \"spending_limit_model\": \"MONTHLY\", \"spending_limit\": 5000 }\n"
-            "\n"
-            "Activate a paused campaign:\n"
-            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"is_active\": true }\n"
-            "\n"
-            "Pause a running campaign:\n"
-            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"is_active\": false }"
+            "Example — activate a paused campaign:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"is_active\": true }"
         ),
         "schema": {
             "type": "object",
@@ -357,45 +299,26 @@ TOOL_REGISTRY = {
 
     "update_campaign_geo_classic": {
         "description": (
-            "Update one classic geo targeting dimension on a campaign. Use this for campaigns that store "
-            "geo in the classic shape. Call get_campaign first to detect which shape is in use: "
-            "if the response has `geo_targeting`, use update_campaign_geo_advanced instead.\n"
+            "Update one classic geo targeting dimension on a campaign (country, region, dma, city, or postal_code).\n"
             "\n"
-            "Required:\n"
-            "- account_id (string): from search_accounts.account_id (NOT numeric)\n"
-            "- campaign_id (string)\n"
-            "- dimension (enum): country | region | dma | city | postal_code\n"
-            "- targeting (object): {type: INCLUDE | EXCLUDE | ALL, value: [string]}\n"
+            "Dimension-scoped: replaces only the supplied dimension; other dimensions are untouched. type=INCLUDE targets only matched values, type=EXCLUDE blocks them, type=ALL clears the dimension (send value=[]).\n"
             "\n"
-            "Semantics:\n"
-            "- type=INCLUDE: only matched values are targeted.\n"
-            "- type=EXCLUDE: matched values are excluded; everything else included.\n"
-            "- type=ALL: clear this dimension. Send value: []. (type=ALL with non-empty value is rejected.)\n"
+            "Use this only for campaigns stored in the classic shape. Call get_campaign first; if the response carries `geo_targeting`, use update_campaign_geo_advanced instead — sending classic on an advanced-stored campaign returns 4xx.\n"
             "\n"
-            "Server-side constraints (will return 4xx if violated):\n"
-            "- Sub-dimension mutex. At most ONE of {region, dma, city, postal_code} may be set on a campaign at a time. "
-            "To switch from one to another, FIRST clear the current dim with type=ALL, THEN set the new dim in a second call.\n"
-            "- DMA only valid when country = INCLUDE [US].\n"
-            "- Sub-dimension write requires exactly one INCLUDE country to already be set.\n"
-            "- Region values are short-form (e.g., \"CA\"), NOT prefixed with country.\n"
-            "- Country=ALL with empty value clears all sub-location restrictions on the campaign in one call.\n"
+            "Server-side constraints (returns 4xx if violated):\n"
+            "- Sub-dimension mutex: at most ONE of {region, dma, city, postal_code} on a campaign. To switch, first clear the current sub-dimension with type=ALL, then set the new one in a second call.\n"
+            "- Sub-dimension write requires exactly one INCLUDE country already set. Region values are short-form (\"CA\"), not country-prefixed.\n"
+            "- DMA is US-only — valid only when country = INCLUDE [US].\n"
+            "- country with type=ALL value=[] clears all sub-location restrictions in one call.\n"
             "- The campaign's allowGeoTargeting flag may forbid geo updates entirely.\n"
-            "- The campaign must currently use classic storage (no `geo_targeting` field set). "
-            "Setting classic on an advanced-stored campaign returns 4xx.\n"
             "\n"
-            "Examples:\n"
-            "\n"
-            "Target US and Canada by country:\n"
+            "Example — target US and Canada:\n"
             "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"dimension\": \"country\",\n"
             "  \"targeting\": {\"type\": \"INCLUDE\", \"value\": [\"US\", \"CA\"]} }\n"
             "\n"
-            "Switch from city to region targeting (TWO calls):\n"
+            "Example — switch from city to region (TWO calls):\n"
             "1) {\"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"dimension\": \"city\", \"targeting\": {\"type\": \"ALL\", \"value\": []}}\n"
-            "2) {\"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"dimension\": \"region\", \"targeting\": {\"type\": \"INCLUDE\", \"value\": [\"CA\", \"NY\"]}}\n"
-            "\n"
-            "Clear all geo restrictions in one call:\n"
-            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"dimension\": \"country\",\n"
-            "  \"targeting\": {\"type\": \"ALL\", \"value\": []} }"
+            "2) {\"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"dimension\": \"region\", \"targeting\": {\"type\": \"INCLUDE\", \"value\": [\"CA\", \"NY\"]}}"
         ),
         "schema": {
             "type": "object",
@@ -430,49 +353,26 @@ TOOL_REGISTRY = {
 
     "update_campaign_geo_advanced": {
         "description": (
-            "Update a campaign's geo targeting using the advanced (MultiTargeting) shape. "
-            "Requires the campaign to currently use advanced storage, OR the caller is intentionally "
-            "migrating it from classic — sending advanced on a classic-storage campaign will clear classic "
-            "fields and migrate the campaign one-way to advanced storage. Migration is logged in campaign history.\n"
+            "Update a campaign's geo targeting using the advanced (MultiTargeting) shape, supporting mixed-dimension vectors (e.g. country+region together).\n"
             "\n"
-            "Required:\n"
-            "- account_id (string): from search_accounts.account_id (NOT numeric)\n"
-            "- campaign_id (string)\n"
-            "- geo_targeting (object): MultiTargeting wrapper\n"
+            "Full-replace: the supplied geo_targeting replaces the campaign's current geo wholesale. state=ALL with value=[] clears all geo restrictions; state=EXISTS applies the rules in value (must be non-empty).\n"
             "\n"
-            "geo_targeting shape:\n"
-            "{\n"
-            "  \"state\": \"ALL\" | \"EXISTS\",\n"
-            "  \"value\": [\n"
-            "    { \"type\": \"INCLUDE\" | \"EXCLUDE\",\n"
-            "      \"value\": [\n"
-            "        { \"country\": \"US\", \"region\": null, \"dma\": null, \"city\": null, \"postal_code\": null }\n"
-            "      ]\n"
-            "    }\n"
-            "  ]\n"
-            "}\n"
+            "Each rule groups vectors of one type (INCLUDE or EXCLUDE). A vector may target one dimension or mix several — country=US AND region=CA targets California specifically.\n"
             "\n"
-            "Semantics:\n"
-            "- state=ALL clears all geo restrictions; send value: [].\n"
-            "- state=EXISTS applies the rules in value (must be non-empty).\n"
-            "- Each rule groups vectors of one type (INCLUDE or EXCLUDE).\n"
-            "- A vector may set one geo dimension or mix dimensions (country=US AND region=CA targets California specifically).\n"
-            "- Country: ISO-2 (e.g., \"US\").\n"
-            "- DMA codes are US-only.\n"
-            "- Server rejects: more than 200 exclude countries; sanctioned regions; invalid vector codes. The 4xx body is surfaced.\n"
+            "Use this when the campaign already stores geo in the advanced shape (get_campaign returns `geo_targeting`). Sending advanced on a classic-storage campaign migrates it one-way to advanced storage, clearing classic fields; the migration is logged in campaign history.\n"
             "\n"
-            "Read-only fields are managed by the server. Do not include id, advertiser_id, status, etc.\n"
+            "Server-side constraints (returns 4xx if violated):\n"
+            "- Country uses ISO-2 codes (e.g. \"US\"). DMA codes are US-only.\n"
+            "- More than 200 exclude countries, sanctioned regions, or invalid vector codes are rejected.\n"
             "\n"
-            "Examples:\n"
-            "\n"
-            "Target US and Canada, exclude Texas:\n"
+            "Example — target US and Canada, exclude Texas:\n"
             "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
             "  \"geo_targeting\": { \"state\": \"EXISTS\", \"value\": [\n"
             "    {\"type\": \"INCLUDE\", \"value\": [{\"country\": \"US\"}, {\"country\": \"CA\"}]},\n"
             "    {\"type\": \"EXCLUDE\", \"value\": [{\"country\": \"US\", \"region\": \"TX\"}]}\n"
             "  ]}}\n"
             "\n"
-            "Clear all geo (target worldwide):\n"
+            "Example — clear all geo (target worldwide):\n"
             "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
             "  \"geo_targeting\": {\"state\": \"ALL\", \"value\": []} }"
         ),
@@ -526,49 +426,28 @@ TOOL_REGISTRY = {
 
     "update_campaign_techno": {
         "description": (
-            "Update one technology targeting dimension on a campaign: "
-            "platform (device type), os (operating system), browser, or connection_type (network).\n"
+            "Update one technology targeting dimension on a campaign: platform (device type), os (operating system), browser, or connection_type (network).\n"
             "\n"
-            "Required:\n"
-            "- account_id (string): from search_accounts.account_id (NOT numeric)\n"
-            "- campaign_id (string)\n"
-            "- dimension (enum): platform | os | browser | connection_type\n"
-            "- targeting (object): {type: INCLUDE | EXCLUDE | ALL, value: [...]}\n"
+            "Dimension-scoped: replaces only the supplied dimension; other dimensions are untouched. type=INCLUDE targets only matched values, type=EXCLUDE blocks them, type=ALL clears the dimension (send value=[]).\n"
             "\n"
-            "Value shape depends on dimension:\n"
-            "- platform | browser | connection_type: array of strings.\n"
-            "- os: array of objects {os_family: string, sub_categories?: array of strings}. "
-            "Omit sub_categories to target the entire family.\n"
-            "\n"
-            "Semantics:\n"
-            "- type=INCLUDE: only matched values are targeted.\n"
-            "- type=EXCLUDE: matched values are excluded; everything else included.\n"
-            "- type=ALL: clear this dimension. Send value: []. (type=ALL with non-empty value is rejected.)\n"
+            "Value shape varies by dimension:\n"
+            "- platform | browser | connection_type — array of strings.\n"
+            "- os — array of {os_family, sub_categories?}. Omit sub_categories to target the full family.\n"
             "\n"
             "Vocabulary (source values via the Realize UI targeting panels):\n"
-            "- platform: e.g. DESK | PHON | TBLT. Documented as INCLUDE-only in some references; "
-            "if the server rejects EXCLUDE/ALL on platform, the 4xx is surfaced unchanged.\n"
-            "- os: os_family in {Android, iOS, Windows, Mac OS X, Linux}; sub_categories example: [\"iOS_8.4\", \"iOS_9\"]. "
-            "Omit sub_categories to target the full family.\n"
-            "- browser: e.g. Chrome | Firefox | Safari | Edge.\n"
-            "- connection_type: e.g. WIFI | CELLULAR | OTHER.\n"
+            "- platform: DESK | PHON | TBLT. May be INCLUDE-only on some accounts; the server's 4xx is surfaced unchanged.\n"
+            "- os: os_family in {Android, iOS, Windows, Mac OS X, Linux}; sub_categories like [\"iOS_16\", \"iOS_17\"].\n"
+            "- browser: Chrome | Firefox | Safari | Edge.\n"
+            "- connection_type: WIFI | CELLULAR | OTHER.\n"
             "\n"
-            "Read-only fields are managed by the server. Do not include id, advertiser_id, status, etc.\n"
-            "\n"
-            "Examples:\n"
-            "\n"
-            "Exclude desktop:\n"
-            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"dimension\": \"platform\",\n"
-            "  \"targeting\": {\"type\": \"EXCLUDE\", \"value\": [\"DESK\"]} }\n"
-            "\n"
-            "Target Android entirely + iOS only on versions 16/17:\n"
+            "Example — target Android entirely + iOS 16/17 only:\n"
             "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"dimension\": \"os\",\n"
             "  \"targeting\": {\"type\": \"INCLUDE\", \"value\": [\n"
             "    {\"os_family\": \"Android\"},\n"
             "    {\"os_family\": \"iOS\", \"sub_categories\": [\"iOS_16\", \"iOS_17\"]}\n"
             "  ]} }\n"
             "\n"
-            "Clear browser targeting:\n"
+            "Example — clear browser targeting:\n"
             "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"dimension\": \"browser\",\n"
             "  \"targeting\": {\"type\": \"ALL\", \"value\": []} }"
         ),
@@ -621,58 +500,34 @@ TOOL_REGISTRY = {
 
     "update_campaign_my_audiences": {
         "description": (
-            "Update first-party + custom audience targeting on a campaign. Posts to the dedicated "
-            "my_audiences sub-endpoint, replacing the campaign's current audience targeting "
-            "collection with the supplied rules.\n"
+            "Update first-party + custom audience targeting on a campaign.\n"
             "\n"
-            "Required:\n"
-            "- account_id (string): from search_accounts.account_id (NOT numeric)\n"
-            "- campaign_id (string)\n"
-            "- targeting (object): {collection: [rules]}\n"
+            "Full-replace: the supplied my_audiences replaces the campaign's current audience targeting wholesale; send {\"collection\": []} to clear. Only INCLUDE and EXCLUDE are supported on this endpoint (no ALL).\n"
             "\n"
-            "Each rule:\n"
-            "  {collection: [audience_id, ...], type: \"INCLUDE\" | \"EXCLUDE\"}\n"
+            "Each rule groups audience IDs of one type: INCLUDE adds them as targets, EXCLUDE suppresses them. audience_id values are integer IDs sourced from the Realize UI (Audiences section).\n"
             "\n"
-            "audience_id values are numeric audience IDs (integers). Source via the Realize UI "
-            "(Audiences section).\n"
+            "For lookalike audiences, use update_campaign_lookalike_audience instead. To read current targeting, use get_campaign.\n"
             "\n"
-            "Semantics:\n"
-            "- Each rule groups audience IDs of one targeting type (INCLUDE or EXCLUDE).\n"
-            "- INCLUDE rules add the listed audiences; EXCLUDE rules suppress them.\n"
-            "- This endpoint REPLACES the entire audience targeting collection on each call. "
-            "Send the full desired set, not a delta.\n"
-            "- To clear audience targeting, send {\"collection\": []}.\n"
-            "- ALL is not part of this endpoint's vocab; only INCLUDE and EXCLUDE.\n"
-            "\n"
-            "NOT supported here:\n"
-            "- Lookalike audience targeting. Use update_campaign_lookalike_audience.\n"
-            "- Reading current audience targeting. Use get_campaign.\n"
-            "\n"
-            "Read-only fields are managed by the server. Do not include audience names, descriptions, etc.\n"
-            "\n"
-            "Examples:\n"
-            "\n"
-            "Include two audiences, exclude two:\n"
+            "Example — include two audiences, exclude two:\n"
             "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
-            "  \"targeting\": {\n"
+            "  \"my_audiences\": {\n"
             "    \"collection\": [\n"
             "      {\"collection\": [224820, 25287], \"type\": \"INCLUDE\"},\n"
             "      {\"collection\": [19884, 29870], \"type\": \"EXCLUDE\"}\n"
             "    ]\n"
             "  } }\n"
             "\n"
-            "Clear all audience targeting:\n"
-            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
-            "  \"targeting\": {\"collection\": []} }"
+            "Example — clear all audience targeting:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"my_audiences\": {\"collection\": []} }"
         ),
         "schema": {
             "type": "object",
             "properties": {
                 "account_id": {"type": "string", "description": "Value from search_accounts.account_id (NOT numeric)."},
                 "campaign_id": {"type": "string", "description": "Campaign ID to update."},
-                "targeting": {
+                "my_audiences": {
                     "type": "object",
-                    "description": "Audience targeting wrapper. Send {collection: []} to clear.",
+                    "description": "First-party + custom audience targeting. Send {collection: []} to clear; see tool description for full shape.",
                     "properties": {
                         "collection": {
                             "type": "array",
@@ -693,7 +548,7 @@ TOOL_REGISTRY = {
                     "required": ["collection"],
                 },
             },
-            "required": ["account_id", "campaign_id", "targeting"],
+            "required": ["account_id", "campaign_id", "my_audiences"],
         },
         "handler": "campaign_handlers.update_campaign_my_audiences",
         "category": "campaigns",
@@ -706,48 +561,24 @@ TOOL_REGISTRY = {
 
     "update_campaign_lookalike_audience": {
         "description": (
-            "Update lookalike audience targeting on a campaign. Posts to the dedicated "
-            "targeting/lookalike_audience sub-endpoint, replacing the campaign's current "
-            "lookalike audience targeting wholesale.\n"
+            "Update lookalike audience targeting on a campaign (CRM and pixel lookalikes).\n"
             "\n"
-            "Required:\n"
-            "- account_id (string): from search_accounts.account_id (NOT numeric)\n"
-            "- campaign_id (string)\n"
-            "- targeting (object): {collection: [block]}, where block is INCLUDE-only\n"
+            "Full-replace: the supplied lookalike_audience replaces the campaign's current lookalike targeting wholesale; send {\"collection\": []} to clear. Only INCLUDE is supported (server rejects EXCLUDE/ALL); the outer collection holds at most one block.\n"
             "\n"
-            "Block shape:\n"
-            "  {type: \"INCLUDE\", collection: [{rule_id, similarity_level}, ...]}\n"
+            "Each item is {rule_id, similarity_level}. rule_id is the integer rule ID for a lookalike audience (from the Realize UI, Audiences > Lookalike). similarity_level (%) depends on the audience subtype — CRM accepts 5/10/15/20/25; pixel accepts 5. The server resolves the subtype from rule_id and rejects mismatches.\n"
             "\n"
-            "Inner item:\n"
-            "- rule_id (integer): rule ID for a lookalike audience. Source via the Realize "
-            "UI (Audiences > Lookalike).\n"
-            "- similarity_level (integer): allowed values depend on the audience subtype: "
-            "CRM lookalike accepts 5/10/15/20/25; pixel lookalike accepts 5; predictive (PBP) "
-            "accepts 1/2/3/4/5. The server resolves the subtype from rule_id and rejects mismatches.\n"
+            "Predictive (PBP) lookalikes are not supported via this MCP server (the platform only allows them at creation time, and create_campaign exposes no field for them). CRM and pixel lookalikes work normally.\n"
             "\n"
-            "Semantics:\n"
-            "- At most one block in the outer collection (server constraint).\n"
-            "- Only INCLUDE is supported (EXCLUDE/ALL are rejected by the server).\n"
-            "- Replace-style: send the full desired set on each call.\n"
-            "- To clear lookalike targeting, send {\"collection\": []}.\n"
-            "- Predictive (PBP) lookalikes can only be added at campaign creation time, not on "
-            "existing campaigns; the server rejects them via this update tool.\n"
-            "\n"
-            "Server-side preconditions (will return 4xx if violated):\n"
+            "Server-side preconditions (returns 4xx if violated):\n"
             "- Account must have user-segments edit permission.\n"
             "- Campaign must allow retargeting.\n"
             "- All rule_ids must resolve to lookalike-class audiences with valid CRM segments.\n"
             "\n"
-            "NOT supported here:\n"
-            "- First-party + custom audience targeting. Use update_campaign_my_audiences.\n"
-            "- Reading current lookalike targeting. The lookalike block is filtered out of "
-            "get_campaign; use the Realize UI to inspect.\n"
+            "Reading current lookalike targeting is not supported — the lookalike block is filtered out of get_campaign; inspect via the Realize UI. For first-party + custom audiences, use update_campaign_my_audiences.\n"
             "\n"
-            "Examples:\n"
-            "\n"
-            "Add two CRM lookalikes at 10% similarity:\n"
+            "Example — add two CRM lookalikes:\n"
             "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
-            "  \"targeting\": {\n"
+            "  \"lookalike_audience\": {\n"
             "    \"collection\": [\n"
             "      {\"type\": \"INCLUDE\", \"collection\": [\n"
             "        {\"rule_id\": 1234567, \"similarity_level\": 10},\n"
@@ -756,9 +587,8 @@ TOOL_REGISTRY = {
             "    ]\n"
             "  } }\n"
             "\n"
-            "Clear lookalike targeting:\n"
-            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
-            "  \"targeting\": {\"collection\": []} }"
+            "Example — clear lookalike targeting:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"lookalike_audience\": {\"collection\": []} }"
         ),
         "schema": {
             "type": "object",
@@ -771,9 +601,9 @@ TOOL_REGISTRY = {
                     "type": "string",
                     "description": "Campaign ID to update.",
                 },
-                "targeting": {
+                "lookalike_audience": {
                     "type": "object",
-                    "description": "Lookalike audience targeting wrapper. Send {collection: []} to clear.",
+                    "description": "Lookalike audience targeting. Send {collection: []} to clear; see tool description for full shape.",
                     "properties": {
                         "collection": {
                             "type": "array",
@@ -791,7 +621,7 @@ TOOL_REGISTRY = {
                                             "properties": {
                                                 "rule_id": {
                                                     "type": "integer",
-                                                    "description": "Unip rule ID for the lookalike audience.",
+                                                    "description": "Rule ID for the lookalike audience (from the Realize UI).",
                                                 },
                                                 "similarity_level": {
                                                     "type": "integer",
@@ -810,7 +640,7 @@ TOOL_REGISTRY = {
                     "required": ["collection"],
                 },
             },
-            "required": ["account_id", "campaign_id", "targeting"],
+            "required": ["account_id", "campaign_id", "lookalike_audience"],
         },
         "handler": "campaign_handlers.update_campaign_lookalike_audience",
         "category": "campaigns",
@@ -823,45 +653,20 @@ TOOL_REGISTRY = {
 
     "update_campaign_schedule": {
         "description": (
-            "Update a campaign's activity schedule (dayparting). Sets when the campaign is allowed "
-            "to serve, by day-of-week + hour ranges, in the campaign's specified time zone.\n"
+            "Update a campaign's activity schedule (dayparting) — when the campaign is allowed to serve, by day-of-week + hour ranges in the campaign's time zone.\n"
             "\n"
-            "Required:\n"
-            "- account_id (string): from search_accounts.account_id (NOT numeric)\n"
-            "- campaign_id (string)\n"
-            "- schedule (object): {mode, time_zone?, rules?}\n"
+            "Full-replace: the supplied schedule replaces the campaign's current schedule wholesale. mode=ALWAYS serves every day, all hours (clears any prior CUSTOM schedule). mode=CUSTOM applies the rules array in time_zone.\n"
             "\n"
-            "Schedule shape:\n"
-            "- mode (string, required): \"ALWAYS\" | \"CUSTOM\"\n"
-            "- time_zone (string): IANA name (e.g. \"America/New_York\"). Required when mode=CUSTOM.\n"
-            "- rules (array): required when mode=CUSTOM, must be omitted (or []) when mode=ALWAYS.\n"
+            "Each rule has type (INCLUDE or EXCLUDE), day (MONDAY..SUNDAY), from_hour (0-23), and until_hour (1-24, > from_hour). Days not mentioned default to INCLUDE 0-24 — you do not need to enumerate all seven.\n"
             "\n"
-            "Each rule:\n"
-            "{\n"
-            "  type:       \"INCLUDE\" | \"EXCLUDE\",\n"
-            "  day:        \"MONDAY\" | \"TUESDAY\" | \"WEDNESDAY\" | \"THURSDAY\" | \"FRIDAY\" | \"SATURDAY\" | \"SUNDAY\",\n"
-            "  from_hour:  integer in [0, 23],\n"
-            "  until_hour: integer in [1, 24]   (must be > from_hour)\n"
-            "}\n"
-            "\n"
-            "Semantics:\n"
-            "- mode=ALWAYS: campaign serves every day, all hours; clears any prior CUSTOM schedule.\n"
-            "- mode=CUSTOM: rules array defines INCLUDE windows (when serving is allowed) and EXCLUDE windows "
-            "(when serving is suppressed). Days not mentioned default to INCLUDE 0-24 (server auto-fills); "
-            "you do not need to enumerate all seven days.\n"
-            "\n"
-            "Server-side constraints (will return 4xx if violated):\n"
-            "- Same day cannot have both INCLUDE and EXCLUDE rules. Pick one type per day.\n"
+            "Server-side constraints (returns 4xx if violated):\n"
+            "- A given day cannot have both INCLUDE and EXCLUDE rules. Pick one type per day.\n"
             "- Time windows on the same day cannot overlap.\n"
-            "- The campaign's account must have the schedule permission enabled (else 403).\n"
-            "- Per-publisher minimum-window duration may apply (some publishers require windows of at least N consecutive hours).\n"
-            "- time_zone must be a supported IANA name.\n"
+            "- time_zone must be a supported IANA name (required when mode=CUSTOM).\n"
+            "- Account must have the schedule permission enabled (else 403).\n"
+            "- Some publishers require minimum window durations.\n"
             "\n"
-            "Read-only fields are managed by the server. Do not include id, advertiser_id, status, etc.\n"
-            "\n"
-            "Examples:\n"
-            "\n"
-            "Mon-Fri 9am-9pm Eastern, no weekends:\n"
+            "Example — Mon–Fri 9am–9pm Eastern, no weekends:\n"
             "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
             "  \"schedule\": {\n"
             "    \"mode\": \"CUSTOM\",\n"
@@ -877,9 +682,8 @@ TOOL_REGISTRY = {
             "    ]\n"
             "  } }\n"
             "\n"
-            "Always-on (clear schedule):\n"
-            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
-            "  \"schedule\": {\"mode\": \"ALWAYS\"} }"
+            "Example — always-on (clear schedule):\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"schedule\": {\"mode\": \"ALWAYS\"} }"
         ),
         "schema": {
             "type": "object",
@@ -926,49 +730,23 @@ TOOL_REGISTRY = {
 
     "update_campaign_conversion_rules": {
         "description": (
-            "Replace the conversion rules attached to a campaign. Conversion rules tell Realize "
-            "which on-site events count as conversions (purchase, lead, signup, etc.) for this "
-            "campaign's optimization and reporting.\n"
+            "Update the conversion rules attached to a campaign. Conversion rules tell Realize which on-site events count as conversions (purchase, lead, signup, …) for this campaign's optimization and reporting.\n"
             "\n"
-            "Required:\n"
-            "- account_id (string): from search_accounts.account_id (NOT numeric)\n"
-            "- campaign_id (string)\n"
-            "- conversion_rules (array): list of rule references in the form {\"id\": <integer_rule_id>}\n"
+            "Full-replace: the supplied conversion_rules list replaces the campaign's current attachments wholesale; send [] to detach all. There is no incremental ADD/REMOVE — to change one rule, read the campaign with get_campaign, edit the list locally, send the merged result.\n"
             "\n"
-            "Semantics:\n"
-            "- Full-replace: the supplied list replaces the campaign's current attachments wholesale.\n"
-            "- To detach all rules, send conversion_rules: [].\n"
-            "- To add or remove a single rule, first read the campaign with get_campaign, modify the "
-            "list locally, then send the merged result. There is no incremental ADD/REMOVE operation.\n"
-            "- Wire shape: the server stores conversion_rules as a wrapper object (see get_campaign "
-            "response: conversion_rules.rules[]); this tool wraps the supplied array under `rules` "
-            "automatically.\n"
+            "Discovery: this tool does not list available rule ids. Rule ids are authored in the Realize UI (Conversions section) or read off an existing campaign via get_campaign (conversion_rules.rules[].id).\n"
             "\n"
-            "Discovery:\n"
-            "- This tool does not list available rule ids. Rule ids are authored in the Realize UI "
-            "(Conversions section) or can be read off an existing campaign via get_campaign "
-            "(conversion_rules.rules[].id).\n"
-            "\n"
-            "Server-side constraints (will return 4xx if violated):\n"
-            "- Each rule id must already exist under the account.\n"
-            "- Campaigns with marketing_objective LEADS_GENERATION or ONLINE_PURCHASES typically "
-            "require at least one conversion rule; sending [] on those will be rejected.\n"
+            "Server-side constraints (returns 4xx if violated):\n"
+            "- Each rule id must exist under the account.\n"
+            "- Campaigns with marketing_objective LEADS_GENERATION or ONLINE_PURCHASES typically require at least one conversion rule; [] is rejected on those.\n"
             "- Some rule types are incompatible with some campaign configurations.\n"
             "\n"
-            "Read-only fields are managed by the server. Do not include id, advertiser_id, status, etc.\n"
-            "\n"
-            "Examples:\n"
-            "\n"
-            "Attach two rules:\n"
+            "Example — attach two rules:\n"
             "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
-            "  \"conversion_rules\": [\n"
-            "    {\"id\": 1234567},\n"
-            "    {\"id\": 7654321}\n"
-            "  ] }\n"
+            "  \"conversion_rules\": [{\"id\": 1234567}, {\"id\": 7654321}] }\n"
             "\n"
-            "Detach all rules:\n"
-            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
-            "  \"conversion_rules\": [] }"
+            "Example — detach all rules:\n"
+            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"conversion_rules\": [] }"
         ),
         "schema": {
             "type": "object",
@@ -1009,58 +787,28 @@ TOOL_REGISTRY = {
 
     "update_campaign_publishers": {
         "description": (
-            "Update publisher-level targeting on a campaign: which publishers run, which "
-            "publisher groups, and per-publisher CPC bid modifiers. Send any subset of the "
-            "three fields; at least one is required.\n"
+            "Update publisher-level targeting on a campaign: which publishers run, which publisher groups, and per-publisher CPC bid modifiers. Send any subset of the three fields; at least one is required.\n"
             "\n"
-            "Required:\n"
-            "- account_id (string): from search_accounts.account_id (NOT numeric)\n"
-            "- campaign_id (string)\n"
-            "- at least one of: publisher_targeting, publisher_groups_targeting, publisher_bid_modifier\n"
+            "Full-replace, per field: each supplied field replaces the campaign's current value for that field wholesale; omitted fields are untouched.\n"
             "\n"
-            "publisher_targeting (object, optional):\n"
-            "- {type: INCLUDE | EXCLUDE | ALL, value: [<publisher_name>, ...]}\n"
-            "- type=INCLUDE: only listed publishers run.\n"
-            "- type=EXCLUDE: listed publishers blocked, all others allowed.\n"
-            "- type=ALL: clear publisher targeting (send value=[]).\n"
-            "- Values are publisher NAMES (strings), not numeric IDs; the server resolves names.\n"
+            "publisher_targeting and publisher_groups_targeting use {type: INCLUDE | EXCLUDE | ALL, value: [<name>, ...]}. INCLUDE restricts to listed names; EXCLUDE blocks them; ALL clears the dimension (send value=[]). Values are NAMES (strings), not IDs — server resolves them. Account-level group restrictions may override campaign-level INCLUDE/EXCLUDE and produce a 4xx.\n"
             "\n"
-            "publisher_groups_targeting (object, optional):\n"
-            "- {type: INCLUDE | EXCLUDE | ALL, value: [<group_name>, ...]}\n"
-            "- Same INCLUDE / EXCLUDE / ALL semantics as publisher_targeting.\n"
-            "- Values are publisher-group NAMES (strings), not IDs.\n"
-            "- Account-level publisher-group restrictions can override campaign-level "
-            "INCLUDE/EXCLUDE; server may 4xx if a blocked group is targeted.\n"
+            "publisher_bid_modifier uses {values: [{target: <publisher_name>, cpc_modification: <number>}]}. cpc_modification is a multiplier on the campaign CPC (1.25 = +25%, 0.8 = -20%). Each target must be unique. Send values=[] to clear all modifiers; omit a target to drop its modifier in this update.\n"
             "\n"
-            "publisher_bid_modifier (object, optional):\n"
-            "- {values: [{target: <publisher_name>, cpc_modification: <number>}]}\n"
-            "- FULL REPLACE: the supplied values replace the campaign's current per-publisher "
-            "modifiers wholesale. Omit a publisher to drop its modifier; send values=[] to clear all.\n"
-            "- cpc_modification is a multiplier on the campaign CPC (e.g. 1.25 = +25%, 0.8 = -20%).\n"
-            "- Each target must be unique; cpc_modification must be a finite number.\n"
-            "- To incrementally add/remove a single entry, first read the campaign with "
-            "get_campaign, modify the list locally, then send the merged result.\n"
+            "There is no incremental ADD/REMOVE on any field — to change one entry, read the campaign with get_campaign, edit locally, send the merged result.\n"
             "\n"
-            "Read-only fields are managed by the server. Do not include id, advertiser_id, status, etc.\n"
-            "\n"
-            "Examples:\n"
-            "\n"
-            "Block two publishers:\n"
+            "Example — block two publishers:\n"
             "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
             "  \"publisher_targeting\": {\"type\": \"EXCLUDE\", \"value\": [\"pub_alpha\", \"pub_beta\"]} }\n"
             "\n"
-            "Restrict to a single publisher group:\n"
-            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
-            "  \"publisher_groups_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"premium_news\"]} }\n"
-            "\n"
-            "Set per-publisher CPC modifiers (full replace):\n"
+            "Example — set per-publisher CPC modifiers (full replace):\n"
             "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
             "  \"publisher_bid_modifier\": {\"values\": [\n"
             "    {\"target\": \"pub_alpha\", \"cpc_modification\": 1.25},\n"
             "    {\"target\": \"pub_gamma\", \"cpc_modification\": 0.8}\n"
             "  ]} }\n"
             "\n"
-            "Clear publisher targeting and all per-publisher CPC modifiers in one call:\n"
+            "Example — clear publisher targeting and all CPC modifiers in one call:\n"
             "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
             "  \"publisher_targeting\": {\"type\": \"ALL\", \"value\": []},\n"
             "  \"publisher_bid_modifier\": {\"values\": []} }"
@@ -1140,48 +888,26 @@ TOOL_REGISTRY = {
 
     "update_campaign_contextual_segments": {
         "description": (
-            "Replace the contextual segment targeting attached to a campaign. Contextual "
-            "segments narrow delivery to pages whose content matches a Realize-curated topic "
-            "(e.g. automotive, finance) using INCLUDE/EXCLUDE rules over integer segment IDs.\n"
+            "Update contextual segment targeting on a campaign. Contextual segments narrow delivery to pages whose content matches a Realize-curated topic (e.g. automotive, finance) using INCLUDE/EXCLUDE rules over integer segment IDs.\n"
             "\n"
-            "Required:\n"
-            "- account_id (string): from search_accounts.account_id (NOT numeric)\n"
-            "- campaign_id (string)\n"
-            "- contextual_segments (object): {\"collection\": [...]} where each entry is "
-            "{\"type\": INCLUDE | EXCLUDE, \"collection\": [<segment_id>, ...]}\n"
+            "Full-replace: the supplied contextual_segments replaces the campaign's current contextual targeting wholesale; send {\"collection\": []} to clear all. There is no incremental ADD/REMOVE — to change one segment, read the campaign with get_campaign, edit the lists locally, send the merged result.\n"
             "\n"
-            "Semantics:\n"
-            "- Full-replace: the supplied object replaces the campaign's current contextual "
-            "targeting wholesale.\n"
-            "- To clear all contextual targeting, send contextual_segments: {\"collection\": []}.\n"
-            "- At most one INCLUDE block and one EXCLUDE block; duplicate types are rejected.\n"
-            "- Segment IDs are integers (e.g. 1900004), not names. They are not discoverable via "
-            "this MCP server — author them in the Realize UI or read them off an existing "
-            "campaign with get_campaign.\n"
-            "- To incrementally add or remove a single segment, first read the campaign with "
-            "get_campaign, modify the lists locally, then send the merged result. There is no "
-            "incremental ADD/REMOVE operation.\n"
+            "At most one INCLUDE block and one EXCLUDE block per request — duplicate types are rejected.\n"
             "\n"
-            "Server-side constraints (will return 4xx if violated):\n"
+            "Discovery: segment IDs are integers (e.g. 1900004), not names. They are not discoverable via this MCP server — author them in the Realize UI or read them off an existing campaign with get_campaign.\n"
+            "\n"
+            "Server-side constraints (returns 4xx if violated):\n"
             "- Each segment ID must exist and be of contextual data type (not third-party).\n"
             "- Campaign must support contextual targeting (account/campaign type dependent).\n"
             "\n"
-            "Examples:\n"
-            "\n"
-            "Target three contextual segments:\n"
-            "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
-            "  \"contextual_segments\": {\"collection\": [\n"
-            "    {\"type\": \"INCLUDE\", \"collection\": [1900004, 1900024, 1900037]}\n"
-            "  ]} }\n"
-            "\n"
-            "Combine an include and exclude block:\n"
+            "Example — combine an include and exclude block:\n"
             "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
             "  \"contextual_segments\": {\"collection\": [\n"
             "    {\"type\": \"INCLUDE\", \"collection\": [1900004, 1900024]},\n"
             "    {\"type\": \"EXCLUDE\", \"collection\": [1900100]}\n"
             "  ]} }\n"
             "\n"
-            "Clear all contextual segment targeting:\n"
+            "Example — clear all contextual targeting:\n"
             "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
             "  \"contextual_segments\": {\"collection\": []} }"
         ),
@@ -1240,17 +966,17 @@ TOOL_REGISTRY = {
 
     # Campaign Items Tools (READ-ONLY)
     "get_campaign_items": {
-        "description": "Get all items for a campaign (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
+        "description": "List all items (creatives) on a campaign (read-only).",
         "schema": {
             "type": "object",
             "properties": {
                 "account_id": {
-                    "type": "string", 
-                    "description": "Account ID (string from search_accounts response 'account_id' field - NOT numeric ID). Workflow: 1) search_accounts('query') 2) Use 'account_id' from results"
+                    "type": "string",
+                    "description": "Value from search_accounts.account_id (NOT numeric)."
                 },
                 "campaign_id": {
-                    "type": "string", 
-                    "description": "Campaign ID"
+                    "type": "string",
+                    "description": "Campaign ID."
                 }
             },
             "required": ["account_id", "campaign_id"]
@@ -1260,21 +986,21 @@ TOOL_REGISTRY = {
     },
 
     "get_campaign_item": {
-        "description": "Get specific campaign item details (read-only). WORKFLOW REQUIRED: First use search_accounts to get account_id, then use that value here. Example: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here",
+        "description": "Get details for one item (creative) on a campaign (read-only).",
         "schema": {
             "type": "object",
             "properties": {
                 "account_id": {
-                    "type": "string", 
-                    "description": "Account ID (string from search_accounts response 'account_id' field - NOT numeric ID). Workflow: 1) search_accounts('query') 2) Use 'account_id' from results"
+                    "type": "string",
+                    "description": "Value from search_accounts.account_id (NOT numeric)."
                 },
                 "campaign_id": {
-                    "type": "string", 
-                    "description": "Campaign ID"
+                    "type": "string",
+                    "description": "Campaign ID."
                 },
                 "item_id": {
-                    "type": "string", 
-                    "description": "Item ID to get details for"
+                    "type": "string",
+                    "description": "Item ID."
                 }
             },
             "required": ["account_id", "campaign_id", "item_id"]
@@ -1286,45 +1012,45 @@ TOOL_REGISTRY = {
     # Reporting Tools (READ-ONLY)
 
     "get_top_campaign_content_report": {
-        "description": "Get top performing campaign content report in CSV format (read-only). Returns compact CSV data with summary header for maximum efficiency. IMPORTANT: Each call provides complete, actionable data - do NOT retry unless there's an explicit error. WORKFLOW: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here. Response includes CSV format with clear headers and pagination info. PAGINATION: Results are paginated with two controls: page_size (1-100, default: 20) and page (page number, default: 1). Check 'Total' in response header for full record count.",
+        "description": "Get the top-performing campaign content report for an account (read-only). Returns CSV with a summary header. One call per page returns complete data — do not retry unless an error is returned.\n\nPagination: page (default 1), page_size (1-100, default 20). Check `Total` in the response header for the full record count.",
         "schema": {
             "type": "object",
             "properties": {
                 "account_id": {
-                    "type": "string", 
-                    "description": "Account ID (string from search_accounts response 'account_id' field - NOT numeric ID). Workflow: 1) search_accounts('query') 2) Use 'account_id' from results"
+                    "type": "string",
+                    "description": "Value from search_accounts.account_id (NOT numeric)."
                 },
                 "start_date": {
-                    "type": "string", 
-                    "description": "Start date (YYYY-MM-DD)"
+                    "type": "string",
+                    "description": "YYYY-MM-DD."
                 },
                 "end_date": {
-                    "type": "string", 
-                    "description": "End date (YYYY-MM-DD)"
+                    "type": "string",
+                    "description": "YYYY-MM-DD."
                 },
                 "page": {
                     "type": "integer",
                     "default": 1,
                     "minimum": 1,
-                    "description": "Page number for pagination (default: 1)"
+                    "description": "Page number (default 1)."
                 },
                 "page_size": {
                     "type": "integer",
                     "default": 20,
                     "minimum": 1,
                     "maximum": 100,
-                    "description": "Records per page (default: 20, max: 100)"
+                    "description": "Records per page (1-100, default 20)."
                 },
                 "sort_field": {
                     "type": "string",
                     "enum": ["clicks", "spent", "impressions"],
-                    "description": "Optional sort field name. Available fields: clicks, spent, impressions. When specified, sorts by this field."
+                    "description": "Optional sort field. Defaults to no sort."
                 },
                 "sort_direction": {
                     "type": "string",
                     "enum": ["ASC", "DESC"],
                     "default": "DESC",
-                    "description": "Sort direction: ASC (ascending) or DESC (descending). Default: DESC"
+                    "description": "ASC or DESC (default DESC)."
                 }
             },
             "required": ["account_id", "start_date", "end_date"]
@@ -1334,34 +1060,34 @@ TOOL_REGISTRY = {
     },
 
     "get_campaign_history_report": {
-        "description": "Get campaign history report in CSV format (read-only). Returns compact CSV data with historical metrics for maximum efficiency. IMPORTANT: Each call provides complete, actionable data - do NOT retry unless there's an explicit error. WORKFLOW: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here. Response includes CSV format with clear headers and pagination info. PAGINATION: Results are paginated with two controls: page_size (1-100, default: 20) and page (page number, default: 1). Check 'Total' in response header for full record count.",
+        "description": "Get the campaign history report for an account (read-only). Returns CSV with historical metrics. One call per page returns complete data — do not retry unless an error is returned.\n\nPagination: page (default 1), page_size (1-100, default 20). Check `Total` in the response header for the full record count.",
         "schema": {
             "type": "object",
             "properties": {
                 "account_id": {
-                    "type": "string", 
-                    "description": "Account ID (string from search_accounts response 'account_id' field - NOT numeric ID). Workflow: 1) search_accounts('query') 2) Use 'account_id' from results"
+                    "type": "string",
+                    "description": "Value from search_accounts.account_id (NOT numeric)."
                 },
                 "start_date": {
-                    "type": "string", 
-                    "description": "Start date (YYYY-MM-DD)"
+                    "type": "string",
+                    "description": "YYYY-MM-DD."
                 },
                 "end_date": {
-                    "type": "string", 
-                    "description": "End date (YYYY-MM-DD)"
+                    "type": "string",
+                    "description": "YYYY-MM-DD."
                 },
                 "page": {
                     "type": "integer",
                     "default": 1,
                     "minimum": 1,
-                    "description": "Page number for pagination (default: 1)"
+                    "description": "Page number (default 1)."
                 },
                 "page_size": {
                     "type": "integer",
                     "default": 20,
                     "minimum": 1,
                     "maximum": 100,
-                    "description": "Records per page (default: 20, max: 100)"
+                    "description": "Records per page (1-100, default 20)."
                 }
             },
             "required": ["account_id", "start_date", "end_date"]
@@ -1371,50 +1097,50 @@ TOOL_REGISTRY = {
     },
 
     "get_campaign_breakdown_report": {
-        "description": "Get campaign breakdown report in CSV format (read-only). Returns compact CSV data with campaign metrics for maximum efficiency. IMPORTANT: Each call provides complete, actionable data - do NOT retry unless there's an explicit error. WORKFLOW: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here. Response includes CSV format with clear headers and pagination info. PAGINATION: Results are paginated with two controls: page_size (1-100, default: 20) and page (page number, default: 1). Check 'Total' in response header for full record count.",
+        "description": "Get the campaign breakdown report for an account (read-only). Returns CSV with per-campaign metrics. One call per page returns complete data — do not retry unless an error is returned.\n\nPagination: page (default 1), page_size (1-100, default 20). Check `Total` in the response header for the full record count.",
         "schema": {
             "type": "object",
             "properties": {
                 "account_id": {
-                    "type": "string", 
-                    "description": "Account ID (string from search_accounts response 'account_id' field - NOT numeric ID). Workflow: 1) search_accounts('query') 2) Use 'account_id' from results"
+                    "type": "string",
+                    "description": "Value from search_accounts.account_id (NOT numeric)."
                 },
                 "start_date": {
-                    "type": "string", 
-                    "description": "Start date (YYYY-MM-DD)"
+                    "type": "string",
+                    "description": "YYYY-MM-DD."
                 },
                 "end_date": {
-                    "type": "string", 
-                    "description": "End date (YYYY-MM-DD)"
+                    "type": "string",
+                    "description": "YYYY-MM-DD."
                 },
                 "filters": {
-                    "type": "object", 
-                    "description": "Optional filters (flexible JSON object)",
+                    "type": "object",
+                    "description": "Optional flat object of filter key/value pairs.",
                     "additionalProperties": {"type": "string"}
                 },
                 "page": {
                     "type": "integer",
                     "default": 1,
                     "minimum": 1,
-                    "description": "Page number for pagination (default: 1)"
+                    "description": "Page number (default 1)."
                 },
                 "page_size": {
                     "type": "integer",
                     "default": 20,
                     "minimum": 1,
                     "maximum": 100,
-                    "description": "Records per page (default: 20, max: 100)"
+                    "description": "Records per page (1-100, default 20)."
                 },
                 "sort_field": {
                     "type": "string",
                     "enum": ["clicks", "spent", "impressions"],
-                    "description": "Optional sort field name. Available fields: clicks, spent, impressions. When specified, sorts by this field."
+                    "description": "Optional sort field. Defaults to no sort."
                 },
                 "sort_direction": {
                     "type": "string",
                     "enum": ["ASC", "DESC"],
                     "default": "DESC",
-                    "description": "Sort direction: ASC (ascending) or DESC (descending). Default: DESC"
+                    "description": "ASC or DESC (default DESC)."
                 }
             },
             "required": ["account_id", "start_date", "end_date"]
@@ -1424,50 +1150,50 @@ TOOL_REGISTRY = {
     },
 
     "get_campaign_site_day_breakdown_report": {
-        "description": "Get campaign site day breakdown report in CSV format (read-only). Returns compact CSV data with site/day metrics for maximum efficiency. IMPORTANT: Each call provides complete, actionable data - do NOT retry unless there's an explicit error. WORKFLOW: 1) search_accounts('company_name') 2) Extract 'account_id' from results 3) Use account_id parameter here. Response includes CSV format with clear headers and pagination info. PAGINATION: Results are paginated with two controls: page_size (1-100, default: 20) and page (page number, default: 1). Check 'Total' in response header for full record count.",
+        "description": "Get the campaign site/day breakdown report for an account (read-only). Returns CSV with per-site, per-day metrics. One call per page returns complete data — do not retry unless an error is returned.\n\nPagination: page (default 1), page_size (1-100, default 20). Check `Total` in the response header for the full record count.",
         "schema": {
             "type": "object",
             "properties": {
                 "account_id": {
-                    "type": "string", 
-                    "description": "Account ID (string from search_accounts response 'account_id' field - NOT numeric ID). Workflow: 1) search_accounts('query') 2) Use 'account_id' from results"
+                    "type": "string",
+                    "description": "Value from search_accounts.account_id (NOT numeric)."
                 },
                 "start_date": {
-                    "type": "string", 
-                    "description": "Start date (YYYY-MM-DD)"
+                    "type": "string",
+                    "description": "YYYY-MM-DD."
                 },
                 "end_date": {
-                    "type": "string", 
-                    "description": "End date (YYYY-MM-DD)"
+                    "type": "string",
+                    "description": "YYYY-MM-DD."
                 },
                 "filters": {
-                    "type": "object", 
-                    "description": "Optional filters (flexible JSON object)",
+                    "type": "object",
+                    "description": "Optional flat object of filter key/value pairs.",
                     "additionalProperties": {"type": "string"}
                 },
                 "page": {
                     "type": "integer",
                     "default": 1,
                     "minimum": 1,
-                    "description": "Page number for pagination (default: 1)"
+                    "description": "Page number (default 1)."
                 },
                 "page_size": {
                     "type": "integer",
                     "default": 20,
                     "minimum": 1,
                     "maximum": 100,
-                    "description": "Records per page (default: 20, max: 100)"
+                    "description": "Records per page (1-100, default 20)."
                 },
                 "sort_field": {
                     "type": "string",
                     "enum": ["clicks", "spent", "impressions"],
-                    "description": "Optional sort field name. Available fields: clicks, spent, impressions. When specified, sorts by this field."
+                    "description": "Optional sort field. Defaults to no sort."
                 },
                 "sort_direction": {
                     "type": "string",
                     "enum": ["ASC", "DESC"],
                     "default": "DESC",
-                    "description": "Sort direction: ASC (ascending) or DESC (descending). Default: DESC"
+                    "description": "ASC or DESC (default DESC)."
                 }
             },
             "required": ["account_id", "start_date", "end_date"]

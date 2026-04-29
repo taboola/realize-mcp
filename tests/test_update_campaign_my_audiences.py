@@ -20,7 +20,7 @@ def _args(**overrides):
     base = {
         "account_id": "acme-inc",
         "campaign_id": "c-123",
-        "targeting": {
+        "my_audiences": {
             "collection": [
                 {"collection": [224820, 25287], "type": "INCLUDE"},
             ]
@@ -32,29 +32,29 @@ def _args(**overrides):
 
 class TestMyAudiencesValidation:
     @pytest.mark.asyncio
-    async def test_rejects_targeting_not_object(self):
-        with pytest.raises(ToolInputError, match="targeting must be an object"):
-            await handle_call_tool("update_campaign_my_audiences", _args(targeting=[]))
+    async def test_rejects_my_audiences_not_object(self):
+        with pytest.raises(ToolInputError, match="my_audiences must be an object"):
+            await handle_call_tool("update_campaign_my_audiences", _args(my_audiences=[]))
 
     @pytest.mark.asyncio
     async def test_rejects_missing_collection(self):
-        with pytest.raises(ToolInputError, match="targeting.collection must be a list"):
-            await handle_call_tool("update_campaign_my_audiences", _args(targeting={}))
+        with pytest.raises(ToolInputError, match="my_audiences.collection must be a list"):
+            await handle_call_tool("update_campaign_my_audiences", _args(my_audiences={}))
 
     @pytest.mark.asyncio
     async def test_rejects_collection_not_a_list(self):
-        with pytest.raises(ToolInputError, match="targeting.collection must be a list"):
+        with pytest.raises(ToolInputError, match="my_audiences.collection must be a list"):
             await handle_call_tool(
                 "update_campaign_my_audiences",
-                _args(targeting={"collection": "INCLUDE"}),
+                _args(my_audiences={"collection": "INCLUDE"}),
             )
 
     @pytest.mark.asyncio
     async def test_rejects_rule_not_object(self):
-        with pytest.raises(ToolInputError, match=r"targeting.collection\[0\] must be an object"):
+        with pytest.raises(ToolInputError, match=r"my_audiences.collection\[0\] must be an object"):
             await handle_call_tool(
                 "update_campaign_my_audiences",
-                _args(targeting={"collection": ["INCLUDE"]}),
+                _args(my_audiences={"collection": ["INCLUDE"]}),
             )
 
     @pytest.mark.asyncio
@@ -62,7 +62,7 @@ class TestMyAudiencesValidation:
         with pytest.raises(ToolInputError, match="type must be one of"):
             await handle_call_tool(
                 "update_campaign_my_audiences",
-                _args(targeting={"collection": [{"collection": [1, 2]}]}),
+                _args(my_audiences={"collection": [{"collection": [1, 2]}]}),
             )
 
     @pytest.mark.asyncio
@@ -70,7 +70,7 @@ class TestMyAudiencesValidation:
         with pytest.raises(ToolInputError, match="type must be one of"):
             await handle_call_tool(
                 "update_campaign_my_audiences",
-                _args(targeting={"collection": [{"collection": [1], "type": "ALL"}]}),
+                _args(my_audiences={"collection": [{"collection": [1], "type": "ALL"}]}),
             )
 
     @pytest.mark.asyncio
@@ -78,7 +78,7 @@ class TestMyAudiencesValidation:
         with pytest.raises(ToolInputError, match=r"\[0\].collection must be a list of integer audience IDs"):
             await handle_call_tool(
                 "update_campaign_my_audiences",
-                _args(targeting={"collection": [{"collection": 1, "type": "INCLUDE"}]}),
+                _args(my_audiences={"collection": [{"collection": 1, "type": "INCLUDE"}]}),
             )
 
     @pytest.mark.asyncio
@@ -86,7 +86,7 @@ class TestMyAudiencesValidation:
         with pytest.raises(ToolInputError, match=r"\[0\].collection\[0\] must be an integer"):
             await handle_call_tool(
                 "update_campaign_my_audiences",
-                _args(targeting={"collection": [{"collection": ["1"], "type": "INCLUDE"}]}),
+                _args(my_audiences={"collection": [{"collection": ["1"], "type": "INCLUDE"}]}),
             )
 
     @pytest.mark.asyncio
@@ -94,7 +94,7 @@ class TestMyAudiencesValidation:
         with pytest.raises(ToolInputError, match=r"\[0\].collection\[0\] must be an integer"):
             await handle_call_tool(
                 "update_campaign_my_audiences",
-                _args(targeting={"collection": [{"collection": [1.5], "type": "INCLUDE"}]}),
+                _args(my_audiences={"collection": [{"collection": [1.5], "type": "INCLUDE"}]}),
             )
 
     @pytest.mark.asyncio
@@ -102,7 +102,7 @@ class TestMyAudiencesValidation:
         with pytest.raises(ToolInputError, match=r"\[0\].collection\[0\] must be an integer"):
             await handle_call_tool(
                 "update_campaign_my_audiences",
-                _args(targeting={"collection": [{"collection": [True], "type": "INCLUDE"}]}),
+                _args(my_audiences={"collection": [{"collection": [True], "type": "INCLUDE"}]}),
             )
 
     @pytest.mark.asyncio
@@ -110,7 +110,7 @@ class TestMyAudiencesValidation:
         with pytest.raises(ToolInputError, match=r"\[0\].collection\[1\] must be an integer"):
             await handle_call_tool(
                 "update_campaign_my_audiences",
-                _args(targeting={"collection": [{"collection": [1, None, 2], "type": "INCLUDE"}]}),
+                _args(my_audiences={"collection": [{"collection": [1, None, 2], "type": "INCLUDE"}]}),
             )
 
     @pytest.mark.asyncio
@@ -153,7 +153,7 @@ class TestMyAudiencesWire:
     async def test_body_passes_through_unchanged(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
 
-        targeting = {
+        my_audiences = {
             "collection": [
                 {"collection": [224820, 25287], "type": "INCLUDE"},
                 {"collection": [19884, 29870], "type": "EXCLUDE"},
@@ -161,10 +161,10 @@ class TestMyAudiencesWire:
         }
         await handle_call_tool(
             "update_campaign_my_audiences",
-            _args(targeting=targeting),
+            _args(my_audiences=my_audiences),
         )
 
-        assert _post_body(mock_post) == targeting
+        assert _post_body(mock_post) == my_audiences
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
@@ -173,7 +173,7 @@ class TestMyAudiencesWire:
 
         await handle_call_tool(
             "update_campaign_my_audiences",
-            _args(targeting={"collection": []}),
+            _args(my_audiences={"collection": []}),
         )
 
         assert _post_body(mock_post) == {"collection": []}
@@ -183,7 +183,7 @@ class TestMyAudiencesWire:
     async def test_multiple_rules_passed_through(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
 
-        targeting = {
+        my_audiences = {
             "collection": [
                 {"collection": [1], "type": "INCLUDE"},
                 {"collection": [2, 3], "type": "EXCLUDE"},
@@ -192,10 +192,10 @@ class TestMyAudiencesWire:
         }
         await handle_call_tool(
             "update_campaign_my_audiences",
-            _args(targeting=targeting),
+            _args(my_audiences=my_audiences),
         )
 
-        assert _post_body(mock_post) == targeting
+        assert _post_body(mock_post) == my_audiences
 
 
 class TestMyAudiencesAnnotations:

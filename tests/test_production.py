@@ -59,22 +59,24 @@ class TestProductionReadiness:
             tools = get_tools_by_category(category)
             assert len(tools) > 0, f"Category {category} has no tools"
     
-    def test_tool_schemas_valid_read_only(self):
-        """Test that all tool schemas are valid for read-only raw JSON handling."""
+    def test_tool_schemas_valid(self):
+        """Test that all tool registry entries have the required structure."""
         tools = get_all_tools()
-        
+
         for tool_name, tool_config in tools.items():
             # Check required fields
             assert 'description' in tool_config
             assert 'schema' in tool_config
             assert 'handler' in tool_config
             assert 'category' in tool_config
-            
-            # Verify description indicates read-only
-            description = tool_config['description'].lower()
-            assert 'read-only' in description or 'get' in description, \
-                f"Tool {tool_name} should be clearly marked as read-only"
-            
+
+            # Write tools must declare destructiveHint via annotations; read tools
+            # may omit annotations entirely.
+            if tool_name.startswith(('create_', 'update_', 'delete_')):
+                annotations = tool_config.get('annotations', {})
+                assert annotations.get('destructiveHint') is True, \
+                    f"Write tool {tool_name} must declare destructiveHint=True"
+
             # Check schema structure supports flexible JSON
             schema = tool_config['schema']
             assert schema['type'] == 'object'
