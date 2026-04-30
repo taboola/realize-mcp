@@ -495,8 +495,11 @@ TOOL_REGISTRY = {
         "description": (
             "Search for accounts by numeric ID or text query (read-only). Use this first — "
             "every other tool's `account_id` parameter takes the value from the `account_id` field "
-            "returned here. Response metadata includes `Total` (full match count across pages). "
-            "Keep page_size constant across pages to avoid duplicate or missing results."
+            "returned here. Each result includes the account's `currency`, `country`, and "
+            "`time_zone_name` (when readable for the caller) — use these to choose budget amounts "
+            "in the right currency and to populate `activity_schedule.time_zone`. Response metadata "
+            "includes `Total` (full match count across pages). Keep page_size constant across pages "
+            "to avoid duplicate or missing results."
         ),
         "schema": {
             "type": "object",
@@ -523,27 +526,6 @@ TOOL_REGISTRY = {
         },
         "handler": "account_handlers.search_accounts",
         "category": "accounts"
-    },
-
-    "get_account": {
-        "description": (
-            "Get one account's full record (read-only). Returns the validation context an LLM "
-            "needs before constructing a campaign payload: currency (for amount fields), "
-            "permission flags (allowGeoTargeting, retargeting, schedule), billing state, account type. "
-            "Call after search_accounts to confirm the account allows the targeting/scheduling the user wants."
-        ),
-        "schema": {
-            "type": "object",
-            "properties": {
-                "account_id": {
-                    "type": "string",
-                    "description": "Value from search_accounts.account_id (NOT numeric).",
-                },
-            },
-            "required": ["account_id"],
-        },
-        "handler": "account_handlers.get_account",
-        "category": "accounts",
     },
 
     # Campaign Management Tools (READ-ONLY)

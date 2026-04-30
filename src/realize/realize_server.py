@@ -77,10 +77,6 @@ async def handle_call_tool(
                 page_size=arguments.get("page_size", 10),
             )
 
-        elif handler_path == "account_handlers.get_account":
-            from realize.tools.account_handlers import get_account
-            result = await get_account(arguments)
-
         # Campaign handlers
         elif handler_path == "campaign_handlers.list_campaigns":
             from realize.tools.campaign_handlers import list_campaigns

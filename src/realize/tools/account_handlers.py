@@ -1,12 +1,10 @@
 """Account management tool handlers."""
 from typing import List
 import json
-from urllib.parse import quote
 
 import mcp.types as types
 
 from realize.tools.errors import ToolInputError
-from realize.tools.utils import format_response, validate_account_id
 from realize.client import client
 
 
@@ -51,7 +49,12 @@ async def search_accounts(query: str, page: int = 1, page_size: int = 10) -> Lis
     for i, result in enumerate(data["results"], 1):
         account_id = result.get("account_id", "<missing>")
         name = result.get("name", "Unknown")
-        lines.append(f"  {i}. account_id={account_id!r} ({name})")
+        currency = result.get("currency")
+        time_zone = result.get("time_zone_name") or result.get("timeZoneName")
+        country = result.get("country")
+        meta_parts = [p for p in (currency, country, time_zone) if p]
+        meta = f" [{' · '.join(meta_parts)}]" if meta_parts else ""
+        lines.append(f"  {i}. account_id={account_id!r} ({name}){meta}")
     lines.append("")
     lines.append("Full response:")
     lines.append(json.dumps(data, indent=2, ensure_ascii=False))
@@ -59,21 +62,3 @@ async def search_accounts(query: str, page: int = 1, page_size: int = 10) -> Lis
     return [types.TextContent(type="text", text="\n".join(lines))]
 
 
-async def get_account(arguments: dict = None) -> List[types.TextContent]:
-    """Get one account's full record (read-only).
-
-    Surfaces the validation context an LLM needs before constructing a campaign payload:
-    currency, allowGeoTargeting / retargeting / schedule permissions, billing state, account type.
-    """
-    account_id = arguments.get("account_id") if arguments else None
-
-    is_valid, error_message = validate_account_id(account_id)
-    if not is_valid:
-        raise ToolInputError(error_message)
-
-    response = await client.get(f"/{quote(account_id, safe='')}")
-
-    return [types.TextContent(
-        type="text",
-        text=f"Account {account_id} details:\n{format_response(response)}"
-    )]
