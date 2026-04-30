@@ -42,58 +42,59 @@ claude mcp add --transport http --callback-port 3000 realize-mcp https://mcp.rea
 
 ## Tools Reference
 
-All tools (except `search_accounts`) require an `account_id` returned by `search_accounts` — never a raw numeric ID. Write tools are annotated `destructiveHint: true`.
+Every account-scoped tool takes an `account_id` from `search_accounts` (never a raw numeric ID). Write tools carry `destructiveHint: true`.
 
 ### Accounts
 
-- **`search_accounts`** — Search accounts by numeric ID (exact) or text (fuzzy). Call first to obtain `account_id`.
-- **`get_account`** — Get one account's full record. Pre-flight validation context: currency, `allowGeoTargeting` / retargeting / schedule permissions, billing state.
+- **`search_accounts`** — Find an account by numeric ID or name. Call first.
+- **`get_account`** — Read one account's currency, permissions, and billing state.
 
-### Campaigns (read)
+### Campaigns
 
-- **`list_campaigns`** — List all campaigns for an account.
-- **`get_campaign`** — Get a campaign's full details.
-- **`list_campaign_items`** — List items/creatives on a campaign.
-- **`get_campaign_item`** — Get one item's details.
+A campaign holds budget, bidding, schedule, and targeting. It contains items.
 
-### Campaigns (write)
+- **`list_campaigns`** — List campaigns on an account.
+- **`get_campaign`** — Read one campaign.
+- **`create_campaign`** — Create a campaign with all targeting in one call. Ships paused.
+- **`update_campaign`** — Update any subset of fields. Pause/resume via `is_active`.
 
-Two fat tools: scalar fields partial-merge; targeting blocks full-replace. Both fan out to Backstage internally (main POST + optional my_audiences / lookalike_audience / contextual_segments sub-resources). Sub-resource failures surface as `partial_failures` in the response.
+Both write tools accept scalars (name, budget, bidding, schedule dates, `is_active`) plus targeting blocks: `geo_targeting`, `platform_targeting`, `os_targeting`, `browser_targeting`, `connection_type_targeting`, `activity_schedule`, `conversion_rules`, `publisher_targeting`, `publisher_groups_targeting`, `publisher_bid_modifier`, `contextual_segments`, `my_audiences`, `lookalike_audience`. Scalars partial-merge; targeting blocks full-replace. `create_campaign` requires advanced `geo_targeting`; `update_campaign` also accepts classic dimension fields. Sub-resource failures return as `partial_failures`.
 
-- **`create_campaign`** — Create a campaign with full targeting in one call (returns `status=PAUSED`). Inline blocks: `geo_targeting` (advanced/MultiTargeting only), `platform_targeting` / `os_targeting` / `browser_targeting` / `connection_type_targeting`, `activity_schedule`, `conversion_rules`, `publisher_targeting` / `publisher_groups_targeting` / `publisher_bid_modifier`, `contextual_segments`, `my_audiences`, `lookalike_audience`. Classic geo fields rejected on create.
-- **`update_campaign`** — Update any subset of scalars or targeting blocks. Accepts both advanced `geo_targeting` and classic dimension fields (`country_targeting` / `region_targeting` / `dma_targeting` / `city_targeting` / `postal_code_targeting`); mixing both shapes in one request is rejected. State transitions via `is_active` boolean.
+### Campaign Items
 
-### Resource Discovery
+An item is a creative (headline, image, URL) served under a campaign. Distinct object from the campaign itself.
 
-Reference vocabularies (no `account_id`):
-- **`search_geos`** — List valid country / region / dma / city / postal_code values for `geo_targeting` and classic geo fields. `dimension` required; `country_code` required for non-country dimensions.
-- **`search_techno`** — List valid platform / OS / OS version / browser / connection_type values for techno targeting fields. `dimension` required; `os_family` required for `operating_system_versions`.
-- **`list_realize_resource`** — List bounded campaign-config enums: `marketing_objectives`, `bid_strategies`, `spending_limit_models`, `time_zones`.
-- **`search_publisher_groups`** — List sponsored publisher targeting groups (network-scoped). Names feed `publisher_groups_targeting.value`.
+- **`list_campaign_items`** — List items on a campaign.
+- **`get_campaign_item`** — Read one item.
 
-Account-scoped catalogs (require `account_id` from `search_accounts`):
-- **`search_audiences`** — List first-party + custom audiences. IDs feed `my_audiences.collection[].collection`. Optional `country_codes` + `country_targeting_type` filters.
-- **`search_lookalike_audiences`** — List lookalike audiences (CRM/pixel/PBP) for targeting. `rule_id` feeds `lookalike_audience.collection[].collection[].rule_id`. Optional `country_code` filter.
-- **`search_publishers`** — List publishers an account is allowed to target. Names feed `publisher_targeting.value`.
-- **`search_conversion_rules`** — List conversion rules attached to an account. IDs feed `conversion_rules: [{id}]`.
+### Discovery
 
-### Reporting (CSV)
+Use these to populate campaign targeting fields with valid values.
 
-Shared params: `account_id`, `start_date`, `end_date` (`YYYY-MM-DD`), `page` (default 1), `page_size` (default 20, max 100).
+- **`search_geos`** — Countries, regions, DMAs, cities, postal codes.
+- **`search_techno`** — Platforms, OS, OS versions, browsers, connection types.
+- **`list_realize_resource`** — Bounded enums: marketing objectives, bid strategies, spending limit models, time zones.
+- **`search_audiences`** — First-party and custom audiences for an account.
+- **`search_lookalike_audiences`** — CRM/pixel/PBP lookalike audiences.
+- **`search_publishers`** — Publishers an account may target.
+- **`search_publisher_groups`** — Network-wide publisher targeting groups.
+- **`search_conversion_rules`** — Conversion rules attached to an account.
 
-- **`get_top_campaign_content_report`** — Top performing content. Supports sort.
-- **`get_campaign_breakdown_report`** — Campaign performance breakdown. Supports sort + filters.
-- **`get_campaign_history_report`** — Historical campaign data. Shared params only.
-- **`get_campaign_site_day_breakdown_report`** — Site/day performance breakdown. Supports sort + filters.
+### Reports (CSV)
 
-Sort: `sort_field` (`clicks | spent | impressions`), `sort_direction` (`ASC | DESC`, default `DESC`). Filters: object with string values only.
+All take `account_id`, `start_date`, `end_date` (YYYY-MM-DD), with optional `page` / `page_size` (default 20, max 100). `sort_field` is `clicks | spent | impressions`; `sort_direction` is `ASC | DESC`.
+
+- **`get_top_campaign_content_report`** — Top-performing content. Sortable.
+- **`get_campaign_breakdown_report`** — Per-campaign performance. Sortable + filterable.
+- **`get_campaign_history_report`** — Historical metrics over time.
+- **`get_campaign_site_day_breakdown_report`** — Per-site, per-day breakdown. Sortable + filterable.
 
 ### Authentication (stdio only)
 
-Excluded in Streamable HTTP mode (auth handled by OAuth 2.1 at transport layer).
+Streamable HTTP mode handles auth via OAuth 2.1 at the transport layer; these tools are excluded there.
 
 - **`get_auth_token`** — Authenticate via `REALIZE_CLIENT_ID` / `REALIZE_CLIENT_SECRET`.
-- **`get_token_details`** — Inspect current token.
+- **`get_token_details`** — Inspect the current token.
 
 ---
 
