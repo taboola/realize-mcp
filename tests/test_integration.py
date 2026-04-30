@@ -25,7 +25,7 @@ class TestReadOnlyIntegration:
         
         # Check that essential read-only tools are present
         tool_names = [tool.name for tool in tools]
-        essential_tools = ['get_auth_token', 'search_accounts', 'get_all_campaigns']
+        essential_tools = ['get_auth_token', 'search_accounts', 'list_campaigns']
         
         for tool in essential_tools:
             assert tool in tool_names, f"Essential read-only tool {tool} missing"
@@ -85,8 +85,8 @@ class TestReadOnlyIntegration:
             "metadata": {"total": 1}
         }
         
-        # Test get_all_campaigns
-        result = await handle_call_tool("get_all_campaigns", {
+        # Test list_campaigns
+        result = await handle_call_tool("list_campaigns", {
             "account_id": "test_account"
         })
         assert len(result) == 1
@@ -110,7 +110,7 @@ class TestReadOnlyIntegration:
     @patch('realize.tools.campaign_handlers.client.get')
     async def test_campaign_items_integration(self, mock_get):
         """Test campaign items tools integration with raw JSON."""
-        # Test get_campaign_items
+        # Test list_campaign_items
         mock_get.return_value = {
             "results": [
                 {
@@ -122,7 +122,7 @@ class TestReadOnlyIntegration:
             ]
         }
         
-        result = await handle_call_tool("get_campaign_items", {
+        result = await handle_call_tool("list_campaign_items", {
             "account_id": "test_account", 
             "campaign_id": "123"
         })
@@ -197,9 +197,9 @@ class TestReadOnlyIntegration:
     async def test_error_handling_integration(self, mock_get):
         """Test error handling integration across all tools — errors propagate."""
         error_tools = [
-            ("get_all_campaigns", {"account_id": "test"}),
+            ("list_campaigns", {"account_id": "test"}),
             ("get_campaign", {"account_id": "test", "campaign_id": "123"}),
-            ("get_campaign_items", {"account_id": "test", "campaign_id": "123"})
+            ("list_campaign_items", {"account_id": "test", "campaign_id": "123"})
         ]
 
         for tool_name, args in error_tools:
@@ -212,9 +212,9 @@ class TestReadOnlyIntegration:
     async def test_parameter_validation_integration(self):
         """Test parameter validation across all tools — raises ToolInputError."""
         validation_tests = [
-            ("get_all_campaigns", {}, "account_id is required"),
+            ("list_campaigns", {}, "account_id is required"),
             ("get_campaign", {"account_id": "test"}, "campaign_id"),
-            ("get_campaign_items", {"account_id": "test"}, "campaign_id"),
+            ("list_campaign_items", {"account_id": "test"}, "campaign_id"),
             ("get_campaign_item", {"account_id": "test", "campaign_id": "123"}, "item_id"),
             ("get_campaign_breakdown_report", {"account_id": "test"}, "start_date"),
             ("get_top_campaign_content_report", {"account_id": "test"}, "start_date"),

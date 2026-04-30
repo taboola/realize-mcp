@@ -1,6 +1,6 @@
 # Realize MCP Server
 
-A Model Context Protocol (MCP) server for Taboola's Realize API. Provides read access to accounts, campaigns, items, and reports, plus write access to create and update campaigns (including targeting, scheduling, audiences, and conversion rules). Install with stdio transport for single-user local use, or Streamable HTTP transport for multi-user deployment.
+A Model Context Protocol (MCP) server for Taboola's Realize API. Provides read access to accounts, campaigns, items, and reports, plus two fat write tools (`create_campaign`, `update_campaign`) covering scalars and all targeting (geo, techno, schedule, audiences, publishers, conversion rules, contextual segments) inline. Install with stdio transport for single-user local use, or Streamable HTTP transport for multi-user deployment.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![Python](https://img.shields.io/badge/Python-3.10+-green.svg)](https://python.org) [![MCP](https://img.shields.io/badge/MCP-Compatible-orange.svg)](https://modelcontextprotocol.io/) [![Latest Version][mdversion-button]][md-pypi]
 
@@ -47,31 +47,35 @@ All tools (except `search_accounts`) require an `account_id` returned by `search
 ### Accounts
 
 - **`search_accounts`** — Search accounts by numeric ID (exact) or text (fuzzy). Call first to obtain `account_id`.
+- **`get_account`** — Get one account's full record. Pre-flight validation context: currency, `allowGeoTargeting` / retargeting / schedule permissions, billing state.
 
 ### Campaigns (read)
 
-- **`get_all_campaigns`** — List all campaigns for an account.
+- **`list_campaigns`** — List all campaigns for an account.
 - **`get_campaign`** — Get a campaign's full details.
-- **`get_campaign_items`** — List items/creatives on a campaign.
+- **`list_campaign_items`** — List items/creatives on a campaign.
 - **`get_campaign_item`** — Get one item's details.
 
 ### Campaigns (write)
 
-- **`create_campaign`** — Create a campaign (returns `status=PAUSED`, no targeting; use update tools after).
-- **`update_campaign`** — Partial-merge update of campaign scalar fields (name, bidding, budget, schedule dates, `is_active`, etc.).
-- **`update_campaign_geo_classic`** — Set one classic geo dimension (`country | region | dma | city | postal_code`); sub-dim mutex.
-- **`update_campaign_geo_advanced`** — Set advanced (MultiTargeting) geo; one-way migration from classic.
-- **`update_campaign_techno`** — Set one technology dimension (`platform | os | browser | connection_type`).
-- **`update_campaign_my_audiences`** — Full-replace first-party + custom audience targeting.
-- **`update_campaign_lookalike_audience`** — Full-replace lookalike (CRM/pixel) targeting; INCLUDE only, max one block.
-- **`update_campaign_schedule`** — Set activity schedule (`ALWAYS`, or `CUSTOM` dayparting with IANA time zone).
-- **`update_campaign_conversion_rules`** — Full-replace attached conversion rule IDs (authoring in Realize UI).
-- **`update_campaign_publishers`** — Update publisher targeting, group targeting, and per-publisher CPC bid modifiers.
-- **`update_campaign_contextual_segments`** — Full-replace contextual segment targeting (INCLUDE/EXCLUDE blocks).
+Two fat tools: scalar fields partial-merge; targeting blocks full-replace. Both fan out to Backstage internally (main POST + optional my_audiences / lookalike_audience / contextual_segments sub-resources). Sub-resource failures surface as `partial_failures` in the response.
+
+- **`create_campaign`** — Create a campaign with full targeting in one call (returns `status=PAUSED`). Inline blocks: `geo_targeting` (advanced/MultiTargeting only), `platform_targeting` / `os_targeting` / `browser_targeting` / `connection_type_targeting`, `activity_schedule`, `conversion_rules`, `publisher_targeting` / `publisher_groups_targeting` / `publisher_bid_modifier`, `contextual_segments`, `my_audiences`, `lookalike_audience`. Classic geo fields rejected on create.
+- **`update_campaign`** — Update any subset of scalars or targeting blocks. Accepts both advanced `geo_targeting` and classic dimension fields (`country_targeting` / `region_targeting` / `dma_targeting` / `city_targeting` / `postal_code_targeting`); mixing both shapes in one request is rejected. State transitions via `is_active` boolean.
 
 ### Resource Discovery
 
-- **`list_realize_resource`** — Look up Realize platform vocabulary (countries, regions, dma, cities, postal codes, platforms, OS, OS versions, browsers, connection types, marketing objectives, bid strategies, spending limit models, time zones). Some require `args` (e.g. `country_code` for regions; `os_family` for OS versions).
+Reference vocabularies (no `account_id`):
+- **`search_geos`** — List valid country / region / dma / city / postal_code values for `geo_targeting` and classic geo fields. `dimension` required; `country_code` required for non-country dimensions.
+- **`search_techno`** — List valid platform / OS / OS version / browser / connection_type values for techno targeting fields. `dimension` required; `os_family` required for `operating_system_versions`.
+- **`list_realize_resource`** — List bounded campaign-config enums: `marketing_objectives`, `bid_strategies`, `spending_limit_models`, `time_zones`.
+- **`search_publisher_groups`** — List sponsored publisher targeting groups (network-scoped). Names feed `publisher_groups_targeting.value`.
+
+Account-scoped catalogs (require `account_id` from `search_accounts`):
+- **`search_audiences`** — List first-party + custom audiences. IDs feed `my_audiences.collection[].collection`. Optional `country_codes` + `country_targeting_type` filters.
+- **`search_lookalike_audiences`** — List lookalike audiences (CRM/pixel/PBP) for targeting. `rule_id` feeds `lookalike_audience.collection[].collection[].rule_id`. Optional `country_code` filter.
+- **`search_publishers`** — List publishers an account is allowed to target. Names feed `publisher_targeting.value`.
+- **`search_conversion_rules`** — List conversion rules attached to an account. IDs feed `conversion_rules: [{id}]`.
 
 ### Reporting (CSV)
 

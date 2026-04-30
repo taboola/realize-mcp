@@ -34,12 +34,11 @@ class TestAccountSearch:
             assert len(result) == 1
             assert hasattr(result[0], 'type')
             assert hasattr(result[0], 'text')
-            # Check for formatted response elements
-            assert "🎯 ACCOUNT SEARCH RESULTS" in result[0].text
-            assert "📋 ACCOUNT_ID VALUES FOR OTHER TOOLS:" in result[0].text
-            assert "account_id: '12345'" in result[0].text
+            assert "Account search results" in result[0].text
+            assert "Resolved account_ids" in result[0].text
+            assert "account_id='12345'" in result[0].text
             assert "Test Account" in result[0].text
-            assert "📊 FULL DETAILS:" in result[0].text
+            assert "Full response:" in result[0].text
             mock_get.assert_called_once_with("/advertisers", params={"id": "12345", "page": 1, "page_size": 10})
 
     @pytest.mark.asyncio
@@ -63,12 +62,11 @@ class TestAccountSearch:
             assert len(result) == 1
             assert hasattr(result[0], 'type')
             assert hasattr(result[0], 'text')
-            # Check for formatted response elements
-            assert "🎯 ACCOUNT SEARCH RESULTS" in result[0].text
-            assert "📋 ACCOUNT_ID VALUES FOR OTHER TOOLS:" in result[0].text
-            assert "account_id: '67890'" in result[0].text
+            assert "Account search results" in result[0].text
+            assert "Resolved account_ids" in result[0].text
+            assert "account_id='67890'" in result[0].text
             assert "Marketing Corp" in result[0].text
-            assert "📊 FULL DETAILS:" in result[0].text
+            assert "Full response:" in result[0].text
             mock_get.assert_called_once_with("/advertisers", params={"search_text": "Marketing", "page": 1, "page_size": 10})
     
     @pytest.mark.asyncio

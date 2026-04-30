@@ -149,11 +149,7 @@ class TestUpdateCampaignWireMapping:
         mock_post.return_value = {"id": "c-123"}
         await handle_call_tool(
             "update_campaign",
-            _args(
-                geo_targeting={"state": "ALL", "value": []},
-                country_targeting={"type": "INCLUDE", "value": ["US"]},
-                extra_unknown="dropped",
-            ),
+            _args(extra_unknown="dropped"),
         )
         body = _post_body(mock_post)
         assert body == {"name": "Renamed"}

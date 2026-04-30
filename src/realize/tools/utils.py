@@ -5,6 +5,41 @@ import io
 from typing import Dict, Any, Tuple, List
 
 
+def flatten_results(payload: Any) -> List[Any]:
+    """Unwrap APIResults<APIResource<T>> -> flat list of values.
+
+    Used by resource discovery tools to project the standard Backstage
+    pagination wrapper (`{"results": [{"value": …}, …]}`) into a flat list.
+    Non-dict payloads and dicts without a `results` list pass through.
+    """
+    if not isinstance(payload, dict):
+        return payload
+    results = payload.get("results")
+    if not isinstance(results, list):
+        return payload
+    flattened: List[Any] = []
+    for entry in results:
+        if isinstance(entry, dict) and "value" in entry:
+            flattened.append(entry["value"])
+        else:
+            flattened.append(entry)
+    return flattened
+
+
+def format_discovery_payload(label: str, label_value: str, values: Any) -> str:
+    """Render a discovery-tool response as `{<label>: <label_value>, "values": [...]}` JSON.
+
+    Shared by resources.py and discovery_handlers.py so all `search_*` / `list_*` tools
+    return the same shape. Pass `label=None` for tools without a context label
+    (network-scoped discovery), which emits `{"values": [...]}` only.
+    """
+    body: Dict[str, Any] = {}
+    if label is not None:
+        body[label] = label_value
+    body["values"] = values
+    return json.dumps(body, ensure_ascii=False, indent=2)
+
+
 def format_response_as_csv(data: Dict[str, Any], max_records_display: int = 1000) -> str:
     """
     Format API response data as CSV with summary header for maximum compactness.

@@ -85,7 +85,7 @@ class TestMCPServerErrorHandling:
 
         # Missing account_id
         with pytest.raises(ToolInputError, match="account_id is required"):
-            await handle_call_tool("get_all_campaigns", {})
+            await handle_call_tool("list_campaigns", {})
 
         # Missing campaign_id
         with pytest.raises(ToolInputError, match="campaign_id is required"):

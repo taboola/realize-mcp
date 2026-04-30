@@ -79,6 +79,7 @@ class TestToolRegistryEdgeCases:
             'campaign_handlers.',
             'report_handlers.',
             'resources.',
+            'discovery_handlers.',
         ]
         
         for tool_name, tool_config in tools.items():
@@ -293,7 +294,7 @@ class TestToolTransportFiltering:
         )
         assert len(tools) == non_auth_count
         assert "search_accounts" in tools
-        assert "get_all_campaigns" in tools
+        assert "list_campaigns" in tools
 
 
 if __name__ == "__main__":

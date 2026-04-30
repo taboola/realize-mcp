@@ -23,8 +23,8 @@ class TestProductionReadiness:
         required_tools = [
             'get_auth_token', 'get_token_details',
             'search_accounts',
-            'get_all_campaigns', 'get_campaign',
-            'get_campaign_items', 'get_campaign_item',
+            'list_campaigns', 'get_campaign',
+            'list_campaign_items', 'get_campaign_item',
             'get_top_campaign_content_report', 'get_campaign_history_report',
             'get_campaign_breakdown_report', 'get_campaign_site_day_breakdown_report'
         ]
@@ -237,7 +237,7 @@ class TestReadOnlyToolHandlers:
     async def test_campaign_read_handlers_raw_json(self, mock_client):
         """Test read-only campaign handlers work with raw JSON responses."""
         # Test campaign handlers with raw JSON
-        from realize.tools.campaign_handlers import get_all_campaigns, get_campaign
+        from realize.tools.campaign_handlers import list_campaigns, get_campaign
         
         # Test campaign listing (read-only) - reset mock first
         mock_client.get.reset_mock()
@@ -253,7 +253,7 @@ class TestReadOnlyToolHandlers:
             ]
         })
         
-        result = await get_all_campaigns({"account_id": "acc_123"})
+        result = await list_campaigns({"account_id": "acc_123"})
         assert len(result) == 1
         assert "Test Campaign" in result[0].text
         

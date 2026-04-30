@@ -77,10 +77,14 @@ async def handle_call_tool(
                 page_size=arguments.get("page_size", 10),
             )
 
+        elif handler_path == "account_handlers.get_account":
+            from realize.tools.account_handlers import get_account
+            result = await get_account(arguments)
+
         # Campaign handlers
-        elif handler_path == "campaign_handlers.get_all_campaigns":
-            from realize.tools.campaign_handlers import get_all_campaigns
-            result = await get_all_campaigns(arguments)
+        elif handler_path == "campaign_handlers.list_campaigns":
+            from realize.tools.campaign_handlers import list_campaigns
+            result = await list_campaigns(arguments)
 
         elif handler_path == "campaign_handlers.get_campaign":
             from realize.tools.campaign_handlers import get_campaign
@@ -94,54 +98,46 @@ async def handle_call_tool(
             from realize.tools.campaign_handlers import update_campaign
             result = await update_campaign(arguments)
 
-        elif handler_path == "campaign_handlers.update_campaign_geo_classic":
-            from realize.tools.campaign_handlers import update_campaign_geo_classic
-            result = await update_campaign_geo_classic(arguments)
-
-        elif handler_path == "campaign_handlers.update_campaign_geo_advanced":
-            from realize.tools.campaign_handlers import update_campaign_geo_advanced
-            result = await update_campaign_geo_advanced(arguments)
-
-        elif handler_path == "campaign_handlers.update_campaign_techno":
-            from realize.tools.campaign_handlers import update_campaign_techno
-            result = await update_campaign_techno(arguments)
-
-        elif handler_path == "campaign_handlers.update_campaign_my_audiences":
-            from realize.tools.campaign_handlers import update_campaign_my_audiences
-            result = await update_campaign_my_audiences(arguments)
-
-        elif handler_path == "campaign_handlers.update_campaign_lookalike_audience":
-            from realize.tools.campaign_handlers import update_campaign_lookalike_audience
-            result = await update_campaign_lookalike_audience(arguments)
-
-        elif handler_path == "campaign_handlers.update_campaign_schedule":
-            from realize.tools.campaign_handlers import update_campaign_schedule
-            result = await update_campaign_schedule(arguments)
-
-        elif handler_path == "campaign_handlers.update_campaign_conversion_rules":
-            from realize.tools.campaign_handlers import update_campaign_conversion_rules
-            result = await update_campaign_conversion_rules(arguments)
-
-        elif handler_path == "campaign_handlers.update_campaign_publishers":
-            from realize.tools.campaign_handlers import update_campaign_publishers
-            result = await update_campaign_publishers(arguments)
-
-        elif handler_path == "campaign_handlers.update_campaign_contextual_segments":
-            from realize.tools.campaign_handlers import update_campaign_contextual_segments
-            result = await update_campaign_contextual_segments(arguments)
-
-        elif handler_path == "campaign_handlers.get_campaign_items":
-            from realize.tools.campaign_handlers import get_campaign_items
-            result = await get_campaign_items(arguments)
+        elif handler_path == "campaign_handlers.list_campaign_items":
+            from realize.tools.campaign_handlers import list_campaign_items
+            result = await list_campaign_items(arguments)
 
         elif handler_path == "campaign_handlers.get_campaign_item":
             from realize.tools.campaign_handlers import get_campaign_item
             result = await get_campaign_item(arguments)
 
         # Resource discovery handlers
+        elif handler_path == "resources.search_geos":
+            from realize.tools.resources import search_geos
+            result = await search_geos(arguments)
+
+        elif handler_path == "resources.search_techno":
+            from realize.tools.resources import search_techno
+            result = await search_techno(arguments)
+
         elif handler_path == "resources.list_realize_resource":
             from realize.tools.resources import list_realize_resource
             result = await list_realize_resource(arguments)
+
+        elif handler_path == "discovery_handlers.search_audiences":
+            from realize.tools.discovery_handlers import search_audiences
+            result = await search_audiences(arguments)
+
+        elif handler_path == "discovery_handlers.search_lookalike_audiences":
+            from realize.tools.discovery_handlers import search_lookalike_audiences
+            result = await search_lookalike_audiences(arguments)
+
+        elif handler_path == "discovery_handlers.search_publishers":
+            from realize.tools.discovery_handlers import search_publishers
+            result = await search_publishers(arguments)
+
+        elif handler_path == "discovery_handlers.search_publisher_groups":
+            from realize.tools.discovery_handlers import search_publisher_groups
+            result = await search_publisher_groups(arguments)
+
+        elif handler_path == "discovery_handlers.search_conversion_rules":
+            from realize.tools.discovery_handlers import search_conversion_rules
+            result = await search_conversion_rules(arguments)
 
         # Report handlers
         elif handler_path == "report_handlers.get_top_campaign_content_report":

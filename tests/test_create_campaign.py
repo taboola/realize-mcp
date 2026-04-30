@@ -134,7 +134,7 @@ class TestCreateCampaignAnnotations:
         from realize.realize_server import handle_list_tools
 
         tools = await handle_list_tools()
-        for name in ("get_campaign", "get_all_campaigns", "search_accounts"):
+        for name in ("get_campaign", "list_campaigns", "search_accounts"):
             tool = next(t for t in tools if t.name == name)
             assert tool.annotations is None, f"{name} is read-only and should have no annotations"
 
@@ -203,12 +203,10 @@ class TestCreateCampaignTopLevelFields:
 
         await handle_call_tool("create_campaign", _minimal_args(
             cpc=0.5, spending_limit=100.0,
-            country_targeting={"type": "INCLUDE", "value": ["US"]},
             extra_unknown="should be dropped",
         ))
 
         body = _post_body(mock_post)
-        assert "country_targeting" not in body
         assert "extra_unknown" not in body
         assert "account_id" not in body
 
