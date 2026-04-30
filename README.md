@@ -46,7 +46,7 @@ Every account-scoped tool takes an `account_id` from `search_accounts` (never a 
 
 ### Accounts
 
-- **`search_accounts`** — Find an account by numeric ID or name. Call first. Results include `currency`, `country`, and `time_zone_name` (when readable for the caller) so the LLM can pick the right budget amounts and timezone.
+- **`search_accounts`** — Find an account by numeric ID or name. Call first. Results include `currency`, `country`, and `time_zone_name` so the LLM can pick the right budget amounts and timezone.
 
 ### Campaigns
 

@@ -493,10 +493,10 @@ TOOL_REGISTRY = {
             "Search for accounts by numeric ID or text query (read-only). Use this first — "
             "every other tool's `account_id` parameter takes the value from the `account_id` field "
             "returned here. Each result includes the account's `currency`, `country`, and "
-            "`time_zone_name` (when readable for the caller) — use these to choose budget amounts "
-            "in the right currency and to populate `activity_schedule.time_zone`. Response metadata "
-            "includes `Total` (full match count across pages). Keep page_size constant across pages "
-            "to avoid duplicate or missing results."
+            "`time_zone_name` — use these to choose budget amounts in the right currency and to "
+            "populate `activity_schedule.time_zone`. Response metadata includes `Total` (full match "
+            "count across pages). Keep page_size constant across pages to avoid duplicate or "
+            "missing results."
         ),
         "schema": {
             "type": "object",
