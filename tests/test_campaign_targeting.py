@@ -10,7 +10,6 @@ Covers:
 """
 import json
 
-import httpx
 import pytest
 from unittest.mock import AsyncMock, patch
 
@@ -180,162 +179,102 @@ class TestPublishersOnFatTools:
         assert body["publisher_bid_modifier"]["values"][0]["cpc_modification"] == 1.25
 
 
-class TestSubResourceFanOutOnCreate:
+class TestInlineSubResourceTargeting:
+    """Audiences / lookalike / contextual_segments ride inline on the main POST."""
+
     @pytest.mark.asyncio
-    @patch('realize.tools.campaign_handlers.client.get', new_callable=AsyncMock)
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_my_audiences_posts_to_subresource(self, mock_post, mock_get):
+    async def test_my_audiences_inline_as_audiences_targeting(self, mock_post):
         mock_post.return_value = {"id": "c-99"}
-        mock_get.return_value = {"id": "c-99", "status": "PAUSED"}
         await handle_call_tool("create_campaign", _create_args(
-            my_audiences={"collection": [{"type": "INCLUDE", "collection": [123]}]},
+            my_audiences={"collection": [{"type": "INCLUDE", "collection": [123, 456]}]},
         ))
         bodies = _bodies_by_endpoint(mock_post)
-        assert "/acme-inc/campaigns" in bodies
-        assert "/acme-inc/campaigns/c-99/targeting/my_audiences" in bodies
-        assert bodies["/acme-inc/campaigns/c-99/targeting/my_audiences"] == {
-            "collection": [{"type": "INCLUDE", "collection": [123]}]
+        assert set(bodies.keys()) == {"/acme-inc/campaigns"}  # single POST
+        body = bodies["/acme-inc/campaigns"]
+        assert body["audiences_targeting"] == {
+            "state": "EXISTS",
+            "value": [{"type": "INCLUDE", "value": [123, 456]}],
         }
 
     @pytest.mark.asyncio
-    @patch('realize.tools.campaign_handlers.client.get', new_callable=AsyncMock)
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_all_three_sub_resources_fanned_out(self, mock_post, mock_get):
+    async def test_my_audiences_empty_clears_via_state_all(self, mock_post):
         mock_post.return_value = {"id": "c-99"}
-        mock_get.return_value = {"id": "c-99"}
         await handle_call_tool("create_campaign", _create_args(
             my_audiences={"collection": []},
-            lookalike_audience={"collection": []},
-            contextual_segments={"collection": []},
         ))
-        endpoints = set(_bodies_by_endpoint(mock_post).keys())
-        assert "/acme-inc/campaigns" in endpoints
-        assert "/acme-inc/campaigns/c-99/targeting/my_audiences" in endpoints
-        assert "/acme-inc/campaigns/c-99/targeting/lookalike_audience" in endpoints
-        assert "/acme-inc/campaigns/c-99/targeting/contextual_segments" in endpoints
+        body = _bodies_by_endpoint(mock_post)["/acme-inc/campaigns"]
+        assert body["audiences_targeting"] == {"state": "ALL", "value": []}
 
-
-class TestSubResourceFanOutOnUpdate:
     @pytest.mark.asyncio
-    @patch('realize.tools.campaign_handlers.client.get', new_callable=AsyncMock)
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_only_sub_resource_skips_main_post(self, mock_post, mock_get):
-        mock_post.return_value = {}
-        mock_get.return_value = {"id": "c-123"}
+    async def test_lookalike_inline_as_lookalike_audience_targeting(self, mock_post):
+        mock_post.return_value = {"id": "c-99"}
+        await handle_call_tool("create_campaign", _create_args(
+            lookalike_audience={
+                "collection": [{
+                    "type": "INCLUDE",
+                    "collection": [{"rule_id": 7, "similarity_level": 10}],
+                }],
+            },
+        ))
+        body = _bodies_by_endpoint(mock_post)["/acme-inc/campaigns"]
+        assert body["lookalike_audience_targeting"] == {
+            "state": "EXISTS",
+            "value": [{
+                "type": "INCLUDE",
+                "value": [{"rule_id": 7, "similarity_level": 10}],
+            }],
+        }
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
+    async def test_contextual_inline_as_contextual_segments_targeting(self, mock_post):
+        mock_post.return_value = {"id": "c-99"}
+        await handle_call_tool("create_campaign", _create_args(
+            contextual_segments={"collection": [{"type": "EXCLUDE", "collection": [11, 22]}]},
+        ))
+        body = _bodies_by_endpoint(mock_post)["/acme-inc/campaigns"]
+        assert body["contextual_segments_targeting"] == {
+            "state": "EXISTS",
+            "value": [{"type": "EXCLUDE", "value": [11, 22]}],
+        }
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
+    async def test_all_three_inline_in_single_post(self, mock_post):
+        mock_post.return_value = {"id": "c-99"}
+        await handle_call_tool("create_campaign", _create_args(
+            my_audiences={"collection": [{"type": "INCLUDE", "collection": [1]}]},
+            lookalike_audience={"collection": [{
+                "type": "INCLUDE",
+                "collection": [{"rule_id": 9, "similarity_level": 5}],
+            }]},
+            contextual_segments={"collection": [{"type": "INCLUDE", "collection": [42]}]},
+        ))
+        bodies = _bodies_by_endpoint(mock_post)
+        # Single atomic POST, all three sections in body.
+        assert set(bodies.keys()) == {"/acme-inc/campaigns"}
+        body = bodies["/acme-inc/campaigns"]
+        assert "audiences_targeting" in body
+        assert "lookalike_audience_targeting" in body
+        assert "contextual_segments_targeting" in body
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
+    async def test_update_with_only_my_audiences_single_post(self, mock_post):
+        mock_post.return_value = {"id": "c-123"}
         await handle_call_tool("update_campaign", _update_args(
             my_audiences={"collection": [{"type": "INCLUDE", "collection": [42]}]},
         ))
-        endpoints = set(_bodies_by_endpoint(mock_post).keys())
-        assert endpoints == {"/acme-inc/campaigns/c-123/targeting/my_audiences"}
-        mock_get.assert_called_once_with("/acme-inc/campaigns/c-123")
-
-    @pytest.mark.asyncio
-    @patch('realize.tools.campaign_handlers.client.get', new_callable=AsyncMock)
-    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_main_and_sub_resource_both_post(self, mock_post, mock_get):
-        mock_post.return_value = {"id": "c-123"}
-        mock_get.return_value = {"id": "c-123"}
-        await handle_call_tool("update_campaign", _update_args(
-            is_active=True,
-            my_audiences={"collection": []},
-        ))
-        endpoints = set(_bodies_by_endpoint(mock_post).keys())
-        assert "/acme-inc/campaigns/c-123" in endpoints
-        assert "/acme-inc/campaigns/c-123/targeting/my_audiences" in endpoints
-
-
-class TestUpdateCampaignSkipsGetWhenMainOnly:
-    @pytest.mark.asyncio
-    @patch('realize.tools.campaign_handlers.client.get', new_callable=AsyncMock)
-    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_main_only_does_not_fire_get(self, mock_post, mock_get):
-        mock_post.return_value = {"id": "c-123", "name": "Renamed"}
-        await handle_call_tool("update_campaign", {
-            "account_id": "acme-inc", "campaign_id": "c-123", "name": "Renamed",
-        })
-        mock_get.assert_not_called()
-
-
-class TestSafeErrorBodyNonJson:
-    @pytest.mark.asyncio
-    @patch('realize.tools.campaign_handlers.client.get', new_callable=AsyncMock)
-    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_non_json_4xx_body_falls_back_to_text(self, mock_post, mock_get):
-        async def post_side_effect(endpoint, data=None):
-            if endpoint == "/acme-inc/campaigns":
-                return {"id": "c-99"}
-            request = httpx.Request("POST", "https://x" + endpoint)
-            response = httpx.Response(
-                400, request=request,
-                content=b'<html>Bad Request</html>',
-                headers={"content-type": "text/html"},
-            )
-            raise httpx.HTTPStatusError("bad", request=request, response=response)
-
-        mock_post.side_effect = post_side_effect
-        mock_get.return_value = {"id": "c-99"}
-
-        result = await handle_call_tool("create_campaign", _create_args(
-            my_audiences={"collection": []},
-        ))
-        text = result[0].text
-        assert "partial_failures" in text
-        assert "Bad Request" in text
-
-
-class TestPartialFailures:
-    @pytest.mark.asyncio
-    @patch('realize.tools.campaign_handlers.client.get', new_callable=AsyncMock)
-    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_create_returns_partial_failures_on_subresource_4xx(self, mock_post, mock_get):
-        async def post_side_effect(endpoint, data=None):
-            if endpoint == "/acme-inc/campaigns":
-                return {"id": "c-99"}
-            request = httpx.Request("POST", "https://x" + endpoint)
-            response = httpx.Response(
-                400, request=request,
-                content=b'{"error": "audience not found"}',
-                headers={"content-type": "application/json"},
-            )
-            raise httpx.HTTPStatusError("bad", request=request, response=response)
-
-        mock_post.side_effect = post_side_effect
-        mock_get.return_value = {"id": "c-99", "status": "PAUSED"}
-
-        result = await handle_call_tool("create_campaign", _create_args(
-            my_audiences={"collection": [{"type": "INCLUDE", "collection": [999]}]},
-        ))
-        text = result[0].text
-        assert "c-99" in text
-        assert "partial_failures" in text
-        assert "my_audiences" in text
-
-    @pytest.mark.asyncio
-    @patch('realize.tools.campaign_handlers.client.get', new_callable=AsyncMock)
-    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_partial_failures_does_not_short_circuit(self, mock_post, mock_get):
-        # First sub-resource (my_audiences) fails; second (lookalike) should still be attempted.
-        attempted = []
-
-        async def post_side_effect(endpoint, data=None):
-            if endpoint == "/acme-inc/campaigns":
-                return {"id": "c-99"}
-            attempted.append(endpoint)
-            if "my_audiences" in endpoint:
-                request = httpx.Request("POST", "https://x" + endpoint)
-                response = httpx.Response(400, request=request, content=b'{}')
-                raise httpx.HTTPStatusError("bad", request=request, response=response)
-            return {"ok": True}
-
-        mock_post.side_effect = post_side_effect
-        mock_get.return_value = {"id": "c-99"}
-
-        await handle_call_tool("create_campaign", _create_args(
-            my_audiences={"collection": []},
-            lookalike_audience={"collection": []},
-        ))
-        assert any("my_audiences" in ep for ep in attempted)
-        assert any("lookalike_audience" in ep for ep in attempted)
+        bodies = _bodies_by_endpoint(mock_post)
+        assert set(bodies.keys()) == {"/acme-inc/campaigns/c-123"}
+        body = bodies["/acme-inc/campaigns/c-123"]
+        assert body["audiences_targeting"] == {
+            "state": "EXISTS",
+            "value": [{"type": "INCLUDE", "value": [42]}],
+        }
 
 
 class TestSubResourceValidationFailFast:

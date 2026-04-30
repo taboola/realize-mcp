@@ -1,5 +1,5 @@
-"""Audience targeting helpers for update_campaign_my_audiences and lookalike tools."""
-from typing import Any
+"""Audience targeting helpers (validation + wire-shape projection)."""
+from typing import Any, Dict, List
 
 from realize.tools.errors import ToolInputError
 
@@ -124,3 +124,50 @@ def validate_lookalike_audience(lookalike_audience: Any) -> None:
                     f"lookalike_audience.collection[{idx}].collection[{item_idx}].similarity_level must be one of: "
                     f"{', '.join(str(v) for v in _LOOKALIKE_SIMILARITY_LEVELS)}"
                 )
+
+
+def to_wire_my_audiences(my_audiences: Dict[str, Any]) -> Dict[str, Any]:
+    """Project validated my_audiences input to APICampaign.audiences_targeting wire shape.
+
+    Input:  {collection: [{type: INCLUDE|EXCLUDE, collection: [int]}]}
+    Output: MultiTargeting<Long> = {state, value: [{type, value: [int]}]}.
+    Empty inner collection (or empty outer) clears via state=ALL.
+    """
+    return _project_to_multi_targeting(my_audiences, value_projector=lambda items: list(items))
+
+
+def to_wire_lookalike_audience(lookalike_audience: Dict[str, Any]) -> Dict[str, Any]:
+    """Project validated lookalike_audience input to APICampaign.lookalike_audience_targeting wire shape.
+
+    Input:  {collection: [{type: INCLUDE, collection: [{rule_id, similarity_level}]}]}
+    Output: MultiTargeting<APICampaignLookalikeAudienceTargeting> =
+            {state, value: [{type, value: [{rule_id, similarity_level}]}]}.
+    """
+    def _project_items(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        return [
+            {"rule_id": it["rule_id"], "similarity_level": it["similarity_level"]}
+            for it in items
+        ]
+
+    return _project_to_multi_targeting(lookalike_audience, value_projector=_project_items)
+
+
+def _project_to_multi_targeting(
+    block: Dict[str, Any],
+    *,
+    value_projector,
+) -> Dict[str, Any]:
+    """Translate {collection: [{type, collection: [V]}]} → {state, value: [{type, value: [V]}]}.
+
+    Empty outer collection or all-empty inner collections → state=ALL, value=[] (clears).
+    """
+    rules_in = block.get("collection") or []
+    rules_out: List[Dict[str, Any]] = []
+    for rule in rules_in:
+        items = rule.get("collection") or []
+        if not items:
+            continue
+        rules_out.append({"type": rule["type"], "value": value_projector(items)})
+    if not rules_out:
+        return {"state": "ALL", "value": []}
+    return {"state": "EXISTS", "value": rules_out}

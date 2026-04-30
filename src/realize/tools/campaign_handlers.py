@@ -1,20 +1,25 @@
 """Campaign handlers for Realize MCP server.
 
 Two write tools — `create_campaign` and `update_campaign` — accept full campaign
-state inline (scalars + targeting). Backstage partitions targeting between the
-main campaign endpoint and three sub-resource endpoints; the handlers fan out
-internally so the LLM completes a campaign in one tool call.
+state inline (scalars + targeting). All targeting fields ride in a single atomic
+POST to Backstage's APICampaign endpoint; one tool call → one HTTP request.
 """
-import json
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 from urllib.parse import quote
 
-import httpx
 import mcp.types as types
 
 from realize.client import client
-from realize.tools.audiences import validate_lookalike_audience, validate_my_audiences
-from realize.tools.contextual_segments import validate_contextual_segments
+from realize.tools.audiences import (
+    to_wire_lookalike_audience,
+    to_wire_my_audiences,
+    validate_lookalike_audience,
+    validate_my_audiences,
+)
+from realize.tools.contextual_segments import (
+    to_wire_contextual_segments,
+    validate_contextual_segments,
+)
 from realize.tools.conversion_rules import (
     to_wire_conversion_rules,
     validate_conversion_rules,
@@ -54,14 +59,6 @@ _CLASSIC_GEO_DIMENSIONS = ("country", "region", "dma", "city", "postal_code")
 _CLASSIC_GEO_ARG_KEYS = tuple(f"{d}_targeting" for d in _CLASSIC_GEO_DIMENSIONS)
 
 _TECHNO_DIMENSIONS = ("platform", "os", "browser", "connection_type")
-
-# Sub-resource endpoints: (mcp_arg_key, endpoint_suffix, validator).
-# All three are full-replace; body is the validated input verbatim.
-_SUB_RESOURCES: Tuple[Tuple[str, str, Any], ...] = (
-    ("my_audiences", "my_audiences", validate_my_audiences),
-    ("lookalike_audience", "lookalike_audience", validate_lookalike_audience),
-    ("contextual_segments", "contextual_segments", validate_contextual_segments),
-)
 
 
 async def list_campaigns(arguments: dict = None) -> List[types.TextContent]:
@@ -234,79 +231,26 @@ def _build_main_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str, A
         validate_publisher_bid_modifier(publisher_bid_modifier)
         body["publisher_bid_modifier"] = to_wire_publisher_bid_modifier(publisher_bid_modifier)
 
+    my_audiences = args.get("my_audiences")
+    if my_audiences is not None:
+        validate_my_audiences(my_audiences)
+        body["audiences_targeting"] = to_wire_my_audiences(my_audiences)
+
+    lookalike_audience = args.get("lookalike_audience")
+    if lookalike_audience is not None:
+        validate_lookalike_audience(lookalike_audience)
+        body["lookalike_audience_targeting"] = to_wire_lookalike_audience(lookalike_audience)
+
+    contextual_segments = args.get("contextual_segments")
+    if contextual_segments is not None:
+        validate_contextual_segments(contextual_segments)
+        body["contextual_segments_targeting"] = to_wire_contextual_segments(contextual_segments)
+
     return body
 
 
-def _validate_and_collect_sub_payloads(args: Dict[str, Any]) -> List[Tuple[str, Any]]:
-    """Validate sub-resource blocks and return [(endpoint_suffix, body)].
-
-    Each is full-replace; body is the validated input verbatim.
-    """
-    out: List[Tuple[str, Any]] = []
-    for arg_key, suffix, validator in _SUB_RESOURCES:
-        value = args.get(arg_key)
-        if value is None:
-            continue
-        validator(value)
-        out.append((suffix, value))
-    return out
-
-
-async def _post_sub_resources(
-    account_id: str,
-    campaign_id: str,
-    sub_payloads: List[Tuple[str, Any]],
-) -> List[Dict[str, Any]]:
-    """POST each sub-resource. Collect failures; do not short-circuit."""
-    partial_failures: List[Dict[str, Any]] = []
-    encoded_account = quote(account_id, safe="")
-    encoded_campaign = quote(str(campaign_id), safe="")
-
-    for suffix, body in sub_payloads:
-        endpoint = f"/{encoded_account}/campaigns/{encoded_campaign}/targeting/{suffix}"
-        try:
-            await client.post(endpoint, data=body)
-        except httpx.HTTPStatusError as exc:
-            partial_failures.append({
-                "section": suffix,
-                "status_code": exc.response.status_code,
-                "error": _safe_error_body(exc.response),
-            })
-        except (httpx.ConnectError, httpx.TimeoutException) as exc:
-            partial_failures.append({
-                "section": suffix,
-                "error": f"{type(exc).__name__}: {exc}",
-            })
-
-    return partial_failures
-
-
-def _safe_error_body(response: httpx.Response) -> Any:
-    """Best-effort extract of upstream error body as JSON, falling back to text."""
-    try:
-        return response.json()
-    except ValueError:
-        return response.text
-
-
-def _format_composed_response(
-    verb: str,
-    account_id: str,
-    campaign_id: str,
-    final_state: Dict[str, Any],
-    partial_failures: List[Dict[str, Any]],
-) -> List[types.TextContent]:
-    parts = [f"Campaign {campaign_id} {verb} in account {account_id}:"]
-    parts.append(format_response(final_state))
-    if partial_failures:
-        parts.append("")
-        parts.append("partial_failures:")
-        parts.append(json.dumps(partial_failures, indent=2, ensure_ascii=False))
-    return [types.TextContent(type="text", text="\n".join(parts))]
-
-
 async def create_campaign(arguments: dict = None) -> List[types.TextContent]:
-    """Create a campaign, fanning out to targeting sub-resources as needed."""
+    """Create a campaign in one atomic POST including all targeting."""
     args = arguments or {}
     account_id = args.get("account_id")
 
@@ -319,33 +263,21 @@ async def create_campaign(arguments: dict = None) -> List[types.TextContent]:
         raise ToolInputError(f"Missing required field(s): {', '.join(missing)}")
 
     _reject_classic_geo_on_create(args)
-    main_payload = _build_main_payload(args, is_create=True)
-    sub_payloads = _validate_and_collect_sub_payloads(args)
+    payload = _build_main_payload(args, is_create=True)
 
     response = await client.post(
         f"/{quote(account_id, safe='')}/campaigns",
-        data=main_payload,
+        data=payload,
     )
 
-    if not sub_payloads:
-        return [types.TextContent(
-            type="text",
-            text=f"Campaign created in account {account_id}:\n{format_response(response)}"
-        )]
-
-    campaign_id = response.get("id")
-    if campaign_id is None:
-        raise ValueError("Backstage create response missing 'id'; cannot fan out targeting")
-
-    partial_failures = await _post_sub_resources(account_id, str(campaign_id), sub_payloads)
-    final = await client.get(
-        f"/{quote(account_id, safe='')}/campaigns/{quote(str(campaign_id), safe='')}"
-    )
-    return _format_composed_response("created", account_id, str(campaign_id), final, partial_failures)
+    return [types.TextContent(
+        type="text",
+        text=f"Campaign created in account {account_id}:\n{format_response(response)}"
+    )]
 
 
 async def update_campaign(arguments: dict = None) -> List[types.TextContent]:
-    """Update an existing campaign, fanning out to targeting sub-resources as needed."""
+    """Update an existing campaign in one atomic POST including any targeting subset."""
     args = arguments or {}
     account_id = args.get("account_id")
     campaign_id = args.get("campaign_id")
@@ -358,28 +290,17 @@ async def update_campaign(arguments: dict = None) -> List[types.TextContent]:
         raise ToolInputError("campaign_id is required")
 
     _check_geo_mutex(args)
-    main_payload = _build_main_payload(args, is_create=False)
-    sub_payloads = _validate_and_collect_sub_payloads(args)
+    payload = _build_main_payload(args, is_create=False)
 
-    if not main_payload and not sub_payloads:
+    if not payload:
         raise ToolInputError("at least one updatable field must be supplied")
 
-    encoded_account = quote(account_id, safe="")
-    encoded_campaign = quote(str(campaign_id), safe="")
+    response = await client.post(
+        f"/{quote(account_id, safe='')}/campaigns/{quote(str(campaign_id), safe='')}",
+        data=payload,
+    )
 
-    main_response: Optional[Dict[str, Any]] = None
-    if main_payload:
-        main_response = await client.post(
-            f"/{encoded_account}/campaigns/{encoded_campaign}",
-            data=main_payload,
-        )
-
-    if not sub_payloads:
-        return [types.TextContent(
-            type="text",
-            text=f"Campaign {campaign_id} updated:\n{format_response(main_response)}"
-        )]
-
-    partial_failures = await _post_sub_resources(account_id, campaign_id, sub_payloads)
-    final = await client.get(f"/{encoded_account}/campaigns/{encoded_campaign}")
-    return _format_composed_response("updated", account_id, campaign_id, final, partial_failures)
+    return [types.TextContent(
+        type="text",
+        text=f"Campaign {campaign_id} updated:\n{format_response(response)}"
+    )]

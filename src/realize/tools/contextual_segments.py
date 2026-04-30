@@ -1,5 +1,5 @@
-"""Contextual-segment targeting helpers for update_campaign_contextual_segments tool."""
-from typing import Any
+"""Contextual-segment targeting helpers (validation + wire-shape projection)."""
+from typing import Any, Dict, List
 
 from realize.tools.errors import ToolInputError
 
@@ -67,3 +67,22 @@ def validate_contextual_segments(targeting: Any) -> None:
                     f"duplicate: {segment_id} appears more than once"
                 )
             seen_ids.add(segment_id)
+
+
+def to_wire_contextual_segments(contextual_segments: Dict[str, Any]) -> Dict[str, Any]:
+    """Project validated contextual_segments input to APICampaign.contextual_segments_targeting wire shape.
+
+    Input:  {collection: [{type: INCLUDE|EXCLUDE, collection: [int]}]}
+    Output: MultiTargeting<Long> = {state, value: [{type, value: [int]}]}.
+    Empty outer collection clears via state=ALL.
+    """
+    rules_in = contextual_segments.get("collection") or []
+    rules_out: List[Dict[str, Any]] = []
+    for rule in rules_in:
+        items = rule.get("collection") or []
+        if not items:
+            continue
+        rules_out.append({"type": rule["type"], "value": list(items)})
+    if not rules_out:
+        return {"state": "ALL", "value": []}
+    return {"state": "EXISTS", "value": rules_out}
