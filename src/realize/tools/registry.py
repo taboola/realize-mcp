@@ -142,8 +142,8 @@ _PLATFORM_TARGETING_SCHEMA = {
     "type": "object",
     "description": (
         "platform targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}. "
-        "value=[] when type=ALL. Common values: DESK | PHON | TBLT. "
-        "Discover values via search_techno(dimension=platforms)."
+        "value=[] when type=ALL. Values: NA | DESK | PHON | TBLT | TV | OTHR. "
+        "Discover via search_techno(dimension=platforms)."
     ),
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
     "required": ["type", "value"],
@@ -153,8 +153,8 @@ _BROWSER_TARGETING_SCHEMA = {
     "type": "object",
     "description": (
         "browser targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}. "
-        "value=[] when type=ALL. Common values: Chrome | Firefox | Safari | Edge. "
-        "Discover values via search_techno(dimension=browsers)."
+        "value=[] when type=ALL. Browser names are dynamically maintained server-side; "
+        "discover the authoritative list via search_techno(dimension=browsers)."
     ),
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
     "required": ["type", "value"],
@@ -164,7 +164,7 @@ _CONNECTION_TYPE_TARGETING_SCHEMA = {
     "type": "object",
     "description": (
         "connection_type targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}. "
-        "value=[] when type=ALL. Common values: WIFI | CELLULAR | OTHER. "
+        "value=[] when type=ALL. "
         "Discover values via search_techno(dimension=connection_types)."
     ),
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
@@ -176,7 +176,7 @@ _OS_TARGETING_SCHEMA = {
     "description": (
         "os targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}. "
         "value=[] when type=ALL. Items: {os_family, sub_categories?}. "
-        "os_family in {Android, iOS, Windows, Mac OS X, Linux}. "
+        "os_family values are dynamically maintained server-side. "
         "Discover os_family values via search_techno(dimension=operating_systems); "
         "discover sub_categories per family via search_techno(dimension=operating_system_versions, os_family=<family>)."
     ),
