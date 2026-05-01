@@ -99,7 +99,7 @@ class TestListRealizeResource:
     async def test_marketing_objectives(self, mock_get):
         mock_get.return_value = {"results": []}
         await handle_call_tool("list_realize_resource", {"resource": "marketing_objectives"})
-        assert _get_endpoint(mock_get) == "/resources/campaigns_properties/marketing_objective"
+        assert _get_endpoint(mock_get) == "/resources/campaigns_properties/marketing-objective"
 
     @pytest.mark.asyncio
     @patch('realize.tools.resources.client.get', new_callable=AsyncMock)

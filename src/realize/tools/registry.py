@@ -142,8 +142,10 @@ _PLATFORM_TARGETING_SCHEMA = {
     "type": "object",
     "description": (
         "platform targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}. "
-        "value=[] when type=ALL. Values: NA | DESK | PHON | TBLT | TV | OTHR. "
-        "Discover via search_techno(dimension=platforms)."
+        "value=[] when type=ALL. "
+        "Write values are enum codes: NA | DESK | PHON | TBLT | TV | OTHR. "
+        "(search_techno(dimension=platforms) returns display labels — Desktop/Smartphone/Tablet/etc. — "
+        "useful for showing the user but NOT directly usable in this field.)"
     ),
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
     "required": ["type", "value"],
@@ -505,7 +507,7 @@ _CREATE_CAMPAIGN_DESCRIPTION = (
     "  ]},\n"
     "  \"platform_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"DESK\", \"PHON\"]},\n"
     "  \"os_targeting\": {\"type\": \"INCLUDE\", \"value\": [\n"
-    "    {\"os_family\": \"iOS\", \"sub_categories\": [\"iOS_17\"]},\n"
+    "    {\"os_family\": \"iOS\", \"sub_categories\": [\"iOS 17\"]},\n"
     "    {\"os_family\": \"Android\"}\n"
     "  ]},\n"
     "  \"browser_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"Chrome\", \"Safari\"]},\n"
@@ -960,18 +962,22 @@ TOOL_REGISTRY = {
 
     "list_realize_resource": {
         "description": (
-            "List valid values for bounded campaign-config enums used by create_campaign/update_campaign "
-            "scalar fields and activity_schedule.time_zone (read-only).\n"
+            "List valid values for bounded campaign-config enums (read-only).\n"
             "\n"
             "Supported resources:\n"
-            "- marketing_objectives — values for `marketing_objective`.\n"
-            "- bid_strategies — values for `bid_strategy`.\n"
-            "- spending_limit_models — values for `spending_limit_model`.\n"
-            "- time_zones — IANA names for `activity_schedule.time_zone` (CUSTOM mode).\n"
+            "- time_zones — IANA names for `activity_schedule.time_zone` (CUSTOM mode). Output is "
+            "directly usable as the wire value.\n"
+            "- marketing_objectives — INFORMATIONAL ONLY. Returns display labels (e.g. \"Brand Awareness\"). "
+            "Use the schema enum on `marketing_objective` for wire values "
+            "(BRAND_AWARENESS / DRIVE_WEBSITE_TRAFFIC / LEADS_GENERATION / ONLINE_PURCHASES / MOBILE_APP_INSTALL).\n"
+            "- bid_strategies — INFORMATIONAL ONLY. Returns display labels. Use schema enum on `bid_strategy` "
+            "for wire values (SMART / FIXED / TARGET_CPA / MAX_CONVERSIONS / MAX_VALUE).\n"
+            "- spending_limit_models — INFORMATIONAL ONLY. Returns display labels. Use schema enum on "
+            "`spending_limit_model` for wire values (NONE / MONTHLY / ENTIRE).\n"
             "\n"
             "For geo and technology vocabularies use search_geos and search_techno respectively.\n"
             "\n"
-            "Example: { \"resource\": \"marketing_objectives\" }"
+            "Example: { \"resource\": \"time_zones\" }"
         ),
         "schema": {
             "type": "object",

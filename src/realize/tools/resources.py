@@ -61,9 +61,9 @@ _TECHNO_DISPATCH: Dict[str, Callable[[Dict[str, Any]], str]] = {
 
 
 _ENUM_DISPATCH: Dict[str, Callable[[Dict[str, Any]], str]] = {
-    "marketing_objectives": _global("/resources/campaigns_properties/marketing_objective"),
-    "bid_strategies": _global("/resources/campaigns_properties/bid_strategy"),
-    "spending_limit_models": _global("/resources/campaigns_properties/spending_limit_model"),
+    "marketing_objectives": _global("/resources/campaigns_properties/marketing-objective"),
+    "bid_strategies": _global("/resources/campaigns_properties/bid-strategy"),
+    "spending_limit_models": _global("/resources/campaigns_properties/spending-limit-model"),
     "time_zones": _global("/resources/campaigns_properties/activity-scheduler-time-zone"),
 }
 
