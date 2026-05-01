@@ -17,8 +17,14 @@ _GEO_ADVANCED_SCHEMA = {
         "Advanced (MultiTargeting) geo targeting. {state, value}. state=ALL with "
         "value=[] clears geo. state=EXISTS applies the rules in value. "
         "Each rule: {type: INCLUDE|EXCLUDE, value: [{country, region?, dma?, city?, postal_code?}]}. "
-        "Mix dims in one vector to AND them (country=US + region=CA = California). "
-        "Discover codes via search_geos."
+        "Mix dims in one vector to AND them (country=US + region=CA = California).\n"
+        "\n"
+        "Discover codes via search_geos:\n"
+        "- country: search_geos(dimension=countries)\n"
+        "- region: search_geos(dimension=regions, country_code=<ISO-2>)\n"
+        "- dma: search_geos(dimension=dma, country_code=US)\n"
+        "- city: search_geos(dimension=cities, country_code=<ISO-2>)\n"
+        "- postal_code: search_geos(dimension=postal_codes, country_code=<ISO-2>)"
     ),
     "properties": {
         "state": {"type": "string", "enum": ["ALL", "EXISTS"]},
@@ -50,6 +56,15 @@ _GEO_ADVANCED_SCHEMA = {
 }
 
 
+_CLASSIC_GEO_DISCOVERY_HINT = {
+    "country": "Discover values via search_geos(dimension=countries).",
+    "region": "Discover values via search_geos(dimension=regions, country_code=<ISO-2>).",
+    "dma": "Discover values via search_geos(dimension=dma, country_code=US). DMA is US-only.",
+    "city": "Discover values via search_geos(dimension=cities, country_code=<ISO-2>).",
+    "postal_code": "Discover values via search_geos(dimension=postal_codes, country_code=<ISO-2>).",
+}
+
+
 def _classic_geo_schema(dim: str, *, sub_dim: bool) -> dict:
     note = (
         f"Classic {dim} targeting (update only). {{type: INCLUDE|EXCLUDE|ALL, value: [string]}}. "
@@ -60,7 +75,8 @@ def _classic_geo_schema(dim: str, *, sub_dim: bool) -> dict:
             f"Sub-dimension mutex: at most ONE of region/dma/city/postal_code on a campaign; "
             f"requires INCLUDE country already set. "
         )
-    note += "Mutually exclusive with geo_targeting (advanced) in same request."
+    note += "Mutually exclusive with geo_targeting (advanced) in same request. "
+    note += _CLASSIC_GEO_DISCOVERY_HINT[dim]
     return {
         "type": "object",
         "description": note,
@@ -72,12 +88,24 @@ def _classic_geo_schema(dim: str, *, sub_dim: bool) -> dict:
     }
 
 
+_TECHNO_DISCOVERY_HINT = {
+    "platform": "Discover values via search_techno(dimension=platforms).",
+    "browser": "Discover values via search_techno(dimension=browsers).",
+    "connection_type": "Discover values via search_techno(dimension=connection_types).",
+    "os": (
+        "Discover os_family values via search_techno(dimension=operating_systems); "
+        "discover sub_categories per family via search_techno(dimension=operating_system_versions, os_family=<family>)."
+    ),
+}
+
+
 def _techno_schema(dim: str, value_doc: str) -> dict:
+    discovery = _TECHNO_DISCOVERY_HINT[dim]
     return {
         "type": "object",
         "description": (
             f"{dim} targeting. {{type: INCLUDE|EXCLUDE|ALL, value: [...]}}. "
-            f"value=[] when type=ALL. {value_doc} Discover values via search_techno."
+            f"value=[] when type=ALL. {value_doc} {discovery}"
         ),
         "properties": {
             "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
@@ -277,13 +305,13 @@ _SCALAR_PROPERTIES = {
     "marketing_objective": {
         "type": "string",
         "enum": ["BRAND_AWARENESS", "DRIVE_WEBSITE_TRAFFIC", "LEADS_GENERATION", "ONLINE_PURCHASES", "MOBILE_APP_INSTALL"],
-        "description": "Business goal. Determines required bidding fields.",
+        "description": "Business goal. Determines required bidding fields. Discover values via list_realize_resource(resource=marketing_objectives).",
     },
     "branding_text": {"type": "string", "description": "Brand name shown with ads."},
     "spending_limit_model": {
         "type": "string",
         "enum": ["NONE", "MONTHLY", "ENTIRE"],
-        "description": "Budget model. NONE = no overall cap (uses daily_cap). MONTHLY = monthly cap. ENTIRE = lifetime cap.",
+        "description": "Budget model. NONE = no overall cap (uses daily_cap). MONTHLY = monthly cap. ENTIRE = lifetime cap. Discover values via list_realize_resource(resource=spending_limit_models).",
     },
     "spending_limit": {"type": "number", "description": "Budget amount in account's default currency."},
     "daily_cap": {"type": "number", "description": "Daily spend cap in account's default currency."},
@@ -291,7 +319,7 @@ _SCALAR_PROPERTIES = {
     "bid_strategy": {
         "type": "string",
         "enum": ["SMART", "FIXED", "TARGET_CPA", "MAX_CONVERSIONS", "MAX_VALUE"],
-        "description": "Bidding strategy.",
+        "description": "Bidding strategy. Discover values via list_realize_resource(resource=bid_strategies).",
     },
     "cpa_goal": {"type": "number", "description": "Target cost per acquisition in account's default currency."},
     "start_date": {"type": "string", "description": "YYYY-MM-DD. Optional; defaults to immediate."},
