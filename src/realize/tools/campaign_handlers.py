@@ -34,7 +34,6 @@ from realize.tools.geo import (
 from realize.tools.publishers import (
     to_wire_publisher_bid_modifier,
     validate_publisher_bid_modifier,
-    validate_publisher_groups_targeting,
     validate_publisher_targeting,
 )
 from realize.tools.schedule import to_wire_schedule, validate_schedule
@@ -216,14 +215,6 @@ def _build_main_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str, A
         body["publisher_targeting"] = {
             "type": publisher_targeting["type"],
             "value": publisher_targeting["value"],
-        }
-
-    publisher_groups_targeting = args.get("publisher_groups_targeting")
-    if publisher_groups_targeting is not None:
-        validate_publisher_groups_targeting(publisher_groups_targeting)
-        body["publisher_groups_targeting"] = {
-            "type": publisher_groups_targeting["type"],
-            "value": publisher_groups_targeting["value"],
         }
 
     publisher_bid_modifier = args.get("publisher_bid_modifier")

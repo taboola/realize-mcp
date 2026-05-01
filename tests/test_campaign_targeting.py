@@ -306,7 +306,7 @@ class TestFatToolSchemaShape:
         for f in (
             "geo_targeting", "platform_targeting", "os_targeting", "browser_targeting",
             "connection_type_targeting", "activity_schedule", "conversion_rules",
-            "publisher_targeting", "publisher_groups_targeting", "publisher_bid_modifier",
+            "publisher_targeting", "publisher_bid_modifier",
             "contextual_segments", "my_audiences", "lookalike_audience",
         ):
             assert f in props, f"create_campaign missing schema property: {f}"

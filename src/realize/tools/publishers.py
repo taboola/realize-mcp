@@ -33,11 +33,6 @@ def validate_publisher_targeting(targeting: Any) -> None:
     _validate_targeting_block("publisher_targeting", targeting)
 
 
-def validate_publisher_groups_targeting(targeting: Any) -> None:
-    """Validate publisher_groups_targeting Targeting<String> block."""
-    _validate_targeting_block("publisher_groups_targeting", targeting)
-
-
 def validate_publisher_bid_modifier(bid_modifier: Any) -> None:
     """Validate publisher_bid_modifier BidModifiers<String> block.
 

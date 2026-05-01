@@ -163,20 +163,6 @@ _PUBLISHER_TARGETING_SCHEMA = {
 }
 
 
-_PUBLISHER_GROUPS_TARGETING_SCHEMA = {
-    "type": "object",
-    "description": (
-        "Publisher-groups targeting. Same shape as publisher_targeting but values are group names. "
-        "Discover names via search_publisher_groups."
-    ),
-    "properties": {
-        "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
-        "value": {"type": "array", "items": {"type": "string"}},
-    },
-    "required": ["type", "value"],
-}
-
-
 _PUBLISHER_BID_MODIFIER_SCHEMA = {
     "type": "object",
     "description": (
@@ -339,7 +325,6 @@ _TARGETING_PROPERTIES_COMMON = {
     "activity_schedule": _ACTIVITY_SCHEDULE_SCHEMA,
     "conversion_rules": _CONVERSION_RULES_SCHEMA,
     "publisher_targeting": _PUBLISHER_TARGETING_SCHEMA,
-    "publisher_groups_targeting": _PUBLISHER_GROUPS_TARGETING_SCHEMA,
     "publisher_bid_modifier": _PUBLISHER_BID_MODIFIER_SCHEMA,
     "contextual_segments": _CONTEXTUAL_SEGMENTS_SCHEMA,
     "my_audiences": _MY_AUDIENCES_SCHEMA,
@@ -381,7 +366,6 @@ _CREATE_CAMPAIGN_DESCRIPTION = (
     "- search_audiences → `my_audiences` audience IDs.\n"
     "- search_lookalike_audiences → `lookalike_audience` rule_ids.\n"
     "- search_publishers → `publisher_targeting` and `publisher_bid_modifier.target` names.\n"
-    "- search_publisher_groups → `publisher_groups_targeting` names.\n"
     "- search_conversion_rules → `conversion_rules` IDs.\n"
     "- list_realize_resource → `marketing_objective`, `bid_strategy`, `spending_limit_model`, `activity_schedule.time_zone`.\n"
     "\n"
@@ -398,8 +382,8 @@ _CREATE_CAMPAIGN_DESCRIPTION = (
     "US and Canada (excluding Alaska), desktop and phone, iOS 17 and any Android, Chrome and Safari, "
     "Wi-Fi and cellular. Serves Mon–Fri 9 AM–9 PM Eastern (off weekends). Includes audiences 224820 "
     "and 25287 (excludes 19884), one CRM lookalike at 10% similarity, contextual segments for the topic, "
-    "two conversion rules, allowlists publishers `pub_alpha` and `pub_beta` plus the `premium_news` "
-    "group, with +25% bid on `pub_alpha` and -20% on `pub_beta`. Ships paused (`is_active=false`).\n"
+    "two conversion rules, allowlists publishers `pub_alpha` and `pub_beta` "
+    "with +25% bid on `pub_alpha` and -20% on `pub_beta`. Ships paused (`is_active=false`).\n"
     "\n"
     "{\n"
     "  \"account_id\": \"acme-inc\",\n"
@@ -439,7 +423,6 @@ _CREATE_CAMPAIGN_DESCRIPTION = (
     "  ]},\n"
     "  \"conversion_rules\": [{\"id\": 1234567}, {\"id\": 7654321}],\n"
     "  \"publisher_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"pub_alpha\", \"pub_beta\"]},\n"
-    "  \"publisher_groups_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"premium_news\"]},\n"
     "  \"publisher_bid_modifier\": {\"values\": [\n"
     "    {\"target\": \"pub_alpha\", \"cpc_modification\": 1.25},\n"
     "    {\"target\": \"pub_beta\",  \"cpc_modification\": 0.80}\n"
@@ -488,7 +471,7 @@ _UPDATE_CAMPAIGN_DESCRIPTION = (
     "- Lookalike: account must have user-segments edit permission and campaign must allow retargeting.\n"
     "\n"
     "Discovery: same as create_campaign — search_geos, search_techno, search_audiences, search_lookalike_audiences, "
-    "search_publishers, search_publisher_groups, search_conversion_rules, list_realize_resource. "
+    "search_publishers, search_conversion_rules, list_realize_resource. "
     "Each schema property below names which tool populates it.\n"
     "\n"
     "Field shapes are identical to create_campaign — see its comprehensive example for every targeting block. "
@@ -852,21 +835,6 @@ TOOL_REGISTRY = {
             "required": ["account_id"],
         },
         "handler": "discovery_handlers.search_publishers",
-        "category": "resources",
-    },
-
-    "search_publisher_groups": {
-        "description": (
-            "Search sponsored publisher targeting groups (network-scoped, read-only). "
-            "Group names returned here populate `publisher_groups_targeting.value` on "
-            "create_campaign / update_campaign. No account_id required — groups are global."
-        ),
-        "schema": {
-            "type": "object",
-            "properties": {},
-            "required": [],
-        },
-        "handler": "discovery_handlers.search_publisher_groups",
         "category": "resources",
     },
 

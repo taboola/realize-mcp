@@ -1,10 +1,9 @@
 """Discovery handlers for account-scoped catalogs that feed campaign payloads.
 
-Five tools surface IDs / names the LLM otherwise has to source from the Realize UI:
+Four tools surface IDs / names the LLM otherwise has to source from the Realize UI:
 - search_audiences          → my_audiences.collection[].collection
 - search_lookalike_audiences → lookalike_audience.collection[].collection[].rule_id
 - search_publishers         → publisher_targeting.value
-- search_publisher_groups   → publisher_groups_targeting.value
 - search_conversion_rules   → conversion_rules: [{id}]
 
 All wrap /api/1.0 endpoints. Read-only; no destructive annotations.
@@ -98,16 +97,6 @@ async def search_publishers(arguments: dict = None) -> List[types.TextContent]:
 
     response = await client.get(f"/{quote(account_id, safe='')}/allowed-publishers")
     return _format_payload("account_id", account_id, flatten_results(response))
-
-
-async def search_publisher_groups(arguments: dict = None) -> List[types.TextContent]:
-    """List sponsored publisher targeting groups (network-scoped, no account_id).
-
-    Endpoint: GET /api/1.0/sponsored/publisher-targeting-groups
-    Result names feed publisher_groups_targeting.value.
-    """
-    response = await client.get("/sponsored/publisher-targeting-groups")
-    return _format_payload(None, None, flatten_results(response))
 
 
 async def search_conversion_rules(arguments: dict = None) -> List[types.TextContent]:

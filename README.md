@@ -57,7 +57,7 @@ A campaign holds budget, bidding, schedule, and targeting. It contains items.
 - **`create_campaign`** — Create a campaign with all targeting in one call. Ships paused.
 - **`update_campaign`** — Update any subset of fields. Pause/resume via `is_active`.
 
-Both write tools accept scalars (name, budget, bidding, schedule dates, `is_active`) plus targeting blocks: `geo_targeting`, `platform_targeting`, `os_targeting`, `browser_targeting`, `connection_type_targeting`, `activity_schedule`, `conversion_rules`, `publisher_targeting`, `publisher_groups_targeting`, `publisher_bid_modifier`, `contextual_segments`, `my_audiences`, `lookalike_audience`. Scalars partial-merge; targeting blocks full-replace. `create_campaign` requires advanced `geo_targeting`; `update_campaign` also accepts classic dimension fields. Single atomic POST — all targeting commits together or not at all.
+Both write tools accept scalars (name, budget, bidding, schedule dates, `is_active`) plus targeting blocks: `geo_targeting`, `platform_targeting`, `os_targeting`, `browser_targeting`, `connection_type_targeting`, `activity_schedule`, `conversion_rules`, `publisher_targeting`, `publisher_bid_modifier`, `contextual_segments`, `my_audiences`, `lookalike_audience`. Scalars partial-merge; targeting blocks full-replace. `create_campaign` requires advanced `geo_targeting`; `update_campaign` also accepts classic dimension fields. Single atomic POST — all targeting commits together or not at all.
 
 ### Campaign Items
 
@@ -76,7 +76,6 @@ Use these to populate campaign targeting fields with valid values.
 - **`search_audiences`** — First-party and custom audiences for an account.
 - **`search_lookalike_audiences`** — CRM/pixel/PBP lookalike audiences.
 - **`search_publishers`** — Publishers an account may target.
-- **`search_publisher_groups`** — Network-wide publisher targeting groups.
 - **`search_conversion_rules`** — Conversion rules attached to an account.
 
 ### Reports (CSV)

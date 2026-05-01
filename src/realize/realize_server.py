@@ -127,10 +127,6 @@ async def handle_call_tool(
             from realize.tools.discovery_handlers import search_publishers
             result = await search_publishers(arguments)
 
-        elif handler_path == "discovery_handlers.search_publisher_groups":
-            from realize.tools.discovery_handlers import search_publisher_groups
-            result = await search_publisher_groups(arguments)
-
         elif handler_path == "discovery_handlers.search_conversion_rules":
             from realize.tools.discovery_handlers import search_conversion_rules
             result = await search_conversion_rules(arguments)

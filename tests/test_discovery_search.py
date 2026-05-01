@@ -1,7 +1,7 @@
-"""Tests for the five account-scoped discovery tools.
+"""Tests for the four account-scoped discovery tools.
 
 search_audiences, search_lookalike_audiences, search_publishers,
-search_publisher_groups, search_conversion_rules.
+search_conversion_rules.
 """
 import json
 
@@ -124,31 +124,6 @@ class TestSearchPublishers:
             await handle_call_tool("search_publishers", {})
 
 
-class TestSearchPublisherGroups:
-    @pytest.mark.asyncio
-    @patch('realize.tools.discovery_handlers.client.get', new_callable=AsyncMock)
-    async def test_endpoint_no_account_id(self, mock_get):
-        mock_get.return_value = {"results": []}
-        await handle_call_tool("search_publisher_groups", {})
-        assert _get_endpoint(mock_get) == "/sponsored/publisher-targeting-groups"
-
-    @pytest.mark.asyncio
-    @patch('realize.tools.discovery_handlers.client.get', new_callable=AsyncMock)
-    async def test_response_shape(self, mock_get):
-        mock_get.return_value = {"results": [{"value": "group_a"}]}
-        result = await handle_call_tool("search_publisher_groups", {})
-        payload = json.loads(result[0].text)
-        assert payload == {"values": ["group_a"]}
-
-    @pytest.mark.asyncio
-    @patch('realize.tools.discovery_handlers.client.get', new_callable=AsyncMock)
-    async def test_arguments_ignored(self, mock_get):
-        mock_get.return_value = {"results": []}
-        # Arbitrary args should not change endpoint or fail.
-        await handle_call_tool("search_publisher_groups", {"account_id": "acme-inc", "extra": "x"})
-        assert _get_endpoint(mock_get) == "/sponsored/publisher-targeting-groups"
-
-
 class TestSearchConversionRules:
     @pytest.mark.asyncio
     @patch('realize.tools.discovery_handlers.client.get', new_callable=AsyncMock)
@@ -178,15 +153,7 @@ class TestDiscoverySchemas:
         assert sa.inputSchema["required"] == ["account_id"]
 
     @pytest.mark.asyncio
-    async def test_search_publisher_groups_no_required_args(self):
-        from realize.realize_server import handle_list_tools
-
-        tools = await handle_list_tools()
-        spg = next(t for t in tools if t.name == "search_publisher_groups")
-        assert spg.inputSchema["required"] == []
-
-    @pytest.mark.asyncio
-    async def test_all_five_discovery_tools_registered(self):
+    async def test_all_four_discovery_tools_registered(self):
         from realize.realize_server import handle_list_tools
 
         tools = await handle_list_tools()
@@ -195,7 +162,6 @@ class TestDiscoverySchemas:
             "search_audiences",
             "search_lookalike_audiences",
             "search_publishers",
-            "search_publisher_groups",
             "search_conversion_rules",
         }
         assert expected.issubset(names)
