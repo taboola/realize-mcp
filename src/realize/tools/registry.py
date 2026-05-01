@@ -1,6 +1,61 @@
-"""Centralized registry for all MCP tools."""
+"""Centralized registry for all MCP tools.
+
+================================================================================
+TOOL SURFACE — 20 tools across 6 categories
+================================================================================
+
+Authentication (stdio transport only; excluded in HTTP/OAuth mode):
+  - get_auth_token
+  - get_token_details
+
+Accounts:
+  - search_accounts                      (entry point — call first; account_id required by every other tool)
+
+Campaigns (read):
+  - list_campaigns
+  - get_campaign
+
+Campaigns (write — fat tools, all targeting inline, single atomic POST):
+  - create_campaign
+  - update_campaign
+
+Campaign items (read):
+  - list_campaign_items
+  - get_campaign_item
+
+Discovery (resources for resolving IDs/names used in campaign payloads):
+  - search_geos                          (countries / regions / dma / cities / postal_codes)
+  - search_techno                        (browsers, operating_system_versions per family)
+  - list_time_zones                      (IANA names for activity_schedule.time_zone)
+  - search_audiences                     (first-party + custom audience IDs)
+  - search_lookalike_audiences           (CRM/pixel/PBP rule_ids)
+  - search_publishers                    (publisher names per account)
+  - search_conversion_rules              (conversion rule IDs per account)
+
+Reports (CSV):
+  - get_top_campaign_content_report
+  - get_campaign_history_report
+  - get_campaign_breakdown_report
+  - get_campaign_site_day_breakdown_report
+
+================================================================================
+FILE SECTIONS (declarations are bottom-up because Python; navigate by section
+banner via your editor's outline / Cmd-F):
+
+  1. Shared description fragments
+  2. Targeting schema constants
+  3. Long-form tool descriptions (create/update_campaign)
+  4. Composed property maps + annotations
+  5. Tool entries (per-category dicts merged into TOOL_REGISTRY)
+  6. Public accessors
+================================================================================
+"""
 import copy
 
+
+# ============================================================================
+# 1. Shared description fragments
+# ============================================================================
 
 _TARGETING_BLOCKS_NOTE = (
     "Targeting blocks are FULL-REPLACE: sending `my_audiences` with one audience "
@@ -11,6 +66,12 @@ _TARGETING_BLOCKS_NOTE = (
 )
 
 
+# ============================================================================
+# 2. Targeting schema constants — referenced by create/update_campaign property
+#    maps. Each schema's `description` field is what the LLM sees per property.
+# ============================================================================
+
+# 2.1 Geo (advanced)
 _GEO_ADVANCED_SCHEMA = {
     "type": "object",
     "description": (
@@ -57,14 +118,14 @@ _GEO_ADVANCED_SCHEMA = {
 }
 
 
-# Shared shape constants — referenced by classic-geo and techno schemas below.
+# 2.2 Shared `Targeting<String>` properties block — reused by classic geo + techno schemas
 _TARGETING_STRING_SHAPE_PROPERTIES = {
     "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
     "value": {"type": "array", "items": {"type": "string"}},
 }
 
 
-# Classic geo dimension schemas (update_campaign only).
+# 2.3 Classic geo dimension schemas (update_campaign only — create_campaign rejects classic geo)
 
 _COUNTRY_TARGETING_SCHEMA = {
     "type": "object",
@@ -135,8 +196,8 @@ _POSTAL_CODE_TARGETING_SCHEMA = {
 }
 
 
-# Techno targeting schemas. platform/browser/connection_type use string values;
-# os uses {os_family, sub_categories?} objects.
+# 2.4 Techno targeting schemas — platform/browser/connection_type use string values;
+#     os uses {os_family, sub_categories?} objects.
 
 _PLATFORM_TARGETING_SCHEMA = {
     "type": "object",
@@ -197,6 +258,7 @@ _OS_TARGETING_SCHEMA = {
 }
 
 
+# 2.5 Activity schedule (dayparting)
 _ACTIVITY_SCHEDULE_SCHEMA = {
     "type": "object",
     "description": (
@@ -230,6 +292,7 @@ _ACTIVITY_SCHEDULE_SCHEMA = {
 }
 
 
+# 2.6 Conversion rules
 _CONVERSION_RULES_SCHEMA = {
     "type": "array",
     "description": (
@@ -245,6 +308,7 @@ _CONVERSION_RULES_SCHEMA = {
 }
 
 
+# 2.7 Publishers (targeting + bid modifier)
 _PUBLISHER_TARGETING_SCHEMA = {
     "type": "object",
     "description": (
@@ -284,6 +348,7 @@ _PUBLISHER_BID_MODIFIER_SCHEMA = {
 }
 
 
+# 2.8 Contextual segments
 _CONTEXTUAL_SEGMENTS_SCHEMA = {
     "type": "object",
     "description": (
@@ -308,6 +373,7 @@ _CONTEXTUAL_SEGMENTS_SCHEMA = {
 }
 
 
+# 2.9 Audiences (first-party / custom + lookalike)
 _MY_AUDIENCES_SCHEMA = {
     "type": "object",
     "description": (
@@ -368,6 +434,12 @@ _LOOKALIKE_AUDIENCE_SCHEMA = {
     "required": ["collection"],
 }
 
+
+# ============================================================================
+# 3. Composed property maps + annotations
+#    (Defined here because long-form descriptions in section 4 can reference
+#    field semantics from these scalars.)
+# ============================================================================
 
 _SCALAR_PROPERTIES = {
     "name": {"type": "string", "description": "Campaign name."},
@@ -437,6 +509,12 @@ _UPDATE_CLASSIC_GEO_PROPERTIES = {
     "postal_code_targeting": _POSTAL_CODE_TARGETING_SCHEMA,
 }
 
+
+# ============================================================================
+# 4. Long-form tool descriptions for create_campaign / update_campaign
+#    Split into PROSE + JSON example so JSON braces don't collide with f-string
+#    interpolation. Final description = prose + json example concatenated.
+# ============================================================================
 
 _CREATE_CAMPAIGN_PROSE = f"""\
 Create a campaign on a Realize account, with full targeting in one call. Returns the created campaign (`id`, `status=PAUSED`); ships paused, won't serve until items are added (set `is_active=true` to launch).
@@ -586,6 +664,7 @@ Example — edit one classic geo dimension on a classic-storage campaign (no mig
 _UPDATE_CAMPAIGN_DESCRIPTION = _UPDATE_CAMPAIGN_PROSE + _UPDATE_CAMPAIGN_EXAMPLES
 
 
+# Destructive-write annotations (signal to MCP hosts that these tools mutate state).
 _DESTRUCTIVE_ANNOTATIONS_CREATE = {
     "destructiveHint": True,
     "idempotentHint": False,
@@ -600,6 +679,7 @@ _DESTRUCTIVE_ANNOTATIONS_UPDATE = {
 }
 
 
+# Final property maps fed into the create/update_campaign tool schemas.
 _CREATE_CAMPAIGN_PROPERTIES = {
     "account_id": {"type": "string", "description": "Value from search_accounts.account_id (NOT numeric)."},
     **_SCALAR_PROPERTIES,
@@ -616,9 +696,14 @@ _UPDATE_CAMPAIGN_PROPERTIES = {
 }
 
 
-# Tool Registry - Add new tools here
-TOOL_REGISTRY = {
-    # Authentication & Token Tools
+# ============================================================================
+# 5. Tool entries — grouped per-category. TOOL_REGISTRY at the end is just a
+#    spread-merge of the per-category dicts. Edit a category in isolation
+#    without scrolling past the others.
+# ============================================================================
+
+# 5.1 Authentication (stdio transport only)
+_AUTH_TOOLS = {
     "get_auth_token": {
         "description": "Authenticate with the Realize API using client credentials (read-only).",
         "schema": {
@@ -640,8 +725,11 @@ TOOL_REGISTRY = {
         "handler": "auth_handlers.get_token_details",
         "category": "authentication"
     },
+}
 
-    # Account Management Tools
+
+# 5.2 Accounts
+_ACCOUNT_TOOLS = {
     "search_accounts": {
         "description": (
             "Search for accounts by numeric ID or text query (read-only). Use this first — "
@@ -678,8 +766,11 @@ TOOL_REGISTRY = {
         "handler": "account_handlers.search_accounts",
         "category": "accounts"
     },
+}
 
-    # Campaign Management Tools (READ-ONLY)
+
+# 5.3 Campaigns (read)
+_CAMPAIGN_READ_TOOLS = {
     "list_campaigns": {
         "description": "List all campaigns on a Realize account (read-only).",
         "schema": {
@@ -715,7 +806,11 @@ TOOL_REGISTRY = {
         "handler": "campaign_handlers.get_campaign",
         "category": "campaigns"
     },
+}
 
+
+# 5.4 Campaigns (write — fat tools, all targeting inline)
+_CAMPAIGN_WRITE_TOOLS = {
     "create_campaign": {
         "description": _CREATE_CAMPAIGN_DESCRIPTION,
         "schema": {
@@ -739,8 +834,11 @@ TOOL_REGISTRY = {
         "category": "campaigns",
         "annotations": _DESTRUCTIVE_ANNOTATIONS_UPDATE,
     },
+}
 
-    # Campaign Items Tools (READ-ONLY)
+
+# 5.5 Campaign items (read)
+_CAMPAIGN_ITEM_TOOLS = {
     "list_campaign_items": {
         "description": "List all items (creatives) on a campaign (read-only).",
         "schema": {
@@ -784,9 +882,11 @@ TOOL_REGISTRY = {
         "handler": "campaign_handlers.get_campaign_item",
         "category": "campaign_items"
     },
+}
 
-    # Resource Discovery Tools (READ-ONLY) — surface valid values for campaign tool inputs.
 
+# 5.6 Discovery — resolve IDs/names used in campaign payloads
+_DISCOVERY_TOOLS = {
     "search_geos": {
         "description": (
             "Search valid country / region / dma / city / postal_code values for create_campaign and update_campaign geo targeting (read-only).\n"
@@ -965,9 +1065,11 @@ TOOL_REGISTRY = {
         "handler": "resources.list_time_zones",
         "category": "resources",
     },
+}
 
-    # Reporting Tools (READ-ONLY)
 
+# 5.7 Reports (CSV)
+_REPORT_TOOLS = {
     "get_top_campaign_content_report": {
         "description": "Get the top-performing campaign content report for an account (read-only). Returns CSV with a summary header. One call per page returns complete data — do not retry unless an error is returned.\n\nCheck `Total` in the response header for the full record count across all pages.",
         "schema": {
@@ -1160,6 +1262,23 @@ TOOL_REGISTRY = {
     },
 }
 
+
+# Merged registry — single source of truth for `tools/list`. Order preserved
+# (matters for some MCP clients that show tools in declaration order).
+TOOL_REGISTRY = {
+    **_AUTH_TOOLS,
+    **_ACCOUNT_TOOLS,
+    **_CAMPAIGN_READ_TOOLS,
+    **_CAMPAIGN_WRITE_TOOLS,
+    **_CAMPAIGN_ITEM_TOOLS,
+    **_DISCOVERY_TOOLS,
+    **_REPORT_TOOLS,
+}
+
+
+# ============================================================================
+# 6. Public accessors
+# ============================================================================
 
 def get_all_tools():
     """Get all registered tools, filtered by transport mode."""
