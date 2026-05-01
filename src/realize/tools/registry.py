@@ -57,76 +57,145 @@ _GEO_ADVANCED_SCHEMA = {
 }
 
 
-_CLASSIC_GEO_DISCOVERY_HINT = {
-    "country": "Discover values via search_geos(dimension=countries).",
-    "region": "Discover values via search_geos(dimension=regions, country_code=<ISO-2>).",
-    "dma": "Discover values via search_geos(dimension=dma, country_code=US). DMA is US-only.",
-    "city": "Discover values via search_geos(dimension=cities, country_code=<ISO-2>).",
-    "postal_code": "Discover values via search_geos(dimension=postal_codes, country_code=<ISO-2>).",
+# Shared shape constants — referenced by classic-geo and techno schemas below.
+_TARGETING_STRING_SHAPE_PROPERTIES = {
+    "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
+    "value": {"type": "array", "items": {"type": "string"}},
 }
 
 
-def _classic_geo_schema(dim: str, *, sub_dim: bool) -> dict:
-    note = (
-        f"Classic {dim} targeting (update only). {{type: INCLUDE|EXCLUDE|ALL, value: [string]}}. "
-        f"value=[] when type=ALL. "
-    )
-    if sub_dim:
-        note += (
-            f"Sub-dimension mutex: at most ONE of region/dma/city/postal_code on a campaign; "
-            f"requires INCLUDE country already set. "
-        )
-    note += "Mutually exclusive with geo_targeting (advanced) in same request. "
-    note += _CLASSIC_GEO_DISCOVERY_HINT[dim]
-    return {
-        "type": "object",
-        "description": note,
-        "properties": {
-            "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
-            "value": {"type": "array", "items": {"type": "string"}},
-        },
-        "required": ["type", "value"],
-    }
+# Classic geo dimension schemas (update_campaign only).
+
+_COUNTRY_TARGETING_SCHEMA = {
+    "type": "object",
+    "description": (
+        "Classic country targeting (update only). {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
+        "value=[] when type=ALL. "
+        "Mutually exclusive with geo_targeting (advanced) in same request. "
+        "Discover values via search_geos(dimension=countries)."
+    ),
+    "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
+    "required": ["type", "value"],
+}
+
+_REGION_TARGETING_SCHEMA = {
+    "type": "object",
+    "description": (
+        "Classic region targeting (update only). {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
+        "value=[] when type=ALL. "
+        "Sub-dimension mutex: at most ONE of region/dma/city/postal_code on a campaign; "
+        "requires INCLUDE country already set. "
+        "Mutually exclusive with geo_targeting (advanced) in same request. "
+        "Discover values via search_geos(dimension=regions, country_code=<ISO-2>)."
+    ),
+    "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
+    "required": ["type", "value"],
+}
+
+_DMA_TARGETING_SCHEMA = {
+    "type": "object",
+    "description": (
+        "Classic dma targeting (update only). {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
+        "value=[] when type=ALL. "
+        "Sub-dimension mutex: at most ONE of region/dma/city/postal_code on a campaign; "
+        "requires INCLUDE country already set. "
+        "Mutually exclusive with geo_targeting (advanced) in same request. "
+        "Discover values via search_geos(dimension=dma, country_code=US). DMA is US-only."
+    ),
+    "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
+    "required": ["type", "value"],
+}
+
+_CITY_TARGETING_SCHEMA = {
+    "type": "object",
+    "description": (
+        "Classic city targeting (update only). {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
+        "value=[] when type=ALL. "
+        "Sub-dimension mutex: at most ONE of region/dma/city/postal_code on a campaign; "
+        "requires INCLUDE country already set. "
+        "Mutually exclusive with geo_targeting (advanced) in same request. "
+        "Discover values via search_geos(dimension=cities, country_code=<ISO-2>)."
+    ),
+    "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
+    "required": ["type", "value"],
+}
+
+_POSTAL_CODE_TARGETING_SCHEMA = {
+    "type": "object",
+    "description": (
+        "Classic postal_code targeting (update only). {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
+        "value=[] when type=ALL. "
+        "Sub-dimension mutex: at most ONE of region/dma/city/postal_code on a campaign; "
+        "requires INCLUDE country already set. "
+        "Mutually exclusive with geo_targeting (advanced) in same request. "
+        "Discover values via search_geos(dimension=postal_codes, country_code=<ISO-2>)."
+    ),
+    "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
+    "required": ["type", "value"],
+}
 
 
-_TECHNO_DISCOVERY_HINT = {
-    "platform": "Discover values via search_techno(dimension=platforms).",
-    "browser": "Discover values via search_techno(dimension=browsers).",
-    "connection_type": "Discover values via search_techno(dimension=connection_types).",
-    "os": (
+# Techno targeting schemas. platform/browser/connection_type use string values;
+# os uses {os_family, sub_categories?} objects.
+
+_PLATFORM_TARGETING_SCHEMA = {
+    "type": "object",
+    "description": (
+        "platform targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}. "
+        "value=[] when type=ALL. Common values: DESK | PHON | TBLT. "
+        "Discover values via search_techno(dimension=platforms)."
+    ),
+    "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
+    "required": ["type", "value"],
+}
+
+_BROWSER_TARGETING_SCHEMA = {
+    "type": "object",
+    "description": (
+        "browser targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}. "
+        "value=[] when type=ALL. Common values: Chrome | Firefox | Safari | Edge. "
+        "Discover values via search_techno(dimension=browsers)."
+    ),
+    "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
+    "required": ["type", "value"],
+}
+
+_CONNECTION_TYPE_TARGETING_SCHEMA = {
+    "type": "object",
+    "description": (
+        "connection_type targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}. "
+        "value=[] when type=ALL. Common values: WIFI | CELLULAR | OTHER. "
+        "Discover values via search_techno(dimension=connection_types)."
+    ),
+    "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
+    "required": ["type", "value"],
+}
+
+_OS_TARGETING_SCHEMA = {
+    "type": "object",
+    "description": (
+        "os targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}. "
+        "value=[] when type=ALL. Items: {os_family, sub_categories?}. "
+        "os_family in {Android, iOS, Windows, Mac OS X, Linux}. "
         "Discover os_family values via search_techno(dimension=operating_systems); "
         "discover sub_categories per family via search_techno(dimension=operating_system_versions, os_family=<family>)."
     ),
-}
-
-
-def _techno_schema(dim: str, value_doc: str) -> dict:
-    discovery = _TECHNO_DISCOVERY_HINT[dim]
-    return {
-        "type": "object",
-        "description": (
-            f"{dim} targeting. {{type: INCLUDE|EXCLUDE|ALL, value: [...]}}. "
-            f"value=[] when type=ALL. {value_doc} {discovery}"
-        ),
-        "properties": {
-            "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
-            "value": {
-                "type": "array",
-                "items": (
-                    {"type": "string"} if dim != "os"
-                    else {
-                        "type": "object",
-                        "properties": {
-                            "os_family": {"type": "string"},
-                            "sub_categories": {"type": "array", "items": {"type": "string"}},
-                        },
-                        "required": ["os_family"],
-                    }
-                ),
+    "properties": {
+        "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
+        "value": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "os_family": {"type": "string"},
+                    "sub_categories": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["os_family"],
             },
         },
-        "required": ["type", "value"],
-    }
+    },
+    "required": ["type", "value"],
+}
 
 
 _ACTIVITY_SCHEDULE_SCHEMA = {
@@ -347,10 +416,10 @@ _SCALAR_PROPERTIES = {
 
 _TARGETING_PROPERTIES_COMMON = {
     "geo_targeting": _GEO_ADVANCED_SCHEMA,
-    "platform_targeting": _techno_schema("platform", "Common values: DESK | PHON | TBLT."),
-    "os_targeting": _techno_schema("os", "Items: {os_family, sub_categories?}. os_family in {Android, iOS, Windows, Mac OS X, Linux}."),
-    "browser_targeting": _techno_schema("browser", "Common values: Chrome | Firefox | Safari | Edge."),
-    "connection_type_targeting": _techno_schema("connection_type", "Common values: WIFI | CELLULAR | OTHER."),
+    "platform_targeting": _PLATFORM_TARGETING_SCHEMA,
+    "os_targeting": _OS_TARGETING_SCHEMA,
+    "browser_targeting": _BROWSER_TARGETING_SCHEMA,
+    "connection_type_targeting": _CONNECTION_TYPE_TARGETING_SCHEMA,
     "activity_schedule": _ACTIVITY_SCHEDULE_SCHEMA,
     "conversion_rules": _CONVERSION_RULES_SCHEMA,
     "publisher_targeting": _PUBLISHER_TARGETING_SCHEMA,
@@ -362,11 +431,11 @@ _TARGETING_PROPERTIES_COMMON = {
 
 
 _UPDATE_CLASSIC_GEO_PROPERTIES = {
-    "country_targeting": _classic_geo_schema("country", sub_dim=False),
-    "region_targeting": _classic_geo_schema("region", sub_dim=True),
-    "dma_targeting": _classic_geo_schema("dma", sub_dim=True),
-    "city_targeting": _classic_geo_schema("city", sub_dim=True),
-    "postal_code_targeting": _classic_geo_schema("postal_code", sub_dim=True),
+    "country_targeting": _COUNTRY_TARGETING_SCHEMA,
+    "region_targeting": _REGION_TARGETING_SCHEMA,
+    "dma_targeting": _DMA_TARGETING_SCHEMA,
+    "city_targeting": _CITY_TARGETING_SCHEMA,
+    "postal_code_targeting": _POSTAL_CODE_TARGETING_SCHEMA,
 }
 
 
