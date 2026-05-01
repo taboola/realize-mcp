@@ -232,27 +232,10 @@ def format_response(data: Dict[str, Any], max_records_display: int = 10) -> str:
     results = data.get("results", [])
     metadata = data.get("metadata", {})
 
-    # If no results array, treat this as a single item response
+    # Single-item response: emit raw JSON so the LLM sees full state including
+    # nested targeting blocks. Heuristic truncation hid load-bearing fields.
     if "results" not in data:
-        formatted_parts = []
-        formatted_parts.append(f"📋 **ITEM DETAILS:**")
-
-        # Display key-value pairs for single item
-        for key, value in data.items():
-            if isinstance(value, (int, float, str, bool)):
-                # Always show important fields, otherwise apply length limit
-                if key in FORCE_DISPLAY_FIELDS or len(str(value)) < 100:
-                    formatted_parts.append(f"   • {key}: {value}")
-            elif isinstance(value, (dict, list)):
-                # For complex nested data, show first few items or summarize
-                if isinstance(value, list) and len(value) <= 3:
-                    formatted_parts.append(f"   • {key}: {value}")
-                elif isinstance(value, dict) and len(value) <= 5:
-                    formatted_parts.append(f"   • {key}: {value}")
-                else:
-                    formatted_parts.append(f"   • {key}: [Complex data - {type(value).__name__}]")
-
-        return "\n".join(formatted_parts)
+        return json.dumps(data, indent=2, ensure_ascii=False)
 
     # Handle collection responses (with results array)
     formatted_parts = []

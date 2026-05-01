@@ -17,7 +17,8 @@ _GEO_ADVANCED_SCHEMA = {
         "Advanced (MultiTargeting) geo targeting. {state, value}. state=ALL with "
         "value=[] clears geo. state=EXISTS applies the rules in value. "
         "Each rule: {type: INCLUDE|EXCLUDE, value: [{country, region?, dma?, city?, postal_code?}]}. "
-        "Mix dims in one vector to AND them (country=US + region=CA = California).\n"
+        "Mix dims in one vector to AND them (country=US + region=California targets California). "
+        "Note: region values are full names (\"California\", \"New York\") not ISO codes — confirm via search_geos.\n"
         "\n"
         "Discover codes via search_geos:\n"
         "- country: search_geos(dimension=countries)\n"
@@ -431,7 +432,7 @@ _CREATE_CAMPAIGN_DESCRIPTION = (
     "  \"is_active\": false,\n"
     "  \"geo_targeting\": {\"state\": \"EXISTS\", \"value\": [\n"
     "    {\"type\": \"INCLUDE\", \"value\": [{\"country\": \"US\"}, {\"country\": \"CA\"}]},\n"
-    "    {\"type\": \"EXCLUDE\", \"value\": [{\"country\": \"US\", \"region\": \"AK\"}]}\n"
+    "    {\"type\": \"EXCLUDE\", \"value\": [{\"country\": \"US\", \"region\": \"Alaska\"}]}\n"
     "  ]},\n"
     "  \"platform_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"DESK\", \"PHON\"]},\n"
     "  \"os_targeting\": {\"type\": \"INCLUDE\", \"value\": [\n"
@@ -519,7 +520,7 @@ _UPDATE_CAMPAIGN_DESCRIPTION = (
     "\n"
     "Example — edit one classic geo dimension on a classic-storage campaign (no migration to advanced):\n"
     "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
-    "  \"region_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"CA\", \"NY\"]} }"
+    "  \"region_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"California\", \"New York\"]} }"
 )
 
 
@@ -658,7 +659,7 @@ TOOL_REGISTRY = {
         "schema": {
             "type": "object",
             "properties": _CREATE_CAMPAIGN_PROPERTIES,
-            "required": ["account_id", "name", "marketing_objective", "branding_text", "spending_limit_model"],
+            "required": ["account_id", "name", "marketing_objective", "branding_text", "spending_limit_model", "bid_strategy"],
         },
         "handler": "campaign_handlers.create_campaign",
         "category": "campaigns",
@@ -733,7 +734,8 @@ TOOL_REGISTRY = {
             "DMA is US-only.\n"
             "\n"
             "Use returned values directly in geo_targeting (advanced) vectors, e.g. "
-            "{country: \"US\", region: \"CA\"}, or in classic *_targeting blocks on update_campaign.\n"
+            "{country: \"US\", region: \"California\"}, or in classic *_targeting blocks on update_campaign. "
+            "Region/city values are FULL NAMES (\"California\"), not ISO codes.\n"
             "\n"
             "Example — list US states: { \"dimension\": \"regions\", \"country_code\": \"US\" }"
         ),
