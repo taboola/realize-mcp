@@ -572,14 +572,14 @@ All updates (including audiences, lookalike, contextual segments) go in one atom
 
 _UPDATE_CAMPAIGN_EXAMPLES = """\
 Example — activate paused campaign and add publisher bid modifier (partial-merge):
-{ "account_id": "acme-inc", "campaign_id": "c-123", "is_active": true,
+{ "account_id": "acme-inc", "campaign_id": "49184816", "is_active": true,
   "publisher_bid_modifier": {"values": [{"target": "pub_alpha", "cpc_modification": 1.25}]} }
 
 Example — clear audience targeting only (other targeting untouched, full-replace within section):
-{ "account_id": "acme-inc", "campaign_id": "c-123", "my_audiences": {"collection": []} }
+{ "account_id": "acme-inc", "campaign_id": "49184816", "my_audiences": {"collection": []} }
 
 Example — edit one classic geo dimension on a classic-storage campaign (no migration to advanced):
-{ "account_id": "acme-inc", "campaign_id": "c-123",
+{ "account_id": "acme-inc", "campaign_id": "49184816",
   "region_targeting": {"type": "INCLUDE", "value": ["California", "New York"]} }"""
 
 
@@ -609,7 +609,7 @@ _CREATE_CAMPAIGN_PROPERTIES = {
 
 _UPDATE_CAMPAIGN_PROPERTIES = {
     "account_id": {"type": "string", "description": "Value from search_accounts.account_id (NOT numeric)."},
-    "campaign_id": {"type": "string", "description": "Value from list_campaigns.id or get_campaign.id (returned by create_campaign as `id`)."},
+    "campaign_id": {"type": "string", "description": "Value from list_campaigns.id or get_campaign.id (returned by create_campaign as `id`). Numeric ID as a string (e.g. \"49184816\")."},
     **_SCALAR_PROPERTIES,
     **_TARGETING_PROPERTIES_COMMON,
     **_UPDATE_CLASSIC_GEO_PROPERTIES,
@@ -707,7 +707,7 @@ TOOL_REGISTRY = {
                 },
                 "campaign_id": {
                     "type": "string",
-                    "description": "Value from list_campaigns.id or get_campaign.id."
+                    "description": "Value from list_campaigns.id or get_campaign.id. Numeric ID as a string (e.g. \"49184816\")."
                 }
             },
             "required": ["account_id", "campaign_id"]
@@ -752,7 +752,7 @@ TOOL_REGISTRY = {
                 },
                 "campaign_id": {
                     "type": "string",
-                    "description": "Value from list_campaigns.id or get_campaign.id."
+                    "description": "Value from list_campaigns.id or get_campaign.id. Numeric ID as a string (e.g. \"49184816\")."
                 }
             },
             "required": ["account_id", "campaign_id"]
@@ -772,7 +772,7 @@ TOOL_REGISTRY = {
                 },
                 "campaign_id": {
                     "type": "string",
-                    "description": "Value from list_campaigns.id or get_campaign.id."
+                    "description": "Value from list_campaigns.id or get_campaign.id. Numeric ID as a string (e.g. \"49184816\")."
                 },
                 "item_id": {
                     "type": "string",
