@@ -438,159 +438,152 @@ _UPDATE_CLASSIC_GEO_PROPERTIES = {
 }
 
 
-_CREATE_CAMPAIGN_DESCRIPTION = (
-    "Create a campaign on a Realize account, with full targeting in one call. Returns the created campaign "
-    "(`id`, `status=PAUSED`); ships paused, won't serve until items are added (set `is_active=true` to launch).\n"
-    "\n"
-    "Prerequisite: call search_accounts first to obtain a valid `account_id`. The numeric account ID is rejected.\n"
-    "\n"
-    f"{_TARGETING_BLOCKS_NOTE}\n"
-    "\n"
-    "Geo: accepts `geo_targeting` (advanced/MultiTargeting) only. Classic geo fields rejected on create. "
-    "Use update_campaign for classic geo edits on existing classic-storage campaigns.\n"
-    "\n"
-    "All amounts (spending_limit, daily_cap, cpc, cpa_goal, cpc_cap) are numbers in the account's default currency.\n"
-    "\n"
-    "Conditional rules:\n"
-    "- spending_limit_model = MONTHLY|ENTIRE → also send spending_limit. NONE → also send daily_cap.\n"
-    "- marketing_objective = BRAND_AWARENESS|DRIVE_WEBSITE_TRAFFIC → send cpc; bid_strategy SMART (default) or FIXED; omit cpa_goal.\n"
-    "- marketing_objective = LEADS_GENERATION|ONLINE_PURCHASES|MOBILE_APP_INSTALL → bid_strategy = TARGET_CPA|MAX_CONVERSIONS|MAX_VALUE; if TARGET_CPA also send cpa_goal; omit cpc.\n"
-    "- If both start_date and end_date sent: end_date >= start_date.\n"
-    "\n"
-    "Discovery (call before constructing the payload to resolve IDs/names):\n"
-    "- search_geos → `geo_targeting` country / region / dma / city / postal_code values.\n"
-    "- search_techno → `os_targeting` sub_categories and `browser_targeting` values. "
-    "(platform / connection_type / os_family enums are listed inline in their schema descriptions.)\n"
-    "- search_audiences → `my_audiences` audience IDs.\n"
-    "- search_lookalike_audiences → `lookalike_audience` rule_ids.\n"
-    "- search_publishers → `publisher_targeting` and `publisher_bid_modifier.target` names.\n"
-    "- search_conversion_rules → `conversion_rules` IDs.\n"
-    "- list_time_zones → `activity_schedule.time_zone` IANA names.\n"
-    "\n"
-    "Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, "
-    "target_cpa, target_cpa_learning_status. (`target_cpa` is server-recommended; user goal is `cpa_goal`.)\n"
-    "\n"
-    "All targeting (including audiences, lookalike, contextual segments) goes in one atomic POST to Backstage; "
-    "either the whole campaign with all targeting commits, or none of it does.\n"
-    "\n"
-    "Comprehensive example (every available field set; trim what you don't need — only the five required scalars are mandatory).\n"
-    "\n"
-    "Plain English: a Q2 lead-generation campaign for the Acme brand, $10,000 lifetime budget, "
-    "running May 1 to Jun 30 2026 in TARGET_CPA bid mode aiming for $15 per acquisition. Targets "
-    "US and Canada (excluding Alaska), desktop and phone, iOS 17 and any Android, Chrome and Safari, "
-    "Wi-Fi and cellular. Serves Mon–Fri 9 AM–9 PM Eastern (off weekends). Includes audiences 224820 "
-    "and 25287 (excludes 19884), one CRM lookalike at 10% similarity, contextual segments for the topic, "
-    "two conversion rules, allowlists publishers `pub_alpha` and `pub_beta` "
-    "with +25% bid on `pub_alpha` and -20% on `pub_beta`. Ships paused (`is_active=false`).\n"
-    "\n"
-    "{\n"
-    "  \"account_id\": \"acme-inc\",\n"
-    "  \"name\": \"Q2 Leads — US Mobile\",\n"
-    "  \"marketing_objective\": \"LEADS_GENERATION\",\n"
-    "  \"branding_text\": \"Acme\",\n"
-    "  \"spending_limit_model\": \"ENTIRE\",\n"
-    "  \"spending_limit\": 10000,\n"
-    "  \"bid_strategy\": \"TARGET_CPA\",\n"
-    "  \"cpa_goal\": 15,\n"
-    "  \"start_date\": \"2026-05-01\",\n"
-    "  \"end_date\": \"2026-06-30\",\n"
-    "  \"tracking_code\": \"utm_source=taboola\",\n"
-    "  \"comments\": \"Q2 lead gen — primary\",\n"
-    "  \"daily_ad_delivery_model\": \"BALANCED\",\n"
-    "  \"traffic_allocation_mode\": \"OPTIMIZED\",\n"
-    "  \"is_active\": false,\n"
-    "  \"geo_targeting\": {\"state\": \"EXISTS\", \"value\": [\n"
-    "    {\"type\": \"INCLUDE\", \"value\": [{\"country\": \"US\"}, {\"country\": \"CA\"}]},\n"
-    "    {\"type\": \"EXCLUDE\", \"value\": [{\"country\": \"US\", \"region\": \"Alaska\"}]}\n"
-    "  ]},\n"
-    "  \"platform_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"DESK\", \"PHON\"]},\n"
-    "  \"os_targeting\": {\"type\": \"INCLUDE\", \"value\": [\n"
-    "    {\"os_family\": \"iOS\", \"sub_categories\": [\"iOS 17\"]},\n"
-    "    {\"os_family\": \"Android\"}\n"
-    "  ]},\n"
-    "  \"browser_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"Chrome\", \"Safari\"]},\n"
-    "  \"connection_type_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"WIFI\", \"CELLULAR\"]},\n"
-    "  \"activity_schedule\": {\"mode\": \"CUSTOM\", \"time_zone\": \"America/New_York\", \"rules\": [\n"
-    "    {\"type\": \"INCLUDE\", \"day\": \"MONDAY\",    \"from_hour\": 9, \"until_hour\": 21},\n"
-    "    {\"type\": \"INCLUDE\", \"day\": \"TUESDAY\",   \"from_hour\": 9, \"until_hour\": 21},\n"
-    "    {\"type\": \"INCLUDE\", \"day\": \"WEDNESDAY\", \"from_hour\": 9, \"until_hour\": 21},\n"
-    "    {\"type\": \"INCLUDE\", \"day\": \"THURSDAY\",  \"from_hour\": 9, \"until_hour\": 21},\n"
-    "    {\"type\": \"INCLUDE\", \"day\": \"FRIDAY\",    \"from_hour\": 9, \"until_hour\": 21},\n"
-    "    {\"type\": \"EXCLUDE\", \"day\": \"SATURDAY\",  \"from_hour\": 0, \"until_hour\": 24},\n"
-    "    {\"type\": \"EXCLUDE\", \"day\": \"SUNDAY\",    \"from_hour\": 0, \"until_hour\": 24}\n"
-    "  ]},\n"
-    "  \"conversion_rules\": [{\"id\": 1234567}, {\"id\": 7654321}],\n"
-    "  \"publisher_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"pub_alpha\", \"pub_beta\"]},\n"
-    "  \"publisher_bid_modifier\": {\"values\": [\n"
-    "    {\"target\": \"pub_alpha\", \"cpc_modification\": 1.25},\n"
-    "    {\"target\": \"pub_beta\",  \"cpc_modification\": 0.80}\n"
-    "  ]},\n"
-    "  \"contextual_segments\": {\"collection\": [\n"
-    "    {\"type\": \"INCLUDE\", \"collection\": [1900004, 1900024]}\n"
-    "  ]},\n"
-    "  \"my_audiences\": {\"collection\": [\n"
-    "    {\"type\": \"INCLUDE\", \"collection\": [224820, 25287]},\n"
-    "    {\"type\": \"EXCLUDE\", \"collection\": [19884]}\n"
-    "  ]},\n"
-    "  \"lookalike_audience\": {\"collection\": [{\"type\": \"INCLUDE\", \"collection\": [\n"
-    "    {\"rule_id\": 1234567, \"similarity_level\": 10}\n"
-    "  ]}]}\n"
-    "}"
-)
+_CREATE_CAMPAIGN_PROSE = f"""\
+Create a campaign on a Realize account, with full targeting in one call. Returns the created campaign (`id`, `status=PAUSED`); ships paused, won't serve until items are added (set `is_active=true` to launch).
+
+Prerequisite: call search_accounts first to obtain a valid `account_id`. The numeric account ID is rejected.
+
+{_TARGETING_BLOCKS_NOTE}
+
+Geo: accepts `geo_targeting` (advanced/MultiTargeting) only. Classic geo fields rejected on create. Use update_campaign for classic geo edits on existing classic-storage campaigns.
+
+All amounts (spending_limit, daily_cap, cpc, cpa_goal, cpc_cap) are numbers in the account's default currency.
+
+Conditional rules:
+- spending_limit_model = MONTHLY|ENTIRE → also send spending_limit. NONE → also send daily_cap.
+- marketing_objective = BRAND_AWARENESS|DRIVE_WEBSITE_TRAFFIC → send cpc; bid_strategy SMART (default) or FIXED; omit cpa_goal.
+- marketing_objective = LEADS_GENERATION|ONLINE_PURCHASES|MOBILE_APP_INSTALL → bid_strategy = TARGET_CPA|MAX_CONVERSIONS|MAX_VALUE; if TARGET_CPA also send cpa_goal; omit cpc.
+- If both start_date and end_date sent: end_date >= start_date.
+
+Discovery (call before constructing the payload to resolve IDs/names):
+- search_geos → `geo_targeting` country / region / dma / city / postal_code values.
+- search_techno → `os_targeting` sub_categories and `browser_targeting` values. (platform / connection_type / os_family enums are listed inline in their schema descriptions.)
+- search_audiences → `my_audiences` audience IDs.
+- search_lookalike_audiences → `lookalike_audience` rule_ids.
+- search_publishers → `publisher_targeting` and `publisher_bid_modifier.target` names.
+- search_conversion_rules → `conversion_rules` IDs.
+- list_time_zones → `activity_schedule.time_zone` IANA names.
+
+Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, target_cpa, target_cpa_learning_status. (`target_cpa` is server-recommended; user goal is `cpa_goal`.)
+
+All targeting (including audiences, lookalike, contextual segments) goes in one atomic POST to Backstage; either the whole campaign with all targeting commits, or none of it does.
+
+Comprehensive example (every available field set; trim what you don't need — only the five required scalars are mandatory).
+
+Plain English: a Q2 lead-generation campaign for the Acme brand, $10,000 lifetime budget, running May 1 to Jun 30 2026 in TARGET_CPA bid mode aiming for $15 per acquisition. Targets US and Canada (excluding Alaska), desktop and phone, iOS 17 and any Android, Chrome and Safari, Wi-Fi and cellular. Serves Mon–Fri 9 AM–9 PM Eastern (off weekends). Includes audiences 224820 and 25287 (excludes 19884), one CRM lookalike at 10% similarity, contextual segments for the topic, two conversion rules, allowlists publishers `pub_alpha` and `pub_beta` with +25% bid on `pub_alpha` and -20% on `pub_beta`. Ships paused (`is_active=false`).
+
+"""
 
 
-_UPDATE_CAMPAIGN_DESCRIPTION = (
-    "Update an existing campaign: scalars and any targeting block in one call.\n"
-    "\n"
-    "Prerequisites: call search_accounts first to obtain `account_id`; call list_campaigns or get_campaign to obtain `campaign_id` "
-    "(or use the `id` returned by create_campaign). Numeric account IDs are rejected.\n"
-    "\n"
-    f"{_TARGETING_BLOCKS_NOTE}\n"
-    "\n"
-    "Geo: accepts EITHER `geo_targeting` (advanced/MultiTargeting, full-replace) OR classic dimension fields "
-    "(country_targeting, region_targeting, dma_targeting, city_targeting, postal_code_targeting — each replaces only its "
-    "dimension). Sending both shapes in one request is rejected. Sending advanced on a classic-storage campaign one-way "
-    "migrates it to advanced (logged in campaign history).\n"
-    "\n"
-    "All amounts are numbers in the account's default currency.\n"
-    "\n"
-    "Conditional rules (apply only when the gating field is in this request):\n"
-    "- spending_limit_model = MONTHLY|ENTIRE → also send spending_limit. NONE → also send daily_cap.\n"
-    "- bid_strategy = TARGET_CPA → also send cpa_goal.\n"
-    "- If both start_date and end_date sent: end_date >= start_date.\n"
-    "- Solo updates of a partner field (e.g. only spending_limit, or only cpa_goal) are allowed — stored gating field is reused.\n"
-    "\n"
-    "At least one updatable field besides account_id and campaign_id must be sent.\n"
-    "\n"
-    "Server-side constraints (returns 4xx if violated):\n"
-    "- Some marketing_objective transitions are rejected mid-flight.\n"
-    "- MOBILE_APP_INSTALL switching requires app fields not exposed here.\n"
-    "- TERMINATED campaigns cannot be reactivated.\n"
-    "- Lookalike: account must have user-segments edit permission and campaign must allow retargeting.\n"
-    "\n"
-    "Discovery: same as create_campaign — search_geos, search_techno, search_audiences, search_lookalike_audiences, "
-    "search_publishers, search_conversion_rules, list_time_zones. "
-    "Each schema property below names which tool populates it.\n"
-    "\n"
-    "Field shapes are identical to create_campaign — see its comprehensive example for every targeting block. "
-    "Examples below focus on update-only patterns (partial-merge, classic-geo, full-replace within a section).\n"
-    "\n"
-    "Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, "
-    "target_cpa, target_cpa_learning_status.\n"
-    "\n"
-    "All updates (including audiences, lookalike, contextual segments) go in one atomic POST to Backstage.\n"
-    "\n"
-    "Example — activate paused campaign and add publisher bid modifier (partial-merge):\n"
-    "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"is_active\": true,\n"
-    "  \"publisher_bid_modifier\": {\"values\": [{\"target\": \"pub_alpha\", \"cpc_modification\": 1.25}]} }\n"
-    "\n"
-    "Example — clear audience targeting only (other targeting untouched, full-replace within section):\n"
-    "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"my_audiences\": {\"collection\": []} }\n"
-    "\n"
-    "Example — edit one classic geo dimension on a classic-storage campaign (no migration to advanced):\n"
-    "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
-    "  \"region_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"California\", \"New York\"]} }"
-)
+_CREATE_CAMPAIGN_JSON_EXAMPLE = """\
+{
+  "account_id": "acme-inc",
+  "name": "Q2 Leads — US Mobile",
+  "marketing_objective": "LEADS_GENERATION",
+  "branding_text": "Acme",
+  "spending_limit_model": "ENTIRE",
+  "spending_limit": 10000,
+  "bid_strategy": "TARGET_CPA",
+  "cpa_goal": 15,
+  "start_date": "2026-05-01",
+  "end_date": "2026-06-30",
+  "tracking_code": "utm_source=taboola",
+  "comments": "Q2 lead gen — primary",
+  "daily_ad_delivery_model": "BALANCED",
+  "traffic_allocation_mode": "OPTIMIZED",
+  "is_active": false,
+  "geo_targeting": {"state": "EXISTS", "value": [
+    {"type": "INCLUDE", "value": [{"country": "US"}, {"country": "CA"}]},
+    {"type": "EXCLUDE", "value": [{"country": "US", "region": "Alaska"}]}
+  ]},
+  "platform_targeting": {"type": "INCLUDE", "value": ["DESK", "PHON"]},
+  "os_targeting": {"type": "INCLUDE", "value": [
+    {"os_family": "iOS", "sub_categories": ["iOS 17"]},
+    {"os_family": "Android"}
+  ]},
+  "browser_targeting": {"type": "INCLUDE", "value": ["Chrome", "Safari"]},
+  "connection_type_targeting": {"type": "INCLUDE", "value": ["WIFI", "CELLULAR"]},
+  "activity_schedule": {"mode": "CUSTOM", "time_zone": "America/New_York", "rules": [
+    {"type": "INCLUDE", "day": "MONDAY",    "from_hour": 9, "until_hour": 21},
+    {"type": "INCLUDE", "day": "TUESDAY",   "from_hour": 9, "until_hour": 21},
+    {"type": "INCLUDE", "day": "WEDNESDAY", "from_hour": 9, "until_hour": 21},
+    {"type": "INCLUDE", "day": "THURSDAY",  "from_hour": 9, "until_hour": 21},
+    {"type": "INCLUDE", "day": "FRIDAY",    "from_hour": 9, "until_hour": 21},
+    {"type": "EXCLUDE", "day": "SATURDAY",  "from_hour": 0, "until_hour": 24},
+    {"type": "EXCLUDE", "day": "SUNDAY",    "from_hour": 0, "until_hour": 24}
+  ]},
+  "conversion_rules": [{"id": 1234567}, {"id": 7654321}],
+  "publisher_targeting": {"type": "INCLUDE", "value": ["pub_alpha", "pub_beta"]},
+  "publisher_bid_modifier": {"values": [
+    {"target": "pub_alpha", "cpc_modification": 1.25},
+    {"target": "pub_beta",  "cpc_modification": 0.80}
+  ]},
+  "contextual_segments": {"collection": [
+    {"type": "INCLUDE", "collection": [1900004, 1900024]}
+  ]},
+  "my_audiences": {"collection": [
+    {"type": "INCLUDE", "collection": [224820, 25287]},
+    {"type": "EXCLUDE", "collection": [19884]}
+  ]},
+  "lookalike_audience": {"collection": [{"type": "INCLUDE", "collection": [
+    {"rule_id": 1234567, "similarity_level": 10}
+  ]}]}
+}"""
+
+
+_CREATE_CAMPAIGN_DESCRIPTION = _CREATE_CAMPAIGN_PROSE + _CREATE_CAMPAIGN_JSON_EXAMPLE
+
+
+_UPDATE_CAMPAIGN_PROSE = f"""\
+Update an existing campaign: scalars and any targeting block in one call.
+
+Prerequisites: call search_accounts first to obtain `account_id`; call list_campaigns or get_campaign to obtain `campaign_id` (or use the `id` returned by create_campaign). Numeric account IDs are rejected.
+
+{_TARGETING_BLOCKS_NOTE}
+
+Geo: accepts EITHER `geo_targeting` (advanced/MultiTargeting, full-replace) OR classic dimension fields (country_targeting, region_targeting, dma_targeting, city_targeting, postal_code_targeting — each replaces only its dimension). Sending both shapes in one request is rejected. Sending advanced on a classic-storage campaign one-way migrates it to advanced (logged in campaign history).
+
+All amounts are numbers in the account's default currency.
+
+Conditional rules (apply only when the gating field is in this request):
+- spending_limit_model = MONTHLY|ENTIRE → also send spending_limit. NONE → also send daily_cap.
+- bid_strategy = TARGET_CPA → also send cpa_goal.
+- If both start_date and end_date sent: end_date >= start_date.
+- Solo updates of a partner field (e.g. only spending_limit, or only cpa_goal) are allowed — stored gating field is reused.
+
+At least one updatable field besides account_id and campaign_id must be sent.
+
+Server-side constraints (returns 4xx if violated):
+- Some marketing_objective transitions are rejected mid-flight.
+- MOBILE_APP_INSTALL switching requires app fields not exposed here.
+- TERMINATED campaigns cannot be reactivated.
+- Lookalike: account must have user-segments edit permission and campaign must allow retargeting.
+
+Discovery: same as create_campaign — search_geos, search_techno, search_audiences, search_lookalike_audiences, search_publishers, search_conversion_rules, list_time_zones. Each schema property below names which tool populates it.
+
+Field shapes are identical to create_campaign — see its comprehensive example for every targeting block. Examples below focus on update-only patterns (partial-merge, classic-geo, full-replace within a section).
+
+Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, target_cpa, target_cpa_learning_status.
+
+All updates (including audiences, lookalike, contextual segments) go in one atomic POST to Backstage.
+
+"""
+
+
+_UPDATE_CAMPAIGN_EXAMPLES = """\
+Example — activate paused campaign and add publisher bid modifier (partial-merge):
+{ "account_id": "acme-inc", "campaign_id": "c-123", "is_active": true,
+  "publisher_bid_modifier": {"values": [{"target": "pub_alpha", "cpc_modification": 1.25}]} }
+
+Example — clear audience targeting only (other targeting untouched, full-replace within section):
+{ "account_id": "acme-inc", "campaign_id": "c-123", "my_audiences": {"collection": []} }
+
+Example — edit one classic geo dimension on a classic-storage campaign (no migration to advanced):
+{ "account_id": "acme-inc", "campaign_id": "c-123",
+  "region_targeting": {"type": "INCLUDE", "value": ["California", "New York"]} }"""
+
+
+_UPDATE_CAMPAIGN_DESCRIPTION = _UPDATE_CAMPAIGN_PROSE + _UPDATE_CAMPAIGN_EXAMPLES
 
 
 _DESTRUCTIVE_ANNOTATIONS_CREATE = {
