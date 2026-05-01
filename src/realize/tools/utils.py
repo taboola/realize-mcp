@@ -214,76 +214,13 @@ FORCE_DISPLAY_FIELDS = {
 
 
 def format_response(data: Dict[str, Any], max_records_display: int = 10) -> str:
+    """Render API response as raw JSON.
+
+    Both single-item and collection responses pass through unchanged so the LLM
+    sees full state including nested targeting blocks. Earlier heuristic display
+    truncated nested fields and hid load-bearing data.
     """
-    Format API response data for display with intelligent truncation and summary.
-    Handles both collection responses (with results array) and single item responses.
-
-    Args:
-        data: Raw API response data
-        max_records_display: Maximum number of detailed records to show
-
-    Returns:
-        Formatted string with summary, sample data, and pagination info
-    """
-    if not isinstance(data, dict):
-        return json.dumps(data, indent=2, ensure_ascii=False)
-
-    # Check if this is a collection response (has results array)
-    results = data.get("results", [])
-    metadata = data.get("metadata", {})
-
-    # Single-item response: emit raw JSON so the LLM sees full state including
-    # nested targeting blocks. Heuristic truncation hid load-bearing fields.
-    if "results" not in data:
-        return json.dumps(data, indent=2, ensure_ascii=False)
-
-    # Handle collection responses (with results array)
-    formatted_parts = []
-
-    # Summary section
-    if results:
-        formatted_parts.append(f"📊 **SUMMARY:**")
-        formatted_parts.append(f"   • Total records in response: {len(results)}")
-
-        if metadata:
-            if "total" in metadata:
-                formatted_parts.append(f"   • Total available: {metadata['total']}")
-            if "page" in metadata:
-                formatted_parts.append(f"   • Current page: {metadata['page']}")
-            if "page_size" in metadata:
-                formatted_parts.append(f"   • Page size: {metadata['page_size']}")
-
-        # Data preview section
-        formatted_parts.append(f"\n📈 **DATA PREVIEW ({min(len(results), max_records_display)} of {len(results)} records):**")
-
-        for i, record in enumerate(results[:max_records_display]):
-            formatted_parts.append(f"\n   Record {i+1}:")
-            # Show key metrics for report data
-            for key, value in record.items():
-                if isinstance(value, (int, float, str, bool)):
-                    # Always show important fields, otherwise apply length limit
-                    if key in FORCE_DISPLAY_FIELDS or len(str(value)) < 100:
-                        formatted_parts.append(f"     • {key}: {value}")
-        
-        if len(results) > max_records_display:
-            formatted_parts.append(f"\n   ... and {len(results) - max_records_display} more records")
-        
-        # Pagination guidance
-        if metadata.get("total", len(results)) > len(results):
-            formatted_parts.append(f"\n🔄 **PAGINATION INFO:**")
-            formatted_parts.append(f"   • More data available - use 'page' parameter to get additional records")
-            formatted_parts.append(f"   • Increase 'page_size' (max: 1000) to get more records per request")
-    else:
-        formatted_parts.append("📊 **SUMMARY:** No records found")
-    
-    # Metadata section (if any additional info)
-    if metadata and any(k not in ["total", "page", "page_size"] for k in metadata.keys()):
-        formatted_parts.append(f"\n📋 **METADATA:**")
-        for key, value in metadata.items():
-            if key not in ["total", "page", "page_size"]:
-                formatted_parts.append(f"   • {key}: {value}")
-    
-    return "\n".join(formatted_parts)
+    return json.dumps(data, indent=2, ensure_ascii=False)
 
 
 def safe_get(data: Dict[str, Any], key: str, default: Any = "N/A") -> Any:
