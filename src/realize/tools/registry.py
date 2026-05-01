@@ -137,7 +137,7 @@ _CONVERSION_RULES_SCHEMA = {
     "type": "array",
     "description": (
         "Conversion rule attachments. List of {id} objects. Send [] to detach all. "
-        "Rule IDs are authored in the Realize UI (Conversions section); not discoverable here. "
+        "Discover rule IDs via search_conversion_rules. "
         "LEADS_GENERATION / ONLINE_PURCHASES typically require >=1 rule."
     ),
     "items": {
@@ -152,7 +152,8 @@ _PUBLISHER_TARGETING_SCHEMA = {
     "type": "object",
     "description": (
         "Publisher targeting. {type: INCLUDE|EXCLUDE|ALL, value: [publisher_name]}. "
-        "value=[] when type=ALL. Names (not IDs) — server resolves them."
+        "value=[] when type=ALL. Names (not IDs) — server resolves them. "
+        "Discover names via search_publishers."
     ),
     "properties": {
         "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
@@ -165,7 +166,8 @@ _PUBLISHER_TARGETING_SCHEMA = {
 _PUBLISHER_GROUPS_TARGETING_SCHEMA = {
     "type": "object",
     "description": (
-        "Publisher-groups targeting. Same shape as publisher_targeting but values are group names."
+        "Publisher-groups targeting. Same shape as publisher_targeting but values are group names. "
+        "Discover names via search_publisher_groups."
     ),
     "properties": {
         "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
@@ -179,7 +181,8 @@ _PUBLISHER_BID_MODIFIER_SCHEMA = {
     "type": "object",
     "description": (
         "Per-publisher CPC bid modifier. {values: [{target: <publisher_name>, cpc_modification: <number>}]}. "
-        "cpc_modification is a multiplier (1.25 = +25%). values=[] clears all modifiers."
+        "cpc_modification is a multiplier (1.25 = +25%). values=[] clears all modifiers. "
+        "Discover publisher names via search_publishers."
     ),
     "properties": {
         "values": {
@@ -226,7 +229,7 @@ _MY_AUDIENCES_SCHEMA = {
     "type": "object",
     "description": (
         "First-party + custom audience targeting. {collection: [{type: INCLUDE|EXCLUDE, collection: [int]}]}. "
-        "Send {collection: []} to clear. Audience IDs sourced from the Realize UI (Audiences section)."
+        "Send {collection: []} to clear. Discover audience IDs via search_audiences."
     ),
     "properties": {
         "collection": {
@@ -250,7 +253,7 @@ _LOOKALIKE_AUDIENCE_SCHEMA = {
     "description": (
         "Lookalike audience targeting (CRM/pixel/PBP). {collection: [{type: INCLUDE, collection: [{rule_id, similarity_level}]}]}. "
         "Send {collection: []} to clear. INCLUDE-only; at most one block. similarity_level: CRM 5/10/15/20/25, pixel 5, PBP 1/2/3/4/5. "
-        "rule_id from the Realize UI (Audiences > Lookalike). PBP audiences must be created in the UI."
+        "Discover rule_ids via search_lookalike_audiences. PBP lookalike audiences must be created in the Realize UI before they can be targeted."
     ),
     "properties": {
         "collection": {
@@ -357,6 +360,8 @@ _CREATE_CAMPAIGN_DESCRIPTION = (
     "Create a campaign on a Realize account, with full targeting in one call. Returns the created campaign "
     "(`id`, `status=PAUSED`); ships paused, won't serve until items are added (set `is_active=true` to launch).\n"
     "\n"
+    "Prerequisite: call search_accounts first to obtain a valid `account_id`. The numeric account ID is rejected.\n"
+    "\n"
     f"{_TARGETING_BLOCKS_NOTE}\n"
     "\n"
     "Geo: accepts `geo_targeting` (advanced/MultiTargeting) only. Classic geo fields rejected on create. "
@@ -370,10 +375,15 @@ _CREATE_CAMPAIGN_DESCRIPTION = (
     "- marketing_objective = LEADS_GENERATION|ONLINE_PURCHASES|MOBILE_APP_INSTALL → bid_strategy = TARGET_CPA|MAX_CONVERSIONS|MAX_VALUE; if TARGET_CPA also send cpa_goal; omit cpc.\n"
     "- If both start_date and end_date sent: end_date >= start_date.\n"
     "\n"
-    "Discovery:\n"
-    "- search_geos — countries, regions, dma, cities, postal_codes (for `geo_targeting`).\n"
-    "- search_techno — platforms, OS families/versions, browsers, connection types.\n"
-    "- list_realize_resource — marketing_objectives, bid_strategies, spending_limit_models, time_zones.\n"
+    "Discovery (call before constructing the payload to resolve IDs/names):\n"
+    "- search_geos → `geo_targeting` country / region / dma / city / postal_code values.\n"
+    "- search_techno → `platform_targeting` / `os_targeting` / `browser_targeting` / `connection_type_targeting` values.\n"
+    "- search_audiences → `my_audiences` audience IDs.\n"
+    "- search_lookalike_audiences → `lookalike_audience` rule_ids.\n"
+    "- search_publishers → `publisher_targeting` and `publisher_bid_modifier.target` names.\n"
+    "- search_publisher_groups → `publisher_groups_targeting` names.\n"
+    "- search_conversion_rules → `conversion_rules` IDs.\n"
+    "- list_realize_resource → `marketing_objective`, `bid_strategy`, `spending_limit_model`, `activity_schedule.time_zone`.\n"
     "\n"
     "Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, "
     "target_cpa, target_cpa_learning_status. (`target_cpa` is server-recommended; user goal is `cpa_goal`.)\n"
@@ -381,17 +391,78 @@ _CREATE_CAMPAIGN_DESCRIPTION = (
     "All targeting (including audiences, lookalike, contextual segments) goes in one atomic POST to Backstage; "
     "either the whole campaign with all targeting commits, or none of it does.\n"
     "\n"
-    "Example — lead gen with geo + audience targeting:\n"
-    "{ \"account_id\": \"acme-inc\", \"name\": \"Q2 Leads\", \"marketing_objective\": \"LEADS_GENERATION\",\n"
-    "  \"branding_text\": \"Acme\", \"spending_limit_model\": \"ENTIRE\", \"spending_limit\": 10000,\n"
-    "  \"bid_strategy\": \"TARGET_CPA\", \"cpa_goal\": 15,\n"
-    "  \"geo_targeting\": {\"state\": \"EXISTS\", \"value\": [{\"type\": \"INCLUDE\", \"value\": [{\"country\": \"US\"}]}]},\n"
-    "  \"my_audiences\": {\"collection\": [{\"type\": \"INCLUDE\", \"collection\": [224820]}]} }"
+    "Comprehensive example (every available field set; trim what you don't need — only the five required scalars are mandatory).\n"
+    "\n"
+    "Plain English: a Q2 lead-generation campaign for the Acme brand, $10,000 lifetime budget, "
+    "running May 1 to Jun 30 2026 in TARGET_CPA bid mode aiming for $15 per acquisition. Targets "
+    "US and Canada (excluding Alaska), desktop and phone, iOS 17 and any Android, Chrome and Safari, "
+    "Wi-Fi and cellular. Serves Mon–Fri 9 AM–9 PM Eastern (off weekends). Includes audiences 224820 "
+    "and 25287 (excludes 19884), one CRM lookalike at 10% similarity, contextual segments for the topic, "
+    "two conversion rules, allowlists publishers `pub_alpha` and `pub_beta` plus the `premium_news` "
+    "group, with +25% bid on `pub_alpha` and -20% on `pub_beta`. Ships paused (`is_active=false`).\n"
+    "\n"
+    "{\n"
+    "  \"account_id\": \"acme-inc\",\n"
+    "  \"name\": \"Q2 Leads — US Mobile\",\n"
+    "  \"marketing_objective\": \"LEADS_GENERATION\",\n"
+    "  \"branding_text\": \"Acme\",\n"
+    "  \"spending_limit_model\": \"ENTIRE\",\n"
+    "  \"spending_limit\": 10000,\n"
+    "  \"bid_strategy\": \"TARGET_CPA\",\n"
+    "  \"cpa_goal\": 15,\n"
+    "  \"start_date\": \"2026-05-01\",\n"
+    "  \"end_date\": \"2026-06-30\",\n"
+    "  \"tracking_code\": \"utm_source=taboola\",\n"
+    "  \"comments\": \"Q2 lead gen — primary\",\n"
+    "  \"daily_ad_delivery_model\": \"BALANCED\",\n"
+    "  \"traffic_allocation_mode\": \"OPTIMIZED\",\n"
+    "  \"is_active\": false,\n"
+    "  \"geo_targeting\": {\"state\": \"EXISTS\", \"value\": [\n"
+    "    {\"type\": \"INCLUDE\", \"value\": [{\"country\": \"US\"}, {\"country\": \"CA\"}]},\n"
+    "    {\"type\": \"EXCLUDE\", \"value\": [{\"country\": \"US\", \"region\": \"AK\"}]}\n"
+    "  ]},\n"
+    "  \"platform_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"DESK\", \"PHON\"]},\n"
+    "  \"os_targeting\": {\"type\": \"INCLUDE\", \"value\": [\n"
+    "    {\"os_family\": \"iOS\", \"sub_categories\": [\"iOS_17\"]},\n"
+    "    {\"os_family\": \"Android\"}\n"
+    "  ]},\n"
+    "  \"browser_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"Chrome\", \"Safari\"]},\n"
+    "  \"connection_type_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"WIFI\", \"CELLULAR\"]},\n"
+    "  \"activity_schedule\": {\"mode\": \"CUSTOM\", \"time_zone\": \"America/New_York\", \"rules\": [\n"
+    "    {\"type\": \"INCLUDE\", \"day\": \"MONDAY\",    \"from_hour\": 9, \"until_hour\": 21},\n"
+    "    {\"type\": \"INCLUDE\", \"day\": \"TUESDAY\",   \"from_hour\": 9, \"until_hour\": 21},\n"
+    "    {\"type\": \"INCLUDE\", \"day\": \"WEDNESDAY\", \"from_hour\": 9, \"until_hour\": 21},\n"
+    "    {\"type\": \"INCLUDE\", \"day\": \"THURSDAY\",  \"from_hour\": 9, \"until_hour\": 21},\n"
+    "    {\"type\": \"INCLUDE\", \"day\": \"FRIDAY\",    \"from_hour\": 9, \"until_hour\": 21},\n"
+    "    {\"type\": \"EXCLUDE\", \"day\": \"SATURDAY\",  \"from_hour\": 0, \"until_hour\": 24},\n"
+    "    {\"type\": \"EXCLUDE\", \"day\": \"SUNDAY\",    \"from_hour\": 0, \"until_hour\": 24}\n"
+    "  ]},\n"
+    "  \"conversion_rules\": [{\"id\": 1234567}, {\"id\": 7654321}],\n"
+    "  \"publisher_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"pub_alpha\", \"pub_beta\"]},\n"
+    "  \"publisher_groups_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"premium_news\"]},\n"
+    "  \"publisher_bid_modifier\": {\"values\": [\n"
+    "    {\"target\": \"pub_alpha\", \"cpc_modification\": 1.25},\n"
+    "    {\"target\": \"pub_beta\",  \"cpc_modification\": 0.80}\n"
+    "  ]},\n"
+    "  \"contextual_segments\": {\"collection\": [\n"
+    "    {\"type\": \"INCLUDE\", \"collection\": [1900004, 1900024]}\n"
+    "  ]},\n"
+    "  \"my_audiences\": {\"collection\": [\n"
+    "    {\"type\": \"INCLUDE\", \"collection\": [224820, 25287]},\n"
+    "    {\"type\": \"EXCLUDE\", \"collection\": [19884]}\n"
+    "  ]},\n"
+    "  \"lookalike_audience\": {\"collection\": [{\"type\": \"INCLUDE\", \"collection\": [\n"
+    "    {\"rule_id\": 1234567, \"similarity_level\": 10}\n"
+    "  ]}]}\n"
+    "}"
 )
 
 
 _UPDATE_CAMPAIGN_DESCRIPTION = (
     "Update an existing campaign: scalars and any targeting block in one call.\n"
+    "\n"
+    "Prerequisites: call search_accounts first to obtain `account_id`; call list_campaigns or get_campaign to obtain `campaign_id` "
+    "(or use the `id` returned by create_campaign). Numeric account IDs are rejected.\n"
     "\n"
     f"{_TARGETING_BLOCKS_NOTE}\n"
     "\n"
@@ -416,19 +487,28 @@ _UPDATE_CAMPAIGN_DESCRIPTION = (
     "- TERMINATED campaigns cannot be reactivated.\n"
     "- Lookalike: account must have user-segments edit permission and campaign must allow retargeting.\n"
     "\n"
-    "Discovery: same as create_campaign — search_geos, search_techno, list_realize_resource.\n"
+    "Discovery: same as create_campaign — search_geos, search_techno, search_audiences, search_lookalike_audiences, "
+    "search_publishers, search_publisher_groups, search_conversion_rules, list_realize_resource. "
+    "Each schema property below names which tool populates it.\n"
+    "\n"
+    "Field shapes are identical to create_campaign — see its comprehensive example for every targeting block. "
+    "Examples below focus on update-only patterns (partial-merge, classic-geo, full-replace within a section).\n"
     "\n"
     "Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, "
     "target_cpa, target_cpa_learning_status.\n"
     "\n"
     "All updates (including audiences, lookalike, contextual segments) go in one atomic POST to Backstage.\n"
     "\n"
-    "Example — activate paused campaign and add publisher bid modifier:\n"
+    "Example — activate paused campaign and add publisher bid modifier (partial-merge):\n"
     "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"is_active\": true,\n"
     "  \"publisher_bid_modifier\": {\"values\": [{\"target\": \"pub_alpha\", \"cpc_modification\": 1.25}]} }\n"
     "\n"
-    "Example — clear audience targeting only (other targeting untouched):\n"
-    "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"my_audiences\": {\"collection\": []} }"
+    "Example — clear audience targeting only (other targeting untouched, full-replace within section):\n"
+    "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\", \"my_audiences\": {\"collection\": []} }\n"
+    "\n"
+    "Example — edit one classic geo dimension on a classic-storage campaign (no migration to advanced):\n"
+    "{ \"account_id\": \"acme-inc\", \"campaign_id\": \"c-123\",\n"
+    "  \"region_targeting\": {\"type\": \"INCLUDE\", \"value\": [\"CA\", \"NY\"]} }"
 )
 
 
@@ -455,7 +535,7 @@ _CREATE_CAMPAIGN_PROPERTIES = {
 
 _UPDATE_CAMPAIGN_PROPERTIES = {
     "account_id": {"type": "string", "description": "Value from search_accounts.account_id (NOT numeric)."},
-    "campaign_id": {"type": "string", "description": "Campaign ID."},
+    "campaign_id": {"type": "string", "description": "Value from list_campaigns.id or get_campaign.id (returned by create_campaign as `id`)."},
     **_SCALAR_PROPERTIES,
     **_TARGETING_PROPERTIES_COMMON,
     **_UPDATE_CLASSIC_GEO_PROPERTIES,
@@ -553,7 +633,7 @@ TOOL_REGISTRY = {
                 },
                 "campaign_id": {
                     "type": "string",
-                    "description": "Campaign ID."
+                    "description": "Value from list_campaigns.id or get_campaign.id."
                 }
             },
             "required": ["account_id", "campaign_id"]
@@ -598,7 +678,7 @@ TOOL_REGISTRY = {
                 },
                 "campaign_id": {
                     "type": "string",
-                    "description": "Campaign ID."
+                    "description": "Value from list_campaigns.id or get_campaign.id."
                 }
             },
             "required": ["account_id", "campaign_id"]
@@ -618,11 +698,11 @@ TOOL_REGISTRY = {
                 },
                 "campaign_id": {
                     "type": "string",
-                    "description": "Campaign ID."
+                    "description": "Value from list_campaigns.id or get_campaign.id."
                 },
                 "item_id": {
                     "type": "string",
-                    "description": "Item ID."
+                    "description": "Value from list_campaign_items.id."
                 }
             },
             "required": ["account_id", "campaign_id", "item_id"]
@@ -635,7 +715,7 @@ TOOL_REGISTRY = {
 
     "search_geos": {
         "description": (
-            "Search geos: list valid country/region/dma/city/postal_code values for create_campaign/update_campaign geo targeting (read-only).\n"
+            "Search valid country / region / dma / city / postal_code values for create_campaign and update_campaign geo targeting (read-only).\n"
             "\n"
             "dimension=countries (no country_code) returns ISO-2 country codes. "
             "dimension=regions|dma|cities|postal_codes requires country_code (ISO-2, e.g. \"US\"). "
@@ -667,7 +747,7 @@ TOOL_REGISTRY = {
 
     "search_techno": {
         "description": (
-            "Search techno: list valid technology-targeting values for create_campaign/update_campaign "
+            "Search valid technology-targeting values for create_campaign and update_campaign "
             "platform_targeting / os_targeting / browser_targeting / connection_type_targeting (read-only).\n"
             "\n"
             "dimension=platforms | operating_systems | browsers | connection_types takes no extra args. "
@@ -703,7 +783,7 @@ TOOL_REGISTRY = {
 
     "search_audiences": {
         "description": (
-            "Search audiences: list first-party + custom audiences for an account (read-only). "
+            "Search first-party and custom audiences for an account (read-only). "
             "Audience IDs returned here populate `my_audiences.collection[].collection: [int]` on "
             "create_campaign / update_campaign."
         ),
