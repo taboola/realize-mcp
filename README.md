@@ -71,8 +71,8 @@ An item is a creative (headline, image, URL) served under a campaign. Distinct o
 Use these to populate campaign targeting fields with valid values.
 
 - **`search_geos`** — Countries, regions, DMAs, cities, postal codes.
-- **`search_techno`** — Platforms, OS, OS versions, browsers, connection types.
-- **`list_realize_resource`** — Bounded enums: marketing objectives, bid strategies, spending limit models, time zones.
+- **`search_techno`** — OS sub_categories per family (e.g. iOS versions) and browsers. Other techno enums (platform / connection_type / os_family) are inlined in the campaign schema descriptions.
+- **`list_time_zones`** — IANA time-zone names for `activity_schedule.time_zone`.
 - **`search_audiences`** — First-party and custom audiences for an account.
 - **`search_lookalike_audiences`** — CRM/pixel/PBP lookalike audiences.
 - **`search_publishers`** — Publishers an account may target.

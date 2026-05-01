@@ -143,9 +143,7 @@ _PLATFORM_TARGETING_SCHEMA = {
     "description": (
         "platform targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}. "
         "value=[] when type=ALL. "
-        "Write values are enum codes: NA | DESK | PHON | TBLT | TV | OTHR. "
-        "(search_techno(dimension=platforms) returns display labels — Desktop/Smartphone/Tablet/etc. — "
-        "useful for showing the user but NOT directly usable in this field.)"
+        "Values: NA | DESK | PHON | TBLT | TV | OTHR (mobile = PHON; desktop = DESK; tablet = TBLT)."
     ),
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
     "required": ["type", "value"],
@@ -166,8 +164,7 @@ _CONNECTION_TYPE_TARGETING_SCHEMA = {
     "type": "object",
     "description": (
         "connection_type targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}. "
-        "value=[] when type=ALL. "
-        "Discover values via search_techno(dimension=connection_types)."
+        "value=[] when type=ALL. Values: WIFI."
     ),
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
     "required": ["type", "value"],
@@ -178,9 +175,9 @@ _OS_TARGETING_SCHEMA = {
     "description": (
         "os targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}. "
         "value=[] when type=ALL. Items: {os_family, sub_categories?}. "
-        "os_family values are dynamically maintained server-side. "
-        "Discover os_family values via search_techno(dimension=operating_systems); "
-        "discover sub_categories per family via search_techno(dimension=operating_system_versions, os_family=<family>)."
+        "os_family values: Mac OS X | Linux | Windows | iOS | iPadOS | Android. "
+        "Discover sub_categories per family via search_techno(dimension=operating_system_versions, os_family=<family>) "
+        "(returns wire-usable strings like \"iOS 17\", \"Android 14\")."
     ),
     "properties": {
         "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
@@ -205,7 +202,7 @@ _ACTIVITY_SCHEDULE_SCHEMA = {
     "description": (
         "Activity schedule (dayparting). {mode: ALWAYS|CUSTOM, time_zone?, rules?}. "
         "mode=ALWAYS clears any custom schedule. mode=CUSTOM requires time_zone (IANA name; "
-        "discover via list_realize_resource resource=time_zones) and rules. "
+        "discover via list_time_zones) and rules. "
         "Each rule: {type: INCLUDE|EXCLUDE, day: MONDAY..SUNDAY, from_hour: 0-23, until_hour: 1-24}. "
         "Days unmentioned default to INCLUDE 0-24. Same day cannot mix INCLUDE+EXCLUDE; windows cannot overlap."
     ),
@@ -462,12 +459,13 @@ _CREATE_CAMPAIGN_DESCRIPTION = (
     "\n"
     "Discovery (call before constructing the payload to resolve IDs/names):\n"
     "- search_geos → `geo_targeting` country / region / dma / city / postal_code values.\n"
-    "- search_techno → `platform_targeting` / `os_targeting` / `browser_targeting` / `connection_type_targeting` values.\n"
+    "- search_techno → `os_targeting` sub_categories and `browser_targeting` values. "
+    "(platform / connection_type / os_family enums are listed inline in their schema descriptions.)\n"
     "- search_audiences → `my_audiences` audience IDs.\n"
     "- search_lookalike_audiences → `lookalike_audience` rule_ids.\n"
     "- search_publishers → `publisher_targeting` and `publisher_bid_modifier.target` names.\n"
     "- search_conversion_rules → `conversion_rules` IDs.\n"
-    "- list_realize_resource → `marketing_objective`, `bid_strategy`, `spending_limit_model`, `activity_schedule.time_zone`.\n"
+    "- list_time_zones → `activity_schedule.time_zone` IANA names.\n"
     "\n"
     "Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, "
     "target_cpa, target_cpa_learning_status. (`target_cpa` is server-recommended; user goal is `cpa_goal`.)\n"
@@ -571,7 +569,7 @@ _UPDATE_CAMPAIGN_DESCRIPTION = (
     "- Lookalike: account must have user-segments edit permission and campaign must allow retargeting.\n"
     "\n"
     "Discovery: same as create_campaign — search_geos, search_techno, search_audiences, search_lookalike_audiences, "
-    "search_publishers, search_conversion_rules, list_realize_resource. "
+    "search_publishers, search_conversion_rules, list_time_zones. "
     "Each schema property below names which tool populates it.\n"
     "\n"
     "Field shapes are identical to create_campaign — see its comprehensive example for every targeting block. "
@@ -832,9 +830,12 @@ TOOL_REGISTRY = {
     "search_techno": {
         "description": (
             "Search valid technology-targeting values for create_campaign and update_campaign "
-            "platform_targeting / os_targeting / browser_targeting / connection_type_targeting (read-only).\n"
+            "os_targeting (sub_categories) and browser_targeting (read-only).\n"
             "\n"
-            "dimension=platforms | operating_systems | browsers | connection_types takes no extra args. "
+            "Other techno enums (platforms, os_family, connection_type) are inlined in their schema descriptions "
+            "as small fixed enums and don't require discovery.\n"
+            "\n"
+            "dimension=browsers takes no extra args. "
             "dimension=operating_system_versions requires os_family (e.g. \"iOS\", \"Android\") and returns "
             "values usable as `sub_categories` on os_targeting items.\n"
             "\n"
@@ -846,11 +847,8 @@ TOOL_REGISTRY = {
                 "dimension": {
                     "type": "string",
                     "enum": [
-                        "platforms",
-                        "operating_systems",
                         "operating_system_versions",
                         "browsers",
-                        "connection_types",
                     ],
                     "description": "Technology dimension to look up.",
                 },
@@ -960,42 +958,18 @@ TOOL_REGISTRY = {
         "category": "resources",
     },
 
-    "list_realize_resource": {
+    "list_time_zones": {
         "description": (
-            "List valid values for bounded campaign-config enums (read-only).\n"
-            "\n"
-            "Supported resources:\n"
-            "- time_zones — IANA names for `activity_schedule.time_zone` (CUSTOM mode). Output is "
-            "directly usable as the wire value.\n"
-            "- marketing_objectives — INFORMATIONAL ONLY. Returns display labels (e.g. \"Brand Awareness\"). "
-            "Use the schema enum on `marketing_objective` for wire values "
-            "(BRAND_AWARENESS / DRIVE_WEBSITE_TRAFFIC / LEADS_GENERATION / ONLINE_PURCHASES / MOBILE_APP_INSTALL).\n"
-            "- bid_strategies — INFORMATIONAL ONLY. Returns display labels. Use schema enum on `bid_strategy` "
-            "for wire values (SMART / FIXED / TARGET_CPA / MAX_CONVERSIONS / MAX_VALUE).\n"
-            "- spending_limit_models — INFORMATIONAL ONLY. Returns display labels. Use schema enum on "
-            "`spending_limit_model` for wire values (NONE / MONTHLY / ENTIRE).\n"
-            "\n"
-            "For geo and technology vocabularies use search_geos and search_techno respectively.\n"
-            "\n"
-            "Example: { \"resource\": \"time_zones\" }"
+            "List valid IANA time zone names for `activity_schedule.time_zone` on create_campaign / update_campaign "
+            "(CUSTOM mode). Output values are directly usable on the wire (e.g. \"America/New_York\", \"US/Eastern\", "
+            "\"Europe/London\")."
         ),
         "schema": {
             "type": "object",
-            "properties": {
-                "resource": {
-                    "type": "string",
-                    "enum": [
-                        "marketing_objectives",
-                        "bid_strategies",
-                        "spending_limit_models",
-                        "time_zones",
-                    ],
-                    "description": "Bounded enum vocabulary to fetch.",
-                },
-            },
-            "required": ["resource"],
+            "properties": {},
+            "required": [],
         },
-        "handler": "resources.list_realize_resource",
+        "handler": "resources.list_time_zones",
         "category": "resources",
     },
 

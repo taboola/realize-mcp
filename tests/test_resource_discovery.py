@@ -1,4 +1,4 @@
-"""Tests for the three discovery tools: search_geos, search_techno, list_realize_resource."""
+"""Tests for the three discovery tools: search_geos, search_techno, list_time_zones."""
 import json
 
 import pytest
@@ -58,17 +58,10 @@ class TestSearchGeos:
 class TestSearchTechno:
     @pytest.mark.asyncio
     @patch('realize.tools.resources.client.get', new_callable=AsyncMock)
-    async def test_platforms(self, mock_get):
+    async def test_browsers(self, mock_get):
         mock_get.return_value = {"results": []}
-        await handle_call_tool("search_techno", {"dimension": "platforms"})
-        assert _get_endpoint(mock_get) == "/resources/platforms"
-
-    @pytest.mark.asyncio
-    @patch('realize.tools.resources.client.get', new_callable=AsyncMock)
-    async def test_operating_systems(self, mock_get):
-        mock_get.return_value = {"results": []}
-        await handle_call_tool("search_techno", {"dimension": "operating_systems"})
-        assert _get_endpoint(mock_get) == "/resources/campaigns_properties/operating_systems"
+        await handle_call_tool("search_techno", {"dimension": "browsers"})
+        assert _get_endpoint(mock_get) == "/resources/campaigns_properties/browsers"
 
     @pytest.mark.asyncio
     @patch('realize.tools.resources.client.get', new_callable=AsyncMock)
@@ -88,37 +81,37 @@ class TestSearchTechno:
         assert _get_endpoint(mock_get) == "/resources/campaigns_properties/operating_systems/iOS"
 
     @pytest.mark.asyncio
-    async def test_unknown_dimension_rejected(self):
+    async def test_platforms_no_longer_accepted(self):
         with pytest.raises(ToolInputError, match="dimension must be one of"):
-            await handle_call_tool("search_techno", {"dimension": "countries"})
-
-
-class TestListRealizeResource:
-    @pytest.mark.asyncio
-    @patch('realize.tools.resources.client.get', new_callable=AsyncMock)
-    async def test_marketing_objectives(self, mock_get):
-        mock_get.return_value = {"results": []}
-        await handle_call_tool("list_realize_resource", {"resource": "marketing_objectives"})
-        assert _get_endpoint(mock_get) == "/resources/campaigns_properties/marketing-objective"
+            await handle_call_tool("search_techno", {"dimension": "platforms"})
 
     @pytest.mark.asyncio
+    async def test_operating_systems_no_longer_accepted(self):
+        with pytest.raises(ToolInputError, match="dimension must be one of"):
+            await handle_call_tool("search_techno", {"dimension": "operating_systems"})
+
+    @pytest.mark.asyncio
+    async def test_connection_types_no_longer_accepted(self):
+        with pytest.raises(ToolInputError, match="dimension must be one of"):
+            await handle_call_tool("search_techno", {"dimension": "connection_types"})
+
+
+class TestListTimeZones:
+    @pytest.mark.asyncio
     @patch('realize.tools.resources.client.get', new_callable=AsyncMock)
-    async def test_time_zones(self, mock_get):
+    async def test_endpoint(self, mock_get):
         mock_get.return_value = {"results": []}
-        await handle_call_tool("list_realize_resource", {"resource": "time_zones"})
+        await handle_call_tool("list_time_zones", {})
         assert _get_endpoint(mock_get) == "/resources/campaigns_properties/activity-scheduler-time-zone"
 
     @pytest.mark.asyncio
-    async def test_geo_resource_no_longer_accepted(self):
-        # Geo resources moved to search_geos.
-        with pytest.raises(ToolInputError, match="resource must be one of"):
-            await handle_call_tool("list_realize_resource", {"resource": "countries"})
-
-    @pytest.mark.asyncio
-    async def test_techno_resource_no_longer_accepted(self):
-        # Techno resources moved to search_techno.
-        with pytest.raises(ToolInputError, match="resource must be one of"):
-            await handle_call_tool("list_realize_resource", {"resource": "platforms"})
+    @patch('realize.tools.resources.client.get', new_callable=AsyncMock)
+    async def test_response_shape(self, mock_get):
+        mock_get.return_value = {"results": [{"value": "America/New_York"}, {"value": "US/Eastern"}]}
+        result = await handle_call_tool("list_time_zones", {})
+        payload = json.loads(result[0].text)
+        assert payload["resource"] == "time_zones"
+        assert payload["values"] == ["America/New_York", "US/Eastern"]
 
 
 class TestDiscoverySchemas:
@@ -139,18 +132,25 @@ class TestDiscoverySchemas:
         tools = await handle_list_tools()
         st = next(t for t in tools if t.name == "search_techno")
         assert set(st.inputSchema["properties"]["dimension"]["enum"]) == {
-            "platforms", "operating_systems", "operating_system_versions", "browsers", "connection_types",
+            "operating_system_versions", "browsers",
         }
 
     @pytest.mark.asyncio
-    async def test_list_realize_resource_resource_enum(self):
+    async def test_list_time_zones_no_required_args(self):
         from realize.realize_server import handle_list_tools
 
         tools = await handle_list_tools()
-        lr = next(t for t in tools if t.name == "list_realize_resource")
-        assert set(lr.inputSchema["properties"]["resource"]["enum"]) == {
-            "marketing_objectives", "bid_strategies", "spending_limit_models", "time_zones",
-        }
+        lt = next(t for t in tools if t.name == "list_time_zones")
+        assert lt.inputSchema["required"] == []
+
+    @pytest.mark.asyncio
+    async def test_list_realize_resource_no_longer_registered(self):
+        from realize.realize_server import handle_list_tools
+
+        tools = await handle_list_tools()
+        names = {t.name for t in tools}
+        assert "list_realize_resource" not in names
+        assert "list_time_zones" in names
 
 
 class TestFlattenedResponseShape:
@@ -162,12 +162,3 @@ class TestFlattenedResponseShape:
         payload = json.loads(result[0].text)
         assert payload["dimension"] == "countries"
         assert payload["values"] == [{"code": "US"}, {"code": "CA"}]
-
-    @pytest.mark.asyncio
-    @patch('realize.tools.resources.client.get', new_callable=AsyncMock)
-    async def test_list_realize_resource_returns_resource_label(self, mock_get):
-        mock_get.return_value = {"results": [{"value": "BRAND_AWARENESS"}]}
-        result = await handle_call_tool("list_realize_resource", {"resource": "marketing_objectives"})
-        payload = json.loads(result[0].text)
-        assert payload["resource"] == "marketing_objectives"
-        assert payload["values"] == ["BRAND_AWARENESS"]

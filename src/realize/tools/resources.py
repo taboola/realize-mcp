@@ -1,11 +1,14 @@
 """Resource discovery handlers for Realize platform vocabularies.
 
-Three handlers split by argument-shape boundary:
-- search_geos      — countries / regions / dma / cities / postal_codes (country-scoped)
-- search_techno    — platforms / OS / OS versions / browsers / connection types (os-scoped for versions)
-- list_realize_resource — bounded campaign-config enums (no args)
+Three handlers:
+- search_geos       — countries / regions / dma / cities / postal_codes (country-scoped)
+- search_techno     — operating_system_versions (per family) / browsers
+- list_time_zones   — IANA time-zone names for activity_schedule.time_zone
 
-All wrap publisher-console `/api/1.0/resources/...` endpoints.
+All wrap publisher-console `/api/1.0/resources/...` endpoints. Small fixed enums
+(platforms, os_family, connection_type, marketing_objective, bid_strategy,
+spending_limit_model) are inlined in the tool descriptions and don't require
+discovery calls.
 """
 from typing import Any, Callable, Dict, List
 from urllib.parse import quote
@@ -52,25 +55,16 @@ _GEO_DISPATCH: Dict[str, Callable[[Dict[str, Any]], str]] = {
 
 
 _TECHNO_DISPATCH: Dict[str, Callable[[Dict[str, Any]], str]] = {
-    "platforms": _global("/resources/platforms"),
-    "operating_systems": _global("/resources/campaigns_properties/operating_systems"),
     "operating_system_versions": _os_versions,
     "browsers": _global("/resources/campaigns_properties/browsers"),
-    "connection_types": _global("/resources/campaigns_properties/connection_types"),
 }
 
 
-_ENUM_DISPATCH: Dict[str, Callable[[Dict[str, Any]], str]] = {
-    "marketing_objectives": _global("/resources/campaigns_properties/marketing-objective"),
-    "bid_strategies": _global("/resources/campaigns_properties/bid-strategy"),
-    "spending_limit_models": _global("/resources/campaigns_properties/spending-limit-model"),
-    "time_zones": _global("/resources/campaigns_properties/activity-scheduler-time-zone"),
-}
+_TIME_ZONES_ENDPOINT = "/resources/campaigns_properties/activity-scheduler-time-zone"
 
 
 SUPPORTED_GEO_DIMENSIONS = tuple(_GEO_DISPATCH.keys())
 SUPPORTED_TECHNO_DIMENSIONS = tuple(_TECHNO_DISPATCH.keys())
-SUPPORTED_ENUM_RESOURCES = tuple(_ENUM_DISPATCH.keys())
 
 
 async def _fetch_and_format(label: str, label_value: str, endpoint: str) -> List[types.TextContent]:
@@ -109,15 +103,6 @@ async def search_techno(arguments: dict = None) -> List[types.TextContent]:
     return await _fetch_and_format("dimension", dimension, endpoint)
 
 
-async def list_realize_resource(arguments: dict = None) -> List[types.TextContent]:
-    """List values for a bounded campaign-config enum (marketing objectives etc.)."""
-    args = arguments or {}
-    resource = args.get("resource")
-    if resource not in _ENUM_DISPATCH:
-        raise ToolInputError(
-            f"resource must be one of: {', '.join(SUPPORTED_ENUM_RESOURCES)}"
-        )
-
-    builder = _ENUM_DISPATCH[resource]
-    endpoint = builder(args)
-    return await _fetch_and_format("resource", resource, endpoint)
+async def list_time_zones(arguments: dict = None) -> List[types.TextContent]:
+    """List valid IANA time-zone names for activity_schedule.time_zone."""
+    return await _fetch_and_format("resource", "time_zones", _TIME_ZONES_ENDPOINT)

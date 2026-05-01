@@ -111,9 +111,9 @@ async def handle_call_tool(
             from realize.tools.resources import search_techno
             result = await search_techno(arguments)
 
-        elif handler_path == "resources.list_realize_resource":
-            from realize.tools.resources import list_realize_resource
-            result = await list_realize_resource(arguments)
+        elif handler_path == "resources.list_time_zones":
+            from realize.tools.resources import list_time_zones
+            result = await list_time_zones(arguments)
 
         elif handler_path == "discovery_handlers.search_audiences":
             from realize.tools.discovery_handlers import search_audiences
