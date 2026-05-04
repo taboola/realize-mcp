@@ -18,7 +18,7 @@ import mcp.types as types
 
 from realize.client import client
 from realize.tools.errors import ToolInputError
-from realize.tools.utils import flatten_results, format_discovery_payload
+from realize.tools.utils import flatten_geo_results, flatten_results, format_discovery_payload
 
 
 def _global(path: str) -> Callable[[Dict[str, Any]], str]:
@@ -77,6 +77,14 @@ async def _fetch_and_format(label: str, label_value: str, endpoint: str) -> List
     ]
 
 
+async def _fetch_and_format_geo(dimension: str, endpoint: str) -> List[types.TextContent]:
+    response = await client.get(endpoint)
+    values = flatten_geo_results(response)
+    return [
+        types.TextContent(type="text", text=format_discovery_payload("dimension", dimension, values))
+    ]
+
+
 async def search_geos(arguments: dict = None) -> List[types.TextContent]:
     """List valid geo codes (countries/regions/dma/cities/postal_codes)."""
     args = arguments or {}
@@ -88,7 +96,7 @@ async def search_geos(arguments: dict = None) -> List[types.TextContent]:
 
     builder = _GEO_DISPATCH[dimension]
     endpoint = builder(args)
-    return await _fetch_and_format("dimension", dimension, endpoint)
+    return await _fetch_and_format_geo(dimension, endpoint)
 
 
 async def search_techno(arguments: dict = None) -> List[types.TextContent]:

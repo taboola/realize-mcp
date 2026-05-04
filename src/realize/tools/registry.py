@@ -88,7 +88,8 @@ _COUNTRY_TARGETING_SCHEMA = {
     "description": (
         "Classic country targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
         "value=[] when type=ALL. "
-        "Discover values via search_geos(dimension=countries)."
+        "Each entry is the ISO-2 country `code` (e.g. \"US\", \"CA\"), NOT the display name. "
+        "Discover via search_geos(dimension=countries) and use the `code` field of each result."
     ),
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
     "required": ["type", "value"],
@@ -99,9 +100,11 @@ _REGION_TARGETING_SCHEMA = {
     "description": (
         "Classic region targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
         "value=[] when type=ALL. "
-        "Sub-dimension mutex: at most ONE of region/dma/city/postal_code on a campaign; "
-        "requires INCLUDE country already set. "
-        "Discover values via search_geos(dimension=regions, country_code=<ISO-2>)."
+        "Each entry is the region `code` (e.g. \"CA\" for California, \"NY\" for New York), "
+        "NOT the display name. Sub-dimension mutex: at most ONE of region/dma/city/postal_code "
+        "on a campaign; requires INCLUDE country already set. "
+        "Discover via search_geos(dimension=regions, country_code=<ISO-2>) and use the `code` "
+        "field of each result."
     ),
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
     "required": ["type", "value"],
@@ -112,9 +115,10 @@ _DMA_TARGETING_SCHEMA = {
     "description": (
         "Classic dma targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
         "value=[] when type=ALL. "
-        "Sub-dimension mutex: at most ONE of region/dma/city/postal_code on a campaign; "
-        "requires INCLUDE country already set. "
-        "Discover values via search_geos(dimension=dma, country_code=US). DMA is US-only."
+        "Each entry is the DMA `code`, NOT the display name. Sub-dimension mutex: at most ONE "
+        "of region/dma/city/postal_code on a campaign; requires INCLUDE country already set. "
+        "Discover via search_geos(dimension=dma, country_code=US) and use the `code` field of "
+        "each result. DMA is US-only."
     ),
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
     "required": ["type", "value"],
@@ -125,9 +129,10 @@ _CITY_TARGETING_SCHEMA = {
     "description": (
         "Classic city targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
         "value=[] when type=ALL. "
-        "Sub-dimension mutex: at most ONE of region/dma/city/postal_code on a campaign; "
-        "requires INCLUDE country already set. "
-        "Discover values via search_geos(dimension=cities, country_code=<ISO-2>)."
+        "Each entry is the city `code`, NOT the display name. Sub-dimension mutex: at most ONE "
+        "of region/dma/city/postal_code on a campaign; requires INCLUDE country already set. "
+        "Discover via search_geos(dimension=cities, country_code=<ISO-2>) and use the `code` "
+        "field of each result."
     ),
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
     "required": ["type", "value"],
@@ -138,9 +143,10 @@ _POSTAL_CODE_TARGETING_SCHEMA = {
     "description": (
         "Classic postal_code targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
         "value=[] when type=ALL. "
-        "Sub-dimension mutex: at most ONE of region/dma/city/postal_code on a campaign; "
-        "requires INCLUDE country already set. "
-        "Discover values via search_geos(dimension=postal_codes, country_code=<ISO-2>)."
+        "Each entry is the postal `code`, NOT the display name. Sub-dimension mutex: at most ONE "
+        "of region/dma/city/postal_code on a campaign; requires INCLUDE country already set. "
+        "Discover via search_geos(dimension=postal_codes, country_code=<ISO-2>) and use the "
+        "`code` field of each result."
     ),
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
     "required": ["type", "value"],
@@ -538,7 +544,7 @@ Conditional rules:
 - If both start_date and end_date sent: end_date >= start_date.
 
 Discovery (call before constructing the payload to resolve IDs/names):
-- search_geos → country_targeting / region_targeting / dma_targeting / city_targeting / postal_code_targeting values.
+- search_geos → country_targeting / region_targeting / dma_targeting / city_targeting / postal_code_targeting values. Each result is `{{code, name}}`; use `code` (e.g. "CA"), not `name` ("California").
 - search_techno → `os_targeting` sub_categories and `browser_targeting` values. (platform / connection_type / os_family enums are listed inline in their schema descriptions.)
 - search_audiences → `my_audiences` audience IDs.
 - search_lookalike_audiences → `lookalike_audience` rule_ids.
@@ -575,7 +581,7 @@ _CREATE_CAMPAIGN_JSON_EXAMPLE = """\
   "traffic_allocation_mode": "OPTIMIZED",
   "is_active": false,
   "country_targeting": {"type": "INCLUDE", "value": ["US"]},
-  "region_targeting":  {"type": "INCLUDE", "value": ["California", "New York"]},
+  "region_targeting":  {"type": "INCLUDE", "value": ["CA", "NY"]},
   "platform_targeting": {"type": "INCLUDE", "value": ["DESK", "PHON"]},
   "os_targeting": {"type": "INCLUDE", "value": [
     {"os_family": "iOS", "sub_categories": ["iOS 17"]},
@@ -660,7 +666,7 @@ Example — clear audience targeting only (other targeting untouched, full-repla
 
 Example — edit one classic geo dimension:
 { "account_id": "acme-inc", "campaign_id": "49184816",
-  "region_targeting": {"type": "INCLUDE", "value": ["California", "New York"]} }"""
+  "region_targeting": {"type": "INCLUDE", "value": ["CA", "NY"]} }"""
 
 
 _UPDATE_CAMPAIGN_DESCRIPTION = _UPDATE_CAMPAIGN_PROSE + _UPDATE_CAMPAIGN_EXAMPLES
@@ -1074,13 +1080,15 @@ _DISCOVERY_TOOLS = {
         "description": (
             "Search valid country / region / dma / city / postal_code values for create_campaign and update_campaign geo targeting (read-only).\n"
             "\n"
-            "dimension=countries (no country_code) returns ISO-2 country codes. "
+            "dimension=countries (no country_code) returns countries. "
             "dimension=regions|dma|cities|postal_codes requires country_code (ISO-2, e.g. \"US\"). "
             "DMA is US-only.\n"
             "\n"
-            "Use returned values directly in country_targeting / region_targeting / dma_targeting / "
-            "city_targeting / postal_code_targeting blocks on create_campaign and update_campaign. "
-            "Region/city values are FULL NAMES (\"California\"), not ISO codes.\n"
+            "Response shape: `{dimension, values: [{code, name}, ...]}`. The `code` field is what "
+            "country_targeting / region_targeting / dma_targeting / city_targeting / "
+            "postal_code_targeting accept on create_campaign and update_campaign — `name` is the "
+            "human-readable label only (e.g. for regions, code=\"CA\", name=\"California\"; pass "
+            "\"CA\" to region_targeting, not \"California\").\n"
             "\n"
             "Example — list US states: { \"dimension\": \"regions\", \"country_code\": \"US\" }"
         ),

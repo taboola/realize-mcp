@@ -26,6 +26,32 @@ def flatten_results(payload: Any) -> List[Any]:
     return flattened
 
 
+def flatten_geo_results(payload: Any) -> List[Any]:
+    """Project APIResource<String> entries into [{code, name}] pairs.
+
+    Backstage's geo dictionary endpoints emit each entry as
+    `{"name": "<code>", "value": "<display name>"}` (e.g. `{"name": "CA",
+    "value": "California"}`). The targeting wire fields (country_targeting,
+    region_targeting, etc.) accept the *code* — `name` here. To make that
+    contract obvious to LLM callers, we emit `{code, name}` objects so the
+    code is unambiguous and the human-readable label is still visible.
+
+    Entries that don't match the {name, value} shape pass through unchanged.
+    """
+    if not isinstance(payload, dict):
+        return payload
+    results = payload.get("results")
+    if not isinstance(results, list):
+        return payload
+    flattened: List[Any] = []
+    for entry in results:
+        if isinstance(entry, dict) and "name" in entry and "value" in entry:
+            flattened.append({"code": entry["name"], "name": entry["value"]})
+        else:
+            flattened.append(entry)
+    return flattened
+
+
 def format_discovery_payload(label: str, label_value: str, values: Any) -> str:
     """Render a discovery-tool response as `{<label>: <label_value>, "values": [...]}` JSON.
 

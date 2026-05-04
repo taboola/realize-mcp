@@ -17,7 +17,7 @@ class TestSearchGeos:
     @pytest.mark.asyncio
     @patch('realize.tools.resources.client.get', new_callable=AsyncMock)
     async def test_countries_no_country_code(self, mock_get):
-        mock_get.return_value = {"results": [{"value": {"code": "US"}}]}
+        mock_get.return_value = {"results": [{"name": "US", "value": "United States"}]}
         await handle_call_tool("search_geos", {"dimension": "countries"})
         assert _get_endpoint(mock_get) == "/resources/countries"
 
@@ -183,8 +183,35 @@ class TestFlattenedResponseShape:
     @pytest.mark.asyncio
     @patch('realize.tools.resources.client.get', new_callable=AsyncMock)
     async def test_search_geos_returns_dimension_label(self, mock_get):
-        mock_get.return_value = {"results": [{"value": {"code": "US"}}, {"value": {"code": "CA"}}]}
+        mock_get.return_value = {
+            "results": [
+                {"name": "US", "value": "United States"},
+                {"name": "CA", "value": "Canada"},
+            ]
+        }
         result = await handle_call_tool("search_geos", {"dimension": "countries"})
         payload = json.loads(result[0].text)
         assert payload["dimension"] == "countries"
-        assert payload["values"] == [{"code": "US"}, {"code": "CA"}]
+        assert payload["values"] == [
+            {"code": "US", "name": "United States"},
+            {"code": "CA", "name": "Canada"},
+        ]
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.resources.client.get', new_callable=AsyncMock)
+    async def test_search_geos_regions_emit_code_and_name(self, mock_get):
+        mock_get.return_value = {
+            "results": [
+                {"name": "CA", "value": "California"},
+                {"name": "OR", "value": "Oregon"},
+            ]
+        }
+        result = await handle_call_tool(
+            "search_geos", {"dimension": "regions", "country_code": "US"}
+        )
+        payload = json.loads(result[0].text)
+        assert payload["dimension"] == "regions"
+        assert payload["values"] == [
+            {"code": "CA", "name": "California"},
+            {"code": "OR", "name": "Oregon"},
+        ]
