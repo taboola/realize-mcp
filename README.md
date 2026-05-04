@@ -57,7 +57,7 @@ A campaign holds budget, bidding, schedule, and targeting. It contains items.
 - **`create_campaign`** — Create a campaign with all targeting in one call. Ships paused.
 - **`update_campaign`** — Update any subset of fields. Pause/resume via `is_active`.
 
-Both write tools accept scalars (name, budget, bidding, schedule dates, `is_active`) plus targeting blocks: `geo_targeting`, `platform_targeting`, `os_targeting`, `browser_targeting`, `connection_type_targeting`, `activity_schedule`, `conversion_rules`, `publisher_targeting`, `publisher_bid_modifier`, `contextual_segments`, `my_audiences`, `lookalike_audience`. Scalars partial-merge; targeting blocks full-replace. `create_campaign` requires advanced `geo_targeting`; `update_campaign` also accepts classic dimension fields. Single atomic POST — all targeting commits together or not at all.
+Both write tools accept scalars (name, budget, bidding, schedule dates, `is_active`) plus targeting blocks: `country_targeting`, `region_targeting`, `dma_targeting`, `city_targeting`, `postal_code_targeting`, `platform_targeting`, `os_targeting`, `browser_targeting`, `connection_type_targeting`, `activity_schedule`, `conversion_rules`, `publisher_targeting`, `publisher_bid_modifier`, `contextual_segments`, `my_audiences`, `lookalike_audience`. Scalars partial-merge; targeting blocks full-replace. Geo targeting uses classic dimension fields (`country_targeting`, `region_targeting`, `dma_targeting`, `city_targeting`, `postal_code_targeting`) on both create and update. Single atomic POST — all targeting commits together or not at all.
 
 ### Campaign Items
 

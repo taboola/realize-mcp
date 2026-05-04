@@ -30,8 +30,6 @@ from realize.tools.conversion_rules import (
 from realize.tools.errors import ToolInputError
 from realize.tools.geo import (
     geo_classic_wire_field,
-    to_wire_geo_advanced,
-    validate_geo_advanced,
     validate_geo_classic,
 )
 from realize.tools.publishers import (
@@ -58,7 +56,6 @@ _SCALAR_BODY_FIELDS = (
 )
 
 _CLASSIC_GEO_DIMENSIONS = ("country", "region", "dma", "city", "postal_code")
-_CLASSIC_GEO_ARG_KEYS = tuple(f"{d}_targeting" for d in _CLASSIC_GEO_DIMENSIONS)
 
 _TECHNO_DIMENSIONS = ("platform", "os", "browser", "connection_type")
 
@@ -99,33 +96,12 @@ async def get_campaign(arguments: dict = None) -> List[types.TextContent]:
     )]
 
 
-def _check_geo_mutex(args: Dict[str, Any]) -> None:
-    """Reject mixing advanced geo_targeting with any classic dimension field."""
-    has_advanced = args.get("geo_targeting") is not None
-    classic_present = [k for k in _CLASSIC_GEO_ARG_KEYS if args.get(k) is not None]
-    if has_advanced and classic_present:
-        raise ToolInputError(
-            "send geo_targeting (advanced) OR classic geo fields "
-            f"({', '.join(_CLASSIC_GEO_ARG_KEYS)}), not both"
-        )
-
-
-def _reject_classic_geo_on_create(args: Dict[str, Any]) -> None:
-    """create_campaign accepts advanced geo_targeting only."""
-    classic_present = [k for k in _CLASSIC_GEO_ARG_KEYS if args.get(k) is not None]
-    if classic_present:
-        raise ToolInputError(
-            "create_campaign accepts geo_targeting (advanced) only; classic geo fields "
-            f"({', '.join(classic_present)}) not allowed on create. Use update_campaign for classic geo edits."
-        )
-
-
-def _build_main_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str, Any]:
+def _build_main_payload(args: Dict[str, Any]) -> Dict[str, Any]:
     """Validate and assemble the main-endpoint POST body.
 
     Includes scalars + main-endpoint targeting (geo, techno, schedule,
-    conversion_rules, publishers). Classic geo dimensions accepted on update only.
-    Raises ToolInputError on the first invalid block.
+    conversion_rules, publishers). Classic geo dimensions accepted on both
+    create and update. Raises ToolInputError on the first invalid block.
     """
     body: Dict[str, Any] = {}
 
@@ -133,22 +109,16 @@ def _build_main_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str, A
         if args.get(f) is not None:
             body[f] = args[f]
 
-    geo = args.get("geo_targeting")
-    if geo is not None:
-        validate_geo_advanced(geo)
-        body["geo_targeting"] = to_wire_geo_advanced(geo)
-
-    if not is_create:
-        for dim in _CLASSIC_GEO_DIMENSIONS:
-            arg_key = f"{dim}_targeting"
-            block = args.get(arg_key)
-            if block is None:
-                continue
-            validate_geo_classic(dim, block)
-            body[geo_classic_wire_field(dim)] = {
-                "type": block["type"],
-                "value": block["value"],
-            }
+    for dim in _CLASSIC_GEO_DIMENSIONS:
+        arg_key = f"{dim}_targeting"
+        block = args.get(arg_key)
+        if block is None:
+            continue
+        validate_geo_classic(dim, block)
+        body[geo_classic_wire_field(dim)] = {
+            "type": block["type"],
+            "value": block["value"],
+        }
 
     for dim in _TECHNO_DIMENSIONS:
         arg_key = f"{dim}_targeting"
@@ -215,8 +185,7 @@ async def create_campaign(arguments: dict = None) -> List[types.TextContent]:
     if missing:
         raise ToolInputError(f"Missing required field(s): {', '.join(missing)}")
 
-    _reject_classic_geo_on_create(args)
-    payload = _build_main_payload(args, is_create=True)
+    payload = _build_main_payload(args)
 
     response = await client.post(
         f"/{quote(account_id, safe='')}/campaigns",
@@ -242,8 +211,7 @@ async def update_campaign(arguments: dict = None) -> List[types.TextContent]:
     if not campaign_id:
         raise ToolInputError("campaign_id is required")
 
-    _check_geo_mutex(args)
-    payload = _build_main_payload(args, is_create=False)
+    payload = _build_main_payload(args)
 
     if not payload:
         raise ToolInputError("at least one updatable field must be supplied")

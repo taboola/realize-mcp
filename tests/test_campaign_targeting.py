@@ -1,11 +1,10 @@
 """Tests for fat-tool inline targeting on create_campaign / update_campaign.
 
 Covers:
-- Each main-endpoint targeting block (geo advanced, classic dims, techno, schedule,
+- Each main-endpoint targeting block (classic geo dims, techno, schedule,
   conversion_rules, publishers) routes to the campaign POST body with the correct wire keys.
 - Sub-resource targeting (my_audiences, lookalike_audience, contextual_segments) fans out to
   /targeting/<suffix> after the main create/update.
-- Geo classic+advanced mutex on update; classic geo rejected on create.
 - Partial-failure path: sub-resource POST 4xx returns success with partial_failures.
 """
 import json
@@ -46,27 +45,26 @@ def _update_args(**overrides):
     return base
 
 
-class TestGeoAdvancedOnCreate:
+class TestClassicGeoOnCreate:
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_geo_targeting_in_main_body(self, mock_post):
+    async def test_country_targeting_in_main_body(self, mock_post):
         mock_post.return_value = {"id": "c-1"}
         await handle_call_tool("create_campaign", _create_args(
-            geo_targeting={
-                "state": "EXISTS",
-                "value": [{"type": "INCLUDE", "value": [{"country": "US"}]}],
-            },
+            country_targeting={"type": "INCLUDE", "value": ["US"]},
         ))
         body = _bodies_by_endpoint(mock_post)["/acme-inc/campaigns"]
-        assert body["geo_targeting"]["state"] == "EXISTS"
-        assert body["geo_targeting"]["value"][0]["value"][0] == {"country": "US"}
+        assert body["country_targeting"] == {"type": "INCLUDE", "value": ["US"]}
 
     @pytest.mark.asyncio
-    async def test_classic_geo_rejected_on_create(self):
-        with pytest.raises(ToolInputError, match="classic geo fields"):
-            await handle_call_tool("create_campaign", _create_args(
-                country_targeting={"type": "INCLUDE", "value": ["US"]},
-            ))
+    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
+    async def test_region_targeting_uses_region_country_wire_field(self, mock_post):
+        mock_post.return_value = {"id": "c-1"}
+        await handle_call_tool("create_campaign", _create_args(
+            region_targeting={"type": "INCLUDE", "value": ["California"]},
+        ))
+        body = _bodies_by_endpoint(mock_post)["/acme-inc/campaigns"]
+        assert body["region_country_targeting"] == {"type": "INCLUDE", "value": ["California"]}
 
 
 class TestClassicGeoOnUpdate:
@@ -89,14 +87,6 @@ class TestClassicGeoOnUpdate:
         ))
         body = _bodies_by_endpoint(mock_post)["/acme-inc/campaigns/c-123"]
         assert body["region_country_targeting"] == {"type": "INCLUDE", "value": ["CA"]}
-
-    @pytest.mark.asyncio
-    async def test_geo_advanced_and_classic_mutex(self):
-        with pytest.raises(ToolInputError, match="advanced.*OR classic|classic.*OR advanced|not both"):
-            await handle_call_tool("update_campaign", _update_args(
-                geo_targeting={"state": "ALL", "value": []},
-                country_targeting={"type": "INCLUDE", "value": ["US"]},
-            ))
 
 
 class TestTechnoOnFatTools:
@@ -304,7 +294,7 @@ class TestFatToolSchemaShape:
         create = next(t for t in tools if t.name == "create_campaign")
         props = create.inputSchema["properties"]
         for f in (
-            "geo_targeting", "platform_targeting", "os_targeting", "browser_targeting",
+            "platform_targeting", "os_targeting", "browser_targeting",
             "connection_type_targeting", "activity_schedule", "conversion_rules",
             "publisher_targeting", "publisher_bid_modifier",
             "contextual_segments", "my_audiences", "lookalike_audience",
@@ -322,11 +312,11 @@ class TestFatToolSchemaShape:
             assert f in props, f"update_campaign missing classic geo property: {f}"
 
     @pytest.mark.asyncio
-    async def test_create_campaign_has_no_classic_geo_blocks(self):
+    async def test_create_campaign_has_classic_geo_blocks(self):
         from realize.realize_server import handle_list_tools
 
         tools = await handle_list_tools()
         create = next(t for t in tools if t.name == "create_campaign")
         props = create.inputSchema["properties"]
         for f in ("country_targeting", "region_targeting", "dma_targeting", "city_targeting", "postal_code_targeting"):
-            assert f not in props, f"create_campaign should not expose classic geo {f}"
+            assert f in props, f"create_campaign missing classic geo property: {f}"

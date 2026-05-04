@@ -62,10 +62,10 @@ import copy
 
 _TARGETING_BLOCKS_NOTE = (
     "Targeting blocks are FULL-REPLACE: sending `my_audiences` with one audience "
-    "wipes the others; sending `geo_targeting` replaces all geo. To edit a single "
-    "entry, read with get_campaign, modify locally, send the merged result. "
-    "Scalar fields (name, cpc, is_active, …) are partial-merge — omitted scalars keep "
-    "their prior value."
+    "wipes the others; sending `country_targeting` replaces all country targeting. "
+    "To edit a single entry, read with get_campaign, modify locally, send the merged "
+    "result. Scalar fields (name, cpc, is_active, …) are partial-merge — omitted "
+    "scalars keep their prior value."
 )
 
 
@@ -74,68 +74,20 @@ _TARGETING_BLOCKS_NOTE = (
 #    maps. Each schema's `description` field is what the LLM sees per property.
 # ============================================================================
 
-# 2.1 Geo (advanced)
-_GEO_ADVANCED_SCHEMA = {
-    "type": "object",
-    "description": (
-        "Advanced (MultiTargeting) geo targeting. {state, value}. state=ALL with "
-        "value=[] clears geo. state=EXISTS applies the rules in value. "
-        "Each rule: {type: INCLUDE|EXCLUDE, value: [{country, region?, dma?, city?, postal_code?}]}. "
-        "Mix dims in one vector to AND them (country=US + region=California targets California). "
-        "Note: region values are full names (\"California\", \"New York\") not ISO codes — confirm via search_geos.\n"
-        "\n"
-        "Discover codes via search_geos:\n"
-        "- country: search_geos(dimension=countries)\n"
-        "- region: search_geos(dimension=regions, country_code=<ISO-2>)\n"
-        "- dma: search_geos(dimension=dma, country_code=US)\n"
-        "- city: search_geos(dimension=cities, country_code=<ISO-2>)\n"
-        "- postal_code: search_geos(dimension=postal_codes, country_code=<ISO-2>)"
-    ),
-    "properties": {
-        "state": {"type": "string", "enum": ["ALL", "EXISTS"]},
-        "value": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE"]},
-                    "value": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "country": {"type": ["string", "null"]},
-                                "region": {"type": ["string", "null"]},
-                                "dma": {"type": ["string", "null"]},
-                                "city": {"type": ["string", "null"]},
-                                "postal_code": {"type": ["string", "null"]},
-                            },
-                        },
-                    },
-                },
-                "required": ["type", "value"],
-            },
-        },
-    },
-    "required": ["state", "value"],
-}
-
-
-# 2.2 Shared `Targeting<String>` properties block — reused by classic geo + techno schemas
+# 2.1 Shared `Targeting<String>` properties block — reused by classic geo + techno schemas
 _TARGETING_STRING_SHAPE_PROPERTIES = {
     "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
     "value": {"type": "array", "items": {"type": "string"}},
 }
 
 
-# 2.3 Classic geo dimension schemas (update_campaign only — create_campaign rejects classic geo)
+# 2.2 Classic geo dimension schemas (create_campaign + update_campaign)
 
 _COUNTRY_TARGETING_SCHEMA = {
     "type": "object",
     "description": (
-        "Classic country targeting (update only). {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
+        "Classic country targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
         "value=[] when type=ALL. "
-        "Mutually exclusive with geo_targeting (advanced) in same request. "
         "Discover values via search_geos(dimension=countries)."
     ),
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
@@ -145,11 +97,10 @@ _COUNTRY_TARGETING_SCHEMA = {
 _REGION_TARGETING_SCHEMA = {
     "type": "object",
     "description": (
-        "Classic region targeting (update only). {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
+        "Classic region targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
         "value=[] when type=ALL. "
         "Sub-dimension mutex: at most ONE of region/dma/city/postal_code on a campaign; "
         "requires INCLUDE country already set. "
-        "Mutually exclusive with geo_targeting (advanced) in same request. "
         "Discover values via search_geos(dimension=regions, country_code=<ISO-2>)."
     ),
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
@@ -159,11 +110,10 @@ _REGION_TARGETING_SCHEMA = {
 _DMA_TARGETING_SCHEMA = {
     "type": "object",
     "description": (
-        "Classic dma targeting (update only). {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
+        "Classic dma targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
         "value=[] when type=ALL. "
         "Sub-dimension mutex: at most ONE of region/dma/city/postal_code on a campaign; "
         "requires INCLUDE country already set. "
-        "Mutually exclusive with geo_targeting (advanced) in same request. "
         "Discover values via search_geos(dimension=dma, country_code=US). DMA is US-only."
     ),
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
@@ -173,11 +123,10 @@ _DMA_TARGETING_SCHEMA = {
 _CITY_TARGETING_SCHEMA = {
     "type": "object",
     "description": (
-        "Classic city targeting (update only). {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
+        "Classic city targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
         "value=[] when type=ALL. "
         "Sub-dimension mutex: at most ONE of region/dma/city/postal_code on a campaign; "
         "requires INCLUDE country already set. "
-        "Mutually exclusive with geo_targeting (advanced) in same request. "
         "Discover values via search_geos(dimension=cities, country_code=<ISO-2>)."
     ),
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
@@ -187,11 +136,10 @@ _CITY_TARGETING_SCHEMA = {
 _POSTAL_CODE_TARGETING_SCHEMA = {
     "type": "object",
     "description": (
-        "Classic postal_code targeting (update only). {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
+        "Classic postal_code targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
         "value=[] when type=ALL. "
         "Sub-dimension mutex: at most ONE of region/dma/city/postal_code on a campaign; "
         "requires INCLUDE country already set. "
-        "Mutually exclusive with geo_targeting (advanced) in same request. "
         "Discover values via search_geos(dimension=postal_codes, country_code=<ISO-2>)."
     ),
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
@@ -541,8 +489,17 @@ _SCALAR_PROPERTIES = {
 }
 
 
+_CLASSIC_GEO_PROPERTIES = {
+    "country_targeting": _COUNTRY_TARGETING_SCHEMA,
+    "region_targeting": _REGION_TARGETING_SCHEMA,
+    "dma_targeting": _DMA_TARGETING_SCHEMA,
+    "city_targeting": _CITY_TARGETING_SCHEMA,
+    "postal_code_targeting": _POSTAL_CODE_TARGETING_SCHEMA,
+}
+
+
 _TARGETING_PROPERTIES_COMMON = {
-    "geo_targeting": _GEO_ADVANCED_SCHEMA,
+    **_CLASSIC_GEO_PROPERTIES,
     "platform_targeting": _PLATFORM_TARGETING_SCHEMA,
     "os_targeting": _OS_TARGETING_SCHEMA,
     "browser_targeting": _BROWSER_TARGETING_SCHEMA,
@@ -554,15 +511,6 @@ _TARGETING_PROPERTIES_COMMON = {
     "contextual_segments": _CONTEXTUAL_SEGMENTS_SCHEMA,
     "my_audiences": _MY_AUDIENCES_SCHEMA,
     "lookalike_audience": _LOOKALIKE_AUDIENCE_SCHEMA,
-}
-
-
-_UPDATE_CLASSIC_GEO_PROPERTIES = {
-    "country_targeting": _COUNTRY_TARGETING_SCHEMA,
-    "region_targeting": _REGION_TARGETING_SCHEMA,
-    "dma_targeting": _DMA_TARGETING_SCHEMA,
-    "city_targeting": _CITY_TARGETING_SCHEMA,
-    "postal_code_targeting": _POSTAL_CODE_TARGETING_SCHEMA,
 }
 
 
@@ -579,7 +527,7 @@ Prerequisite: call search_accounts first to obtain a valid `account_id`. The num
 
 {_TARGETING_BLOCKS_NOTE}
 
-Geo: accepts `geo_targeting` (advanced/MultiTargeting) only. Classic geo fields rejected on create. Use update_campaign for classic geo edits on existing classic-storage campaigns.
+Geo: send any subset of country_targeting, region_targeting, dma_targeting, city_targeting, postal_code_targeting. Sub-dimension mutex: at most one of region/dma/city/postal_code per campaign; INCLUDE country must already be set before a sub-dimension is accepted.
 
 All amounts (spending_limit, daily_cap, cpc, cpa_goal, cpc_cap) are numbers in the account's default currency.
 
@@ -590,7 +538,7 @@ Conditional rules:
 - If both start_date and end_date sent: end_date >= start_date.
 
 Discovery (call before constructing the payload to resolve IDs/names):
-- search_geos → `geo_targeting` country / region / dma / city / postal_code values.
+- search_geos → country_targeting / region_targeting / dma_targeting / city_targeting / postal_code_targeting values.
 - search_techno → `os_targeting` sub_categories and `browser_targeting` values. (platform / connection_type / os_family enums are listed inline in their schema descriptions.)
 - search_audiences → `my_audiences` audience IDs.
 - search_lookalike_audiences → `lookalike_audience` rule_ids.
@@ -604,7 +552,7 @@ All targeting (including audiences, lookalike, contextual segments) goes in one 
 
 Comprehensive example (every available field set; trim what you don't need — only the five required scalars are mandatory).
 
-Plain English: a Q2 lead-generation campaign for the Acme brand, $10,000 lifetime budget, running May 1 to Jun 30 2026 in TARGET_CPA bid mode aiming for $15 per acquisition. Targets US and Canada (excluding Alaska), desktop and phone, iOS 17 and any Android, Chrome and Safari, Wi-Fi and cellular. Serves Mon–Fri 9 AM–9 PM Eastern (off weekends). Includes audiences 224820 and 25287 (excludes 19884), one CRM lookalike at 10% similarity, contextual segments for the topic, two conversion rules, allowlists publishers `pub_alpha` and `pub_beta` with +25% bid on `pub_alpha` and -20% on `pub_beta`. Ships paused (`is_active=false`).
+Plain English: a Q2 lead-generation campaign for the Acme brand, $10,000 lifetime budget, running May 1 to Jun 30 2026 in TARGET_CPA bid mode aiming for $15 per acquisition. Targets US (California and New York), desktop and phone, iOS 17 and any Android, Chrome and Safari, Wi-Fi and cellular. Serves Mon–Fri 9 AM–9 PM Eastern (off weekends). Includes audiences 224820 and 25287 (excludes 19884), one CRM lookalike at 10% similarity, contextual segments for the topic, two conversion rules, allowlists publishers `pub_alpha` and `pub_beta` with +25% bid on `pub_alpha` and -20% on `pub_beta`. Ships paused (`is_active=false`).
 
 """
 
@@ -626,10 +574,8 @@ _CREATE_CAMPAIGN_JSON_EXAMPLE = """\
   "daily_ad_delivery_model": "BALANCED",
   "traffic_allocation_mode": "OPTIMIZED",
   "is_active": false,
-  "geo_targeting": {"state": "EXISTS", "value": [
-    {"type": "INCLUDE", "value": [{"country": "US"}, {"country": "CA"}]},
-    {"type": "EXCLUDE", "value": [{"country": "US", "region": "Alaska"}]}
-  ]},
+  "country_targeting": {"type": "INCLUDE", "value": ["US"]},
+  "region_targeting":  {"type": "INCLUDE", "value": ["California", "New York"]},
   "platform_targeting": {"type": "INCLUDE", "value": ["DESK", "PHON"]},
   "os_targeting": {"type": "INCLUDE", "value": [
     {"os_family": "iOS", "sub_categories": ["iOS 17"]},
@@ -675,7 +621,7 @@ Prerequisites: call search_accounts first to obtain `account_id`; call list_camp
 
 {_TARGETING_BLOCKS_NOTE}
 
-Geo: accepts EITHER `geo_targeting` (advanced/MultiTargeting, full-replace) OR classic dimension fields (country_targeting, region_targeting, dma_targeting, city_targeting, postal_code_targeting — each replaces only its dimension). Sending both shapes in one request is rejected. Sending advanced on a classic-storage campaign one-way migrates it to advanced (logged in campaign history).
+Geo: send any subset of country_targeting, region_targeting, dma_targeting, city_targeting, postal_code_targeting. Each replaces only its own dimension. Sub-dimension mutex: at most one of region/dma/city/postal_code per campaign; INCLUDE country must already be set before a sub-dimension is accepted.
 
 All amounts are numbers in the account's default currency.
 
@@ -712,7 +658,7 @@ Example — activate paused campaign and add publisher bid modifier (partial-mer
 Example — clear audience targeting only (other targeting untouched, full-replace within section):
 { "account_id": "acme-inc", "campaign_id": "49184816", "my_audiences": {"collection": []} }
 
-Example — edit one classic geo dimension on a classic-storage campaign (no migration to advanced):
+Example — edit one classic geo dimension:
 { "account_id": "acme-inc", "campaign_id": "49184816",
   "region_targeting": {"type": "INCLUDE", "value": ["California", "New York"]} }"""
 
@@ -748,7 +694,6 @@ _UPDATE_CAMPAIGN_PROPERTIES = {
     "campaign_id": {"type": "string", "description": "Value from list_campaigns.id or get_campaign.id (returned by create_campaign as `id`). Numeric ID as a string (e.g. \"49184816\")."},
     **_SCALAR_PROPERTIES,
     **_TARGETING_PROPERTIES_COMMON,
-    **_UPDATE_CLASSIC_GEO_PROPERTIES,
 }
 
 
@@ -1133,8 +1078,8 @@ _DISCOVERY_TOOLS = {
             "dimension=regions|dma|cities|postal_codes requires country_code (ISO-2, e.g. \"US\"). "
             "DMA is US-only.\n"
             "\n"
-            "Use returned values directly in geo_targeting (advanced) vectors, e.g. "
-            "{country: \"US\", region: \"California\"}, or in classic *_targeting blocks on update_campaign. "
+            "Use returned values directly in country_targeting / region_targeting / dma_targeting / "
+            "city_targeting / postal_code_targeting blocks on create_campaign and update_campaign. "
             "Region/city values are FULL NAMES (\"California\"), not ISO codes.\n"
             "\n"
             "Example — list US states: { \"dimension\": \"regions\", \"country_code\": \"US\" }"
