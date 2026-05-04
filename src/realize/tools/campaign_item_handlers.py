@@ -140,14 +140,19 @@ async def create_campaign_item(arguments: dict = None) -> List[types.TextContent
 
     payload = _build_item_payload(args, is_create=True)
 
+    # Backstage's single-item POST /items endpoint enforces "url-only" on create
+    # (any of title/description/thumbnail_url/is_active triggers 404). The mass
+    # endpoint POST /items/mass accepts the full payload via APICollection<APICampaignItem>;
+    # we wrap a single-item collection and unwrap results[0] for callers.
     response = await client.post(
-        f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}/items",
-        data=payload,
+        f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}/items/mass",
+        data={"collection": [payload]},
     )
+    item = response["results"][0] if isinstance(response, dict) and response.get("results") else response
 
     return [types.TextContent(
         type="text",
-        text=f"Campaign item created on campaign {campaign_id}:\n{format_response(response)}",
+        text=f"Campaign item created on campaign {campaign_id}:\n{format_response(item)}",
     )]
 
 

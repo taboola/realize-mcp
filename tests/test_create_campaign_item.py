@@ -16,6 +16,11 @@ def _post_body(mock_post):
     return kwargs.get("data")
 
 
+def _post_item(mock_post):
+    """Unwrap the single-item collection wrapper around the create payload."""
+    return _post_body(mock_post)["collection"][0]
+
+
 def _args(**overrides):
     base = {
         "account_id": "acme-inc",
@@ -30,21 +35,22 @@ class TestCreateCampaignItemHappyPath:
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_minimal_url_only(self, mock_post):
-        mock_post.return_value = {"id": "987654321", "status": "CRAWLING"}
+        mock_post.return_value = {"results": [{"id": "987654321", "status": "CRAWLING"}]}
 
         result = await handle_call_tool("create_campaign_item", _args())
 
-        assert _post_endpoint(mock_post) == "/acme-inc/campaigns/49184816/items"
+        assert _post_endpoint(mock_post) == "/acme-inc/campaigns/49184816/items/mass"
         body = _post_body(mock_post)
-        assert body == {"url": "https://example.com/landing"}
-        assert "account_id" not in body
-        assert "campaign_id" not in body
+        assert body == {"collection": [{"url": "https://example.com/landing"}]}
+        item = _post_item(mock_post)
+        assert "account_id" not in item
+        assert "campaign_id" not in item
         assert "987654321" in result[0].text
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_full_create_payload(self, mock_post):
-        mock_post.return_value = {"id": "987654321"}
+        mock_post.return_value = {"results": [{"id": "987654321"}]}
 
         await handle_call_tool("create_campaign_item", _args(
             title="Save 20% This Spring",
@@ -55,24 +61,24 @@ class TestCreateCampaignItemHappyPath:
             is_active=True,
         ))
 
-        body = _post_body(mock_post)
-        assert body["url"] == "https://example.com/landing"
-        assert body["title"] == "Save 20% This Spring"
-        assert body["description"] == "Limited-time offer."
-        assert body["thumbnail_url"] == "https://cdn.example.com/spring.jpg"
-        assert body["branding_text"] == "Acme"
-        assert body["cta"] == {"cta_type": "SHOP_NOW"}
-        assert body["is_active"] is True
+        item = _post_item(mock_post)
+        assert item["url"] == "https://example.com/landing"
+        assert item["title"] == "Save 20% This Spring"
+        assert item["description"] == "Limited-time offer."
+        assert item["thumbnail_url"] == "https://cdn.example.com/spring.jpg"
+        assert item["branding_text"] == "Acme"
+        assert item["cta"] == {"cta_type": "SHOP_NOW"}
+        assert item["is_active"] is True
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_unknown_args_dropped(self, mock_post):
-        mock_post.return_value = {"id": "987654321"}
+        mock_post.return_value = {"results": [{"id": "987654321"}]}
 
         await handle_call_tool("create_campaign_item", _args(extra_unknown="dropped"))
 
-        body = _post_body(mock_post)
-        assert "extra_unknown" not in body
+        item = _post_item(mock_post)
+        assert "extra_unknown" not in item
 
 
 class TestCreateCampaignItemValidation:
@@ -123,13 +129,13 @@ class TestCreateCampaignItemEncoding:
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_url_encodes_account_id_and_campaign_id(self, mock_post):
-        mock_post.return_value = {"id": "987654321"}
+        mock_post.return_value = {"results": [{"id": "987654321"}]}
 
         await handle_call_tool("create_campaign_item", _args(
             account_id="acme/evil", campaign_id="c/1",
         ))
 
-        assert _post_endpoint(mock_post) == "/acme%2Fevil/campaigns/c%2F1/items"
+        assert _post_endpoint(mock_post) == "/acme%2Fevil/campaigns/c%2F1/items/mass"
 
 
 class TestCreateCampaignItemAnnotations:
@@ -184,49 +190,49 @@ class TestCreateCampaignItemUpdateOnlyFieldsStripped:
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_start_end_date_dropped_on_create(self, mock_post):
-        mock_post.return_value = {"id": "987654321"}
+        mock_post.return_value = {"results": [{"id": "987654321"}]}
 
         await handle_call_tool("create_campaign_item", _args(
             start_date="2026-05-01 00:00:00",
             end_date="2026-06-30 23:59:59",
         ))
 
-        body = _post_body(mock_post)
-        assert "start_date" not in body
-        assert "end_date" not in body
+        item = _post_item(mock_post)
+        assert "start_date" not in item
+        assert "end_date" not in item
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_activity_schedule_dropped_on_create(self, mock_post):
-        mock_post.return_value = {"id": "987654321"}
+        mock_post.return_value = {"results": [{"id": "987654321"}]}
 
         await handle_call_tool("create_campaign_item", _args(
             activity_schedule={"mode": "ALWAYS"},
         ))
 
-        body = _post_body(mock_post)
-        assert "activity_schedule" not in body
+        item = _post_item(mock_post)
+        assert "activity_schedule" not in item
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_verification_pixel_dropped_on_create(self, mock_post):
-        mock_post.return_value = {"id": "987654321"}
+        mock_post.return_value = {"results": [{"id": "987654321"}]}
 
         await handle_call_tool("create_campaign_item", _args(
             verification_pixel=[{"type": "CLICK", "url": "https://x.example/c"}],
         ))
 
-        body = _post_body(mock_post)
-        assert "verification_pixel" not in body
+        item = _post_item(mock_post)
+        assert "verification_pixel" not in item
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_viewability_tag_dropped_on_create(self, mock_post):
-        mock_post.return_value = {"id": "987654321"}
+        mock_post.return_value = {"results": [{"id": "987654321"}]}
 
         await handle_call_tool("create_campaign_item", _args(
             viewability_tag=[{"type": "MOAT", "value": "x"}],
         ))
 
-        body = _post_body(mock_post)
-        assert "viewability_tag" not in body
+        item = _post_item(mock_post)
+        assert "viewability_tag" not in item
