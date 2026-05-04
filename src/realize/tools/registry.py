@@ -1,7 +1,7 @@
 """Centralized registry for all MCP tools.
 
 ================================================================================
-TOOL SURFACE — 20 tools across 6 categories
+TOOL SURFACE — 23 tools across 6 categories
 ================================================================================
 
 Authentication (stdio transport only; excluded in HTTP/OAuth mode):
@@ -19,14 +19,17 @@ Campaigns (write — fat tools, all targeting inline, single atomic POST):
   - create_campaign
   - update_campaign
 
-Campaign items (read):
-  - list_campaign_items
-  - get_campaign_item
+Campaign items:
+  - list_campaign_items                  (read)
+  - get_campaign_item                    (read)
+  - create_campaign_item                 (write — standard ITEM only; auto-crawl when title/description/thumbnail omitted)
+  - update_campaign_item                 (write — partial-merge scalars; full-replace verification_pixel / viewability_tag arrays)
 
-Discovery (resources for resolving IDs/names used in campaign payloads):
+Discovery (resources for resolving IDs/names used in campaign + item payloads):
   - search_geos                          (countries / regions / dma / cities / postal_codes)
   - search_techno                        (browsers, operating_system_versions per family)
   - list_time_zones                      (IANA names for activity_schedule.time_zone)
+  - list_cta_types                       (cta.cta_type values for create/update_campaign_item)
   - search_audiences                     (first-party + custom audience IDs)
   - search_lookalike_audiences           (CRM/pixel/PBP rule_ids)
   - search_publishers                    (publisher names per account)
@@ -435,6 +438,59 @@ _LOOKALIKE_AUDIENCE_SCHEMA = {
 }
 
 
+# 2.10 Campaign-item schemas — used by create_campaign_item / update_campaign_item
+
+_ITEM_CTA_SCHEMA = {
+    "type": "object",
+    "description": (
+        "Call-to-action object. {cta_type}. The cta_type set is curated by Realize "
+        "and changes over time; discover allowed values via list_cta_types instead "
+        "of hard-coding."
+    ),
+    "properties": {
+        "cta_type": {"type": "string"},
+    },
+    "required": ["cta_type"],
+}
+
+
+_ITEM_VERIFICATION_PIXEL_SCHEMA = {
+    "type": "array",
+    "description": (
+        "Third-party verification pixels. List of {type, url}. "
+        "type ∈ {CLICK, VIEWABLE_IMPRESSION, IMPRESSION}. "
+        "FULL-REPLACE within section: sending this field overwrites the entire prior list. "
+        "Send [] to clear all pixels."
+    ),
+    "items": {
+        "type": "object",
+        "properties": {
+            "type": {"type": "string", "enum": ["CLICK", "VIEWABLE_IMPRESSION", "IMPRESSION"]},
+            "url": {"type": "string"},
+        },
+        "required": ["type", "url"],
+    },
+}
+
+
+_ITEM_VIEWABILITY_TAG_SCHEMA = {
+    "type": "array",
+    "description": (
+        "Viewability tracking tags. List of {type, value}. type ∈ {MOAT, IAS}. "
+        "FULL-REPLACE within section: sending this field overwrites the entire prior list. "
+        "Send [] to clear all tags."
+    ),
+    "items": {
+        "type": "object",
+        "properties": {
+            "type": {"type": "string", "enum": ["MOAT", "IAS"]},
+            "value": {"type": "string"},
+        },
+        "required": ["type", "value"],
+    },
+}
+
+
 # ============================================================================
 # 3. Composed property maps + annotations
 #    (Defined here because long-form descriptions in section 4 can reference
@@ -696,6 +752,164 @@ _UPDATE_CAMPAIGN_PROPERTIES = {
 }
 
 
+# 4.5 Campaign-item — scalar + nested properties, prose, composed property maps
+
+_ITEM_SCALAR_PROPERTIES_CREATE = {
+    "url": {
+        "type": "string",
+        "description": "Landing/crawl URL for the creative. Required on create.",
+    },
+    "title": {
+        "type": "string",
+        "description": "Headline shown with the ad. Auto-crawled from `url` if omitted.",
+    },
+    "description": {
+        "type": "string",
+        "description": "Body copy shown with the ad. Auto-crawled from `url` if omitted.",
+    },
+    "thumbnail_url": {
+        "type": "string",
+        "description": "Image URL shown with the ad. Auto-crawled from `url` if omitted.",
+    },
+    "is_active": {
+        "type": "boolean",
+        "description": "true = serving (subject to campaign status + approval state); false = paused.",
+    },
+    "branding_text": {
+        "type": "string",
+        "description": "Brand name shown with the ad. Inherits from campaign if omitted.",
+    },
+}
+
+
+_ITEM_SCALAR_PROPERTIES_UPDATE_EXTRAS = {
+    "start_date": {
+        "type": "string",
+        "description": "Item-level start date/time. Format: \"yyyy-MM-dd HH:mm:ss\".",
+    },
+    "end_date": {
+        "type": "string",
+        "description": "Item-level end date/time. Format: \"yyyy-MM-dd HH:mm:ss\".",
+    },
+}
+
+
+_ITEM_NESTED_PROPERTIES_CREATE = {
+    "cta": _ITEM_CTA_SCHEMA,
+}
+
+
+_ITEM_NESTED_PROPERTIES_UPDATE = {
+    "cta": _ITEM_CTA_SCHEMA,
+    "activity_schedule": _ACTIVITY_SCHEDULE_SCHEMA,
+    "verification_pixel": _ITEM_VERIFICATION_PIXEL_SCHEMA,
+    "viewability_tag": _ITEM_VIEWABILITY_TAG_SCHEMA,
+}
+
+
+_CREATE_CAMPAIGN_ITEM_PROSE = """\
+Create a campaign item (creative) directly attached to a campaign on Realize. Returns the created item with its server-assigned `id`, `status`, and `approval_state`.
+
+Prerequisites: call search_accounts to obtain `account_id`; call list_campaigns or get_campaign to obtain `campaign_id`. Numeric account IDs are rejected.
+
+Auto-crawl: omitting `title`, `description`, and/or `thumbnail_url` triggers a server-side crawl of `url`; the crawler populates the missing fields. New items typically transition CRAWLING → PENDING_APPROVAL → RUNNING. Override any crawled field by passing it explicitly.
+
+Scope: this tool creates a regular `ITEM` directly attached to the campaign. RSS feed items, motion ads, performance video items, display creatives, hierarchy carousel items, and the Creative Library are not supported.
+
+Discovery:
+- list_cta_types → `cta.cta_type` allowed values.
+
+Read-only — NEVER send: id, campaign_id (set via path), type, status, approval_state, learning_state, orientation, policy_review.
+
+Example — minimal (auto-crawl title/description/thumbnail):
+{ "account_id": "acme-inc", "campaign_id": "49184816", "url": "https://example.com/landing" }
+
+Example — full create-time fields:
+{ "account_id": "acme-inc", "campaign_id": "49184816",
+  "url": "https://example.com/landing",
+  "title": "Save 20% This Spring",
+  "description": "Limited-time offer on all spring collection items.",
+  "thumbnail_url": "https://cdn.example.com/spring.jpg",
+  "branding_text": "Acme",
+  "cta": {"cta_type": "SHOP_NOW"},
+  "is_active": true }
+"""
+
+
+_UPDATE_CAMPAIGN_ITEM_PROSE = """\
+Update an existing campaign item. Partial-merge for scalars: fields omitted from the request keep their prior value.
+
+Prerequisites: call search_accounts (`account_id`), list_campaigns or get_campaign (`campaign_id`), list_campaign_items or get_campaign_item (`item_id`). Numeric account IDs are rejected.
+
+Editability: items in CRAWLING / CRAWLING_ERROR / PENDING_APPROVAL accept full edits. Items in RUNNING / PAUSED practically only accept `is_active` toggles and minor metadata; the API surfaces 4xx for non-allowed transitions. REJECTED items cannot be edited — recreate.
+
+Array semantics — FULL-REPLACE within section: sending `verification_pixel` or `viewability_tag` overwrites the entire prior list for that field. Send [] to clear. To edit one entry, read with get_campaign_item, modify locally, send the merged result.
+
+Scope: standard `ITEM` only. RSS feed items, motion ads, performance video, display, hierarchy carousel, and the Creative Library are not supported.
+
+Discovery:
+- list_cta_types → `cta.cta_type` allowed values.
+- list_time_zones → `activity_schedule.time_zone` IANA names.
+
+Read-only — NEVER send: id, campaign_id (set via path), type, status, approval_state, learning_state, orientation, policy_review.
+
+At least one updatable field besides account_id, campaign_id, and item_id must be sent.
+
+Example — pause item:
+{ "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321", "is_active": false }
+
+Example — replace verification pixels (full-replace within section):
+{ "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321",
+  "verification_pixel": [
+    {"type": "CLICK", "url": "https://verifier.example.com/c?x=1"},
+    {"type": "VIEWABLE_IMPRESSION", "url": "https://verifier.example.com/v?x=1"}
+  ] }
+
+Example — schedule item delivery Mon-Fri 9-5 ET:
+{ "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321",
+  "activity_schedule": {"mode": "CUSTOM", "time_zone": "America/New_York", "rules": [
+    {"type": "INCLUDE", "day": "MONDAY",    "from_hour": 9, "until_hour": 17},
+    {"type": "INCLUDE", "day": "TUESDAY",   "from_hour": 9, "until_hour": 17},
+    {"type": "INCLUDE", "day": "WEDNESDAY", "from_hour": 9, "until_hour": 17},
+    {"type": "INCLUDE", "day": "THURSDAY",  "from_hour": 9, "until_hour": 17},
+    {"type": "INCLUDE", "day": "FRIDAY",    "from_hour": 9, "until_hour": 17}
+  ]} }
+"""
+
+
+_CREATE_CAMPAIGN_ITEM_PROPERTIES = {
+    "account_id": {
+        "type": "string",
+        "description": "Value from search_accounts.account_id (NOT numeric).",
+    },
+    "campaign_id": {
+        "type": "string",
+        "description": "Value from list_campaigns.id or get_campaign.id (returned by create_campaign as `id`). Numeric ID as a string (e.g. \"49184816\").",
+    },
+    **_ITEM_SCALAR_PROPERTIES_CREATE,
+    **_ITEM_NESTED_PROPERTIES_CREATE,
+}
+
+
+_UPDATE_CAMPAIGN_ITEM_PROPERTIES = {
+    "account_id": {
+        "type": "string",
+        "description": "Value from search_accounts.account_id (NOT numeric).",
+    },
+    "campaign_id": {
+        "type": "string",
+        "description": "Value from list_campaigns.id or get_campaign.id. Numeric ID as a string (e.g. \"49184816\").",
+    },
+    "item_id": {
+        "type": "string",
+        "description": "Value from list_campaign_items.id or get_campaign_item.id. Numeric ID as a string (e.g. \"987654321\").",
+    },
+    **_ITEM_SCALAR_PROPERTIES_CREATE,
+    **_ITEM_SCALAR_PROPERTIES_UPDATE_EXTRAS,
+    **_ITEM_NESTED_PROPERTIES_UPDATE,
+}
+
+
 # ============================================================================
 # 5. Tool entries — grouped per-category. TOOL_REGISTRY at the end is just a
 #    spread-merge of the per-category dicts. Edit a category in isolation
@@ -837,7 +1051,7 @@ _CAMPAIGN_WRITE_TOOLS = {
 }
 
 
-# 5.5 Campaign items (read)
+# 5.5 Campaign items (read + write)
 _CAMPAIGN_ITEM_TOOLS = {
     "list_campaign_items": {
         "description": "List all items (creatives) on a campaign (read-only).",
@@ -855,7 +1069,7 @@ _CAMPAIGN_ITEM_TOOLS = {
             },
             "required": ["account_id", "campaign_id"]
         },
-        "handler": "campaign_handlers.list_campaign_items",
+        "handler": "campaign_item_handlers.list_campaign_items",
         "category": "campaign_items"
     },
 
@@ -879,8 +1093,32 @@ _CAMPAIGN_ITEM_TOOLS = {
             },
             "required": ["account_id", "campaign_id", "item_id"]
         },
-        "handler": "campaign_handlers.get_campaign_item",
+        "handler": "campaign_item_handlers.get_campaign_item",
         "category": "campaign_items"
+    },
+
+    "create_campaign_item": {
+        "description": _CREATE_CAMPAIGN_ITEM_PROSE,
+        "schema": {
+            "type": "object",
+            "properties": _CREATE_CAMPAIGN_ITEM_PROPERTIES,
+            "required": ["account_id", "campaign_id", "url"],
+        },
+        "handler": "campaign_item_handlers.create_campaign_item",
+        "category": "campaign_items",
+        "annotations": _DESTRUCTIVE_ANNOTATIONS_CREATE,
+    },
+
+    "update_campaign_item": {
+        "description": _UPDATE_CAMPAIGN_ITEM_PROSE,
+        "schema": {
+            "type": "object",
+            "properties": _UPDATE_CAMPAIGN_ITEM_PROPERTIES,
+            "required": ["account_id", "campaign_id", "item_id"],
+        },
+        "handler": "campaign_item_handlers.update_campaign_item",
+        "category": "campaign_items",
+        "annotations": _DESTRUCTIVE_ANNOTATIONS_UPDATE,
     },
 }
 
@@ -1063,6 +1301,21 @@ _DISCOVERY_TOOLS = {
             "required": [],
         },
         "handler": "resources.list_time_zones",
+        "category": "resources",
+    },
+
+    "list_cta_types": {
+        "description": (
+            "List allowed values for `cta.cta_type` on create_campaign_item / update_campaign_item "
+            "(read-only). The set is curated by Realize and changes over time; prefer this tool over "
+            "hard-coded enums."
+        ),
+        "schema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+        "handler": "resources.list_cta_types",
         "category": "resources",
     },
 }

@@ -77,6 +77,7 @@ class TestToolRegistryEdgeCases:
             'auth_handlers.',
             'account_handlers.',
             'campaign_handlers.',
+            'campaign_item_handlers.',
             'report_handlers.',
             'resources.',
             'discovery_handlers.',
@@ -183,8 +184,9 @@ class TestToolHandlerImports:
         """Test that all handler modules exist and can be imported."""
         expected_modules = [
             'realize.tools.auth_handlers',
-            'realize.tools.account_handlers', 
+            'realize.tools.account_handlers',
             'realize.tools.campaign_handlers',
+            'realize.tools.campaign_item_handlers',
             'realize.tools.report_handlers'
         ]
         
@@ -295,6 +297,36 @@ class TestToolTransportFiltering:
         assert len(tools) == non_auth_count
         assert "search_accounts" in tools
         assert "list_campaigns" in tools
+
+
+class TestCampaignItemAndDiscoveryAdditions:
+    """Smoke checks for the new write + discovery tools."""
+
+    def test_create_campaign_item_registered(self):
+        assert "create_campaign_item" in TOOL_REGISTRY
+        entry = TOOL_REGISTRY["create_campaign_item"]
+        assert entry["category"] == "campaign_items"
+        assert entry["handler"] == "campaign_item_handlers.create_campaign_item"
+        assert entry["annotations"]["destructiveHint"] is True
+        assert entry["annotations"]["idempotentHint"] is False
+
+    def test_update_campaign_item_registered(self):
+        assert "update_campaign_item" in TOOL_REGISTRY
+        entry = TOOL_REGISTRY["update_campaign_item"]
+        assert entry["category"] == "campaign_items"
+        assert entry["handler"] == "campaign_item_handlers.update_campaign_item"
+        assert entry["annotations"]["destructiveHint"] is True
+        assert entry["annotations"]["idempotentHint"] is True
+
+    def test_list_cta_types_registered(self):
+        assert "list_cta_types" in TOOL_REGISTRY
+        entry = TOOL_REGISTRY["list_cta_types"]
+        assert entry["category"] == "resources"
+        assert entry["handler"] == "resources.list_cta_types"
+
+    def test_read_item_tools_repointed(self):
+        assert TOOL_REGISTRY["list_campaign_items"]["handler"] == "campaign_item_handlers.list_campaign_items"
+        assert TOOL_REGISTRY["get_campaign_item"]["handler"] == "campaign_item_handlers.get_campaign_item"
 
 
 if __name__ == "__main__":

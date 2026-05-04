@@ -1,4 +1,4 @@
-"""Tests for the three discovery tools: search_geos, search_techno, list_time_zones."""
+"""Tests for discovery tools: search_geos, search_techno, list_time_zones, list_cta_types."""
 import json
 
 import pytest
@@ -114,6 +114,24 @@ class TestListTimeZones:
         assert payload["values"] == ["America/New_York", "US/Eastern"]
 
 
+class TestListCtaTypes:
+    @pytest.mark.asyncio
+    @patch('realize.tools.resources.client.get', new_callable=AsyncMock)
+    async def test_endpoint(self, mock_get):
+        mock_get.return_value = {"results": []}
+        await handle_call_tool("list_cta_types", {})
+        assert _get_endpoint(mock_get) == "/resources/campaigns_properties/items_properties/cta"
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.resources.client.get', new_callable=AsyncMock)
+    async def test_response_shape(self, mock_get):
+        mock_get.return_value = {"results": [{"value": "SHOP_NOW"}, {"value": "LEARN_MORE"}]}
+        result = await handle_call_tool("list_cta_types", {})
+        payload = json.loads(result[0].text)
+        assert payload["resource"] == "cta_types"
+        assert payload["values"] == ["SHOP_NOW", "LEARN_MORE"]
+
+
 class TestDiscoverySchemas:
     @pytest.mark.asyncio
     async def test_search_geos_dimension_enum(self):
@@ -151,6 +169,14 @@ class TestDiscoverySchemas:
         names = {t.name for t in tools}
         assert "list_realize_resource" not in names
         assert "list_time_zones" in names
+
+    @pytest.mark.asyncio
+    async def test_list_cta_types_no_required_args(self):
+        from realize.realize_server import handle_list_tools
+
+        tools = await handle_list_tools()
+        lc = next(t for t in tools if t.name == "list_cta_types")
+        assert lc.inputSchema["required"] == []
 
 
 class TestFlattenedResponseShape:

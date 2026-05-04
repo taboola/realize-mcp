@@ -1,6 +1,6 @@
 # Realize MCP Server
 
-A Model Context Protocol (MCP) server for Taboola's Realize API. Provides read access to accounts, campaigns, items, and reports, plus two fat write tools (`create_campaign`, `update_campaign`) covering scalars and all targeting (geo, techno, schedule, audiences, publishers, conversion rules, contextual segments) inline. Install with stdio transport for single-user local use, or Streamable HTTP transport for multi-user deployment.
+A Model Context Protocol (MCP) server for Taboola's Realize API. Provides read access to accounts, campaigns, items, and reports, plus write tools at both the campaign level (`create_campaign`, `update_campaign`) and item level (`create_campaign_item`, `update_campaign_item`). Campaign writes cover scalars and all targeting (geo, techno, schedule, audiences, publishers, conversion rules, contextual segments) inline. Install with stdio transport for single-user local use, or Streamable HTTP transport for multi-user deployment.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![Python](https://img.shields.io/badge/Python-3.10+-green.svg)](https://python.org) [![MCP](https://img.shields.io/badge/MCP-Compatible-orange.svg)](https://modelcontextprotocol.io/) [![Latest Version][mdversion-button]][md-pypi]
 
@@ -61,18 +61,21 @@ Both write tools accept scalars (name, budget, bidding, schedule dates, `is_acti
 
 ### Campaign Items
 
-An item is a creative (headline, image, URL) served under a campaign. Distinct object from the campaign itself.
+An item is a creative (headline, image, URL) served under a campaign. Distinct object from the campaign itself. Standard `ITEM` type only — RSS, motion ads, performance video, display, hierarchy carousel, and the Creative Library are not supported.
 
 - **`list_campaign_items`** — List items on a campaign.
 - **`get_campaign_item`** — Read one item.
+- **`create_campaign_item`** — Create a creative on a campaign. Required: `url`. Optional: `title`, `description`, `thumbnail_url`, `cta`, `is_active`, `branding_text`. Omitting title/description/thumbnail_url triggers a server-side crawl of `url`.
+- **`update_campaign_item`** — Update any subset of fields. Adds `start_date`, `end_date`, `activity_schedule`, `verification_pixel`, `viewability_tag`. Scalars partial-merge; `verification_pixel` and `viewability_tag` arrays full-replace within section (send `[]` to clear).
 
 ### Discovery
 
-Use these to populate campaign targeting fields with valid values.
+Use these to populate campaign and item targeting fields with valid values.
 
 - **`search_geos`** — Countries, regions, DMAs, cities, postal codes.
 - **`search_techno`** — OS sub_categories per family (e.g. iOS versions) and browsers. Other techno enums (platform / connection_type / os_family) are inlined in the campaign schema descriptions.
 - **`list_time_zones`** — IANA time-zone names for `activity_schedule.time_zone`.
+- **`list_cta_types`** — `cta.cta_type` values for `create_campaign_item` / `update_campaign_item`.
 - **`search_audiences`** — First-party and custom audiences for an account.
 - **`search_lookalike_audiences`** — CRM/pixel/PBP lookalike audiences.
 - **`search_publishers`** — Publishers an account may target.

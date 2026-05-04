@@ -1,9 +1,10 @@
 """Resource discovery handlers for Realize platform vocabularies.
 
-Three handlers:
+Four handlers:
 - search_geos       — countries / regions / dma / cities / postal_codes (country-scoped)
 - search_techno     — operating_system_versions (per family) / browsers
 - list_time_zones   — IANA time-zone names for activity_schedule.time_zone
+- list_cta_types    — cta.cta_type values for create/update_campaign_item
 
 All wrap publisher-console `/api/1.0/resources/...` endpoints. Small fixed enums
 (platforms, os_family, connection_type, marketing_objective, bid_strategy,
@@ -61,6 +62,7 @@ _TECHNO_DISPATCH: Dict[str, Callable[[Dict[str, Any]], str]] = {
 
 
 _TIME_ZONES_ENDPOINT = "/resources/campaigns_properties/activity-scheduler-time-zone"
+_CTA_TYPES_ENDPOINT = "/resources/campaigns_properties/items_properties/cta"
 
 
 SUPPORTED_GEO_DIMENSIONS = tuple(_GEO_DISPATCH.keys())
@@ -106,3 +108,8 @@ async def search_techno(arguments: dict = None) -> List[types.TextContent]:
 async def list_time_zones(arguments: dict = None) -> List[types.TextContent]:
     """List valid IANA time-zone names for activity_schedule.time_zone."""
     return await _fetch_and_format("resource", "time_zones", _TIME_ZONES_ENDPOINT)
+
+
+async def list_cta_types(arguments: dict = None) -> List[types.TextContent]:
+    """List allowed cta.cta_type values for create/update_campaign_item."""
+    return await _fetch_and_format("resource", "cta_types", _CTA_TYPES_ENDPOINT)

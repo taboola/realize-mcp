@@ -94,13 +94,21 @@ async def handle_call_tool(
             from realize.tools.campaign_handlers import update_campaign
             result = await update_campaign(arguments)
 
-        elif handler_path == "campaign_handlers.list_campaign_items":
-            from realize.tools.campaign_handlers import list_campaign_items
+        elif handler_path == "campaign_item_handlers.list_campaign_items":
+            from realize.tools.campaign_item_handlers import list_campaign_items
             result = await list_campaign_items(arguments)
 
-        elif handler_path == "campaign_handlers.get_campaign_item":
-            from realize.tools.campaign_handlers import get_campaign_item
+        elif handler_path == "campaign_item_handlers.get_campaign_item":
+            from realize.tools.campaign_item_handlers import get_campaign_item
             result = await get_campaign_item(arguments)
+
+        elif handler_path == "campaign_item_handlers.create_campaign_item":
+            from realize.tools.campaign_item_handlers import create_campaign_item
+            result = await create_campaign_item(arguments)
+
+        elif handler_path == "campaign_item_handlers.update_campaign_item":
+            from realize.tools.campaign_item_handlers import update_campaign_item
+            result = await update_campaign_item(arguments)
 
         # Resource discovery handlers
         elif handler_path == "resources.search_geos":
@@ -114,6 +122,10 @@ async def handle_call_tool(
         elif handler_path == "resources.list_time_zones":
             from realize.tools.resources import list_time_zones
             result = await list_time_zones(arguments)
+
+        elif handler_path == "resources.list_cta_types":
+            from realize.tools.resources import list_cta_types
+            result = await list_cta_types(arguments)
 
         elif handler_path == "discovery_handlers.search_audiences":
             from realize.tools.discovery_handlers import search_audiences

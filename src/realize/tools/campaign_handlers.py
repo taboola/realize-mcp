@@ -1,8 +1,11 @@
 """Campaign handlers for Realize MCP server.
 
-Two write tools — `create_campaign` and `update_campaign` — accept full campaign
-state inline (scalars + targeting). All targeting fields ride in a single atomic
-POST to Backstage's APICampaign endpoint; one tool call → one HTTP request.
+Read tools (`list_campaigns`, `get_campaign`) plus two write tools —
+`create_campaign` and `update_campaign` — that accept full campaign state inline
+(scalars + targeting). All targeting fields ride in a single atomic POST to the
+APICampaign endpoint; one tool call → one HTTP request.
+
+Item-level handlers live in `campaign_item_handlers`.
 """
 from typing import Any, Dict, List
 from urllib.parse import quote
@@ -93,47 +96,6 @@ async def get_campaign(arguments: dict = None) -> List[types.TextContent]:
     return [types.TextContent(
         type="text",
         text=f"Campaign {campaign_id} details:\n{format_response(response)}"
-    )]
-
-
-async def list_campaign_items(arguments: dict = None) -> List[types.TextContent]:
-    """List all items for a campaign (read-only)."""
-    account_id = arguments.get("account_id") if arguments else None
-    campaign_id = arguments.get("campaign_id") if arguments else None
-
-    is_valid, error_message = validate_account_id(account_id)
-    if not is_valid:
-        raise ToolInputError(error_message)
-
-    if not campaign_id:
-        raise ToolInputError("campaign_id is required")
-
-    response = await client.get(f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}/items/")
-
-    return [types.TextContent(
-        type="text",
-        text=f"Campaign items for campaign {campaign_id}:\n{format_response(response)}"
-    )]
-
-
-async def get_campaign_item(arguments: dict = None) -> List[types.TextContent]:
-    """Get specific campaign item details (read-only)."""
-    account_id = arguments.get("account_id") if arguments else None
-    campaign_id = arguments.get("campaign_id") if arguments else None
-    item_id = arguments.get("item_id") if arguments else None
-
-    is_valid, error_message = validate_account_id(account_id)
-    if not is_valid:
-        raise ToolInputError(error_message)
-
-    if not campaign_id or not item_id:
-        raise ToolInputError("campaign_id and item_id are both required")
-
-    response = await client.get(f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}/items/{quote(item_id, safe='')}")
-
-    return [types.TextContent(
-        type="text",
-        text=f"Campaign item {item_id} details:\n{format_response(response)}"
     )]
 
 
