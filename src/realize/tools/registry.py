@@ -759,7 +759,7 @@ _ITEM_NESTED_PROPERTIES_UPDATE = {
 
 
 _CREATE_CAMPAIGN_ITEM_PROSE = """\
-Create a campaign item (creative) directly attached to a campaign on Realize. Returns the created item with its server-assigned `id`, `status`, and `approval_state`.
+Create a campaign item directly attached to a campaign on Realize. "Campaign item", "item", "ad", and "creative" all refer to the same object — this tool creates one. Returns the created item with its server-assigned `id`, `status`, and `approval_state`.
 
 Prerequisites: call search_accounts to obtain `account_id`; call list_campaigns or get_campaign to obtain `campaign_id`. Numeric account IDs are rejected.
 
@@ -767,38 +767,51 @@ Auto-crawl: omitting `title`, `description`, and/or `thumbnail_url` triggers a s
 
 Scope: this tool creates a regular `ITEM` directly attached to the campaign. RSS feed items, motion ads, performance video items, display creatives, hierarchy carousel items, and the Creative Library are not supported.
 
-Discovery:
+Discovery (call before constructing the payload to resolve IDs/names):
 - list_cta_types → `cta.cta_type` allowed values.
 
 Read-only — NEVER send: id, campaign_id (set via path), type, status, approval_state, learning_state, orientation, policy_review.
 
-Example — minimal (auto-crawl title/description/thumbnail):
-{ "account_id": "acme-inc", "campaign_id": "49184816", "url": "https://example.com/landing" }
+Item creation goes in one atomic POST to Backstage; either the item commits with all fields, or it doesn't.
 
-Example — full create-time fields:
-{ "account_id": "acme-inc", "campaign_id": "49184816",
+Comprehensive example (every available field set; trim what you don't need — only `account_id`, `campaign_id`, and `url` are mandatory).
+
+Plain English: a "Spring Sale" creative for the Acme brand, landing at example.com/landing, with explicit headline / body / thumbnail (overriding auto-crawl), Shop Now CTA, and shipped active so it serves as soon as approval clears.
+
+"""
+
+
+_CREATE_CAMPAIGN_ITEM_JSON_EXAMPLE = """\
+{
+  "account_id": "acme-inc",
+  "campaign_id": "49184816",
   "url": "https://example.com/landing",
   "title": "Save 20% This Spring",
   "description": "Limited-time offer on all spring collection items.",
   "thumbnail_url": "https://cdn.example.com/spring.jpg",
   "branding_text": "Acme",
   "cta": {"cta_type": "SHOP_NOW"},
-  "is_active": true }
-"""
+  "is_active": true
+}"""
+
+
+_CREATE_CAMPAIGN_ITEM_DESCRIPTION = _CREATE_CAMPAIGN_ITEM_PROSE + _CREATE_CAMPAIGN_ITEM_JSON_EXAMPLE
 
 
 _UPDATE_CAMPAIGN_ITEM_PROSE = """\
-Update an existing campaign item. Partial-merge for scalars: fields omitted from the request keep their prior value.
+Update an existing campaign item: scalars and any nested block (cta, activity_schedule, verification_pixel, viewability_tag) in one call. "Campaign item", "item", "ad", and "creative" all refer to the same object — this tool updates one.
 
 Prerequisites: call search_accounts (`account_id`), list_campaigns or get_campaign (`campaign_id`), list_campaign_items or get_campaign_item (`item_id`). Numeric account IDs are rejected.
 
-Editability: items in CRAWLING / CRAWLING_ERROR / PENDING_APPROVAL accept full edits. Items in RUNNING / PAUSED practically only accept `is_active` toggles and minor metadata; the API surfaces 4xx for non-allowed transitions. REJECTED items cannot be edited — recreate.
+Partial-merge for scalars: fields omitted from the request keep their prior value.
 
 Array semantics — FULL-REPLACE within section: sending `verification_pixel` or `viewability_tag` overwrites the entire prior list for that field. Send [] to clear. To edit one entry, read with get_campaign_item, modify locally, send the merged result.
 
+Editability: items in CRAWLING / CRAWLING_ERROR / PENDING_APPROVAL accept full edits. Items in RUNNING / PAUSED practically only accept `is_active` toggles and minor metadata; the API surfaces 4xx for non-allowed transitions. REJECTED items cannot be edited — recreate.
+
 Scope: standard `ITEM` only. RSS feed items, motion ads, performance video, display, hierarchy carousel, and the Creative Library are not supported.
 
-Discovery:
+Discovery (call before constructing the payload to resolve IDs/names):
 - list_cta_types → `cta.cta_type` allowed values.
 - list_time_zones → `activity_schedule.time_zone` IANA names.
 
@@ -806,26 +819,53 @@ Read-only — NEVER send: id, campaign_id (set via path), type, status, approval
 
 At least one updatable field besides account_id, campaign_id, and item_id must be sent.
 
-Example — pause item:
-{ "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321", "is_active": false }
+All updates (including verification_pixel, viewability_tag, activity_schedule) go in one atomic POST to Backstage.
 
-Example — replace verification pixels (full-replace within section):
-{ "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321",
-  "verification_pixel": [
-    {"type": "CLICK", "url": "https://verifier.example.com/c?x=1"},
-    {"type": "VIEWABLE_IMPRESSION", "url": "https://verifier.example.com/v?x=1"}
-  ] }
+Comprehensive example (every available field set; trim what you don't need — only `account_id`, `campaign_id`, and `item_id` are mandatory, plus at least one updatable field).
 
-Example — schedule item delivery Mon-Fri 9-5 ET:
-{ "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321",
+Plain English: refresh an existing creative — new headline / body / thumbnail / branding, Learn More CTA, run window May 1 – Jun 30 2026, deliver Mon-Fri 9 AM-5 PM Eastern (off weekends by default), CLICK + VIEWABLE_IMPRESSION verification pixels and a MOAT viewability tag, shipped active.
+
+"""
+
+
+_UPDATE_CAMPAIGN_ITEM_JSON_EXAMPLE = """\
+{
+  "account_id": "acme-inc",
+  "campaign_id": "49184816",
+  "item_id": "987654321",
+  "url": "https://example.com/landing",
+  "title": "Save 25% — Extended",
+  "description": "Spring sale extended through end of June.",
+  "thumbnail_url": "https://cdn.example.com/spring-v2.jpg",
+  "branding_text": "Acme",
+  "cta": {"cta_type": "LEARN_MORE"},
+  "is_active": true,
+  "start_date": "2026-05-01 00:00:00",
+  "end_date": "2026-06-30 23:59:59",
   "activity_schedule": {"mode": "CUSTOM", "time_zone": "America/New_York", "rules": [
     {"type": "INCLUDE", "day": "MONDAY",    "from_hour": 9, "until_hour": 17},
     {"type": "INCLUDE", "day": "TUESDAY",   "from_hour": 9, "until_hour": 17},
     {"type": "INCLUDE", "day": "WEDNESDAY", "from_hour": 9, "until_hour": 17},
     {"type": "INCLUDE", "day": "THURSDAY",  "from_hour": 9, "until_hour": 17},
     {"type": "INCLUDE", "day": "FRIDAY",    "from_hour": 9, "until_hour": 17}
-  ]} }
-"""
+  ]},
+  "verification_pixel": [
+    {"type": "CLICK", "url": "https://verifier.example.com/c?x=1"},
+    {"type": "VIEWABLE_IMPRESSION", "url": "https://verifier.example.com/v?x=1"}
+  ],
+  "viewability_tag": [
+    {"type": "MOAT", "value": "moat-tag-payload"}
+  ]
+}
+
+Example — pause item (partial-merge, scalars only):
+{ "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321", "is_active": false }
+
+Example — clear all verification pixels (full-replace within section):
+{ "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321", "verification_pixel": [] }"""
+
+
+_UPDATE_CAMPAIGN_ITEM_DESCRIPTION = _UPDATE_CAMPAIGN_ITEM_PROSE + _UPDATE_CAMPAIGN_ITEM_JSON_EXAMPLE
 
 
 _CREATE_CAMPAIGN_ITEM_PROPERTIES = {
@@ -1005,7 +1045,7 @@ _CAMPAIGN_WRITE_TOOLS = {
 # 5.5 Campaign items (read + write)
 _CAMPAIGN_ITEM_TOOLS = {
     "list_campaign_items": {
-        "description": "List all items (creatives) on a campaign (read-only).",
+        "description": "List all items on a campaign (read-only). \"Campaign item\", \"item\", \"ad\", and \"creative\" all refer to the same object.",
         "schema": {
             "type": "object",
             "properties": {
@@ -1025,7 +1065,7 @@ _CAMPAIGN_ITEM_TOOLS = {
     },
 
     "get_campaign_item": {
-        "description": "Get details for one item (creative) on a campaign (read-only).",
+        "description": "Get details for one item on a campaign (read-only). \"Campaign item\", \"item\", \"ad\", and \"creative\" all refer to the same object.",
         "schema": {
             "type": "object",
             "properties": {
@@ -1049,7 +1089,7 @@ _CAMPAIGN_ITEM_TOOLS = {
     },
 
     "create_campaign_item": {
-        "description": _CREATE_CAMPAIGN_ITEM_PROSE,
+        "description": _CREATE_CAMPAIGN_ITEM_DESCRIPTION,
         "schema": {
             "type": "object",
             "properties": _CREATE_CAMPAIGN_ITEM_PROPERTIES,
@@ -1061,7 +1101,7 @@ _CAMPAIGN_ITEM_TOOLS = {
     },
 
     "update_campaign_item": {
-        "description": _UPDATE_CAMPAIGN_ITEM_PROSE,
+        "description": _UPDATE_CAMPAIGN_ITEM_DESCRIPTION,
         "schema": {
             "type": "object",
             "properties": _UPDATE_CAMPAIGN_ITEM_PROPERTIES,

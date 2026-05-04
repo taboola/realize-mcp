@@ -55,18 +55,20 @@ A campaign holds budget, bidding, schedule, and targeting. It contains items.
 - **`list_campaigns`** — List campaigns on an account.
 - **`get_campaign`** — Read one campaign.
 - **`create_campaign`** — Create a campaign with all targeting in one call. Ships paused.
-- **`update_campaign`** — Update any subset of fields. Pause/resume via `is_active`.
+- **`update_campaign`** — Update subset of fields of a campaign. Pause/resume via `is_active`.
 
 Both write tools accept scalars (name, budget, bidding, schedule dates, `is_active`) plus targeting blocks: `country_targeting`, `region_targeting`, `dma_targeting`, `city_targeting`, `postal_code_targeting`, `platform_targeting`, `os_targeting`, `browser_targeting`, `connection_type_targeting`, `activity_schedule`, `conversion_rules`, `publisher_targeting`, `publisher_bid_modifier`, `contextual_segments`, `my_audiences`, `lookalike_audience`. Scalars partial-merge; targeting blocks full-replace. Geo targeting uses classic dimension fields (`country_targeting`, `region_targeting`, `dma_targeting`, `city_targeting`, `postal_code_targeting`) on both create and update; values are codes (e.g. `"CA"` for California), not display names — discover via `search_geos` and use the `code` field of each result. Single atomic POST — all targeting commits together or not at all.
 
 ### Campaign Items
 
-An item is a creative (headline, image, URL) served under a campaign. Distinct object from the campaign itself. Standard `ITEM` type only — RSS, motion ads, performance video, display, hierarchy carousel, and the Creative Library are not supported.
+An item is a creative (headline, image, URL) served under a campaign. "Campaign item", "item", "ad", and "creative" all refer to the same object. Distinct from the campaign itself. Standard `ITEM` type only — RSS, motion ads, performance video, display, hierarchy carousel, and the Creative Library are not supported.
 
 - **`list_campaign_items`** — List items on a campaign.
 - **`get_campaign_item`** — Read one item.
-- **`create_campaign_item`** — Create a creative on a campaign. Required: `url`. Optional: `title`, `description`, `thumbnail_url`, `cta`, `is_active`, `branding_text`. Omitting title/description/thumbnail_url triggers a server-side crawl of `url`.
-- **`update_campaign_item`** — Update any subset of fields. Adds `start_date`, `end_date`, `activity_schedule`, `verification_pixel`, `viewability_tag`. Scalars partial-merge; `verification_pixel` and `viewability_tag` arrays full-replace within section (send `[]` to clear).
+- **`create_campaign_item`** — Create an item on a campaign in one call.
+- **`update_campaign_item`** — Update subset of fields of an item. Pause/resume via `is_active`.
+
+Both write tools accept scalars (`url`, `title`, `description`, `thumbnail_url`, `branding_text`, `is_active`) plus the `cta` nested block. Update adds `start_date`, `end_date`, `activity_schedule`, `verification_pixel`, `viewability_tag`. Scalars partial-merge; `verification_pixel` and `viewability_tag` arrays full-replace within section (send `[]` to clear). On create, omitting `title` / `description` / `thumbnail_url` triggers a server-side crawl of `url`. Discover `cta.cta_type` values via `list_cta_types` and `activity_schedule.time_zone` IANA names via `list_time_zones`. Single atomic POST — all fields commit together or not at all. Editability: items in CRAWLING / PENDING_APPROVAL accept full edits; items in RUNNING / PAUSED accept only `is_active` toggles plus minor metadata; REJECTED items cannot be edited (recreate).
 
 ### Discovery
 
