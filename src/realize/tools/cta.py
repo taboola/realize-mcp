@@ -19,5 +19,5 @@ def validate_cta(cta: Any) -> None:
         )
 
 
-def to_wire_cta(cta: Dict[str, Any]) -> Dict[str, str]:
+def sanitize_cta(cta: Dict[str, Any]) -> Dict[str, str]:
     return {"cta_type": cta["cta_type"]}

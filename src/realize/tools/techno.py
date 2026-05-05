@@ -79,7 +79,7 @@ def validate_techno(dimension: Any, targeting: Any) -> None:
                 )
 
 
-def to_wire_techno_value(dimension: str, value: List[Any]) -> List[Any]:
+def sanitize_techno_value(dimension: str, value: List[Any]) -> List[Any]:
     """Convert validated targeting.value to wire shape.
 
     String dims (platform/browser/connection_type) pass through unchanged.

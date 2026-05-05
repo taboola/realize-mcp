@@ -11,15 +11,15 @@ from urllib.parse import quote
 import mcp.types as types
 
 from realize.client import client
-from realize.tools.cta import to_wire_cta, validate_cta
+from realize.tools.cta import sanitize_cta, validate_cta
 from realize.tools.errors import ToolInputError
 from realize.tools.utils import format_response, validate_account_id
 from realize.tools.verification_pixel import (
-    to_wire_verification_pixel,
+    sanitize_verification_pixel,
     validate_verification_pixel,
 )
 from realize.tools.viewability_tag import (
-    to_wire_viewability_tag,
+    sanitize_viewability_tag,
     validate_viewability_tag,
 )
 
@@ -98,18 +98,18 @@ def _build_item_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str, A
     cta = args.get("cta")
     if cta is not None:
         validate_cta(cta)
-        body["cta"] = to_wire_cta(cta)
+        body["cta"] = sanitize_cta(cta)
 
     if not is_create:
         verification_pixel = args.get("verification_pixel")
         if verification_pixel is not None:
             validate_verification_pixel(verification_pixel)
-            body["verification_pixel"] = to_wire_verification_pixel(verification_pixel)
+            body["verification_pixel"] = sanitize_verification_pixel(verification_pixel)
 
         viewability_tag = args.get("viewability_tag")
         if viewability_tag is not None:
             validate_viewability_tag(viewability_tag)
-            body["viewability_tag"] = to_wire_viewability_tag(viewability_tag)
+            body["viewability_tag"] = sanitize_viewability_tag(viewability_tag)
 
     return body
 

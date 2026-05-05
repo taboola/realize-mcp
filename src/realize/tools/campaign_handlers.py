@@ -14,17 +14,17 @@ import mcp.types as types
 
 from realize.client import client
 from realize.tools.audiences import (
-    to_wire_lookalike_audience,
-    to_wire_my_audiences,
+    sanitize_lookalike_audience,
+    sanitize_my_audiences,
     validate_lookalike_audience,
     validate_my_audiences,
 )
 from realize.tools.contextual_segments import (
-    to_wire_contextual_segments,
+    sanitize_contextual_segments,
     validate_contextual_segments,
 )
 from realize.tools.conversion_rules import (
-    to_wire_conversion_rules,
+    sanitize_conversion_rules,
     validate_conversion_rules,
 )
 from realize.tools.errors import ToolInputError
@@ -33,14 +33,14 @@ from realize.tools.geo import (
     validate_geo_classic,
 )
 from realize.tools.publishers import (
-    to_wire_publisher_bid_modifier,
+    sanitize_publisher_bid_modifier,
     validate_publisher_bid_modifier,
     validate_publisher_targeting,
 )
-from realize.tools.schedule import to_wire_schedule, validate_schedule
+from realize.tools.schedule import sanitize_schedule, validate_schedule
 from realize.tools.techno import (
     techno_wire_field,
-    to_wire_techno_value,
+    sanitize_techno_value,
     validate_techno,
 )
 from realize.tools.utils import format_response, validate_account_id
@@ -55,7 +55,7 @@ _SCALAR_BODY_FIELDS = (
     "daily_ad_delivery_model", "traffic_allocation_mode", "is_active",
 )
 
-_CLASSIC_GEO_DIMENSIONS = ("country", "region", "dma", "city", "postal_code")
+_CLASSIC_GEO_DIMENSIONS = ("country", "region_country", "dma_country", "city", "postal_code")
 
 _TECHNO_DIMENSIONS = ("platform", "os", "browser", "connection_type")
 
@@ -128,18 +128,18 @@ def _build_main_payload(args: Dict[str, Any]) -> Dict[str, Any]:
         validate_techno(dim, block)
         body[techno_wire_field(dim)] = {
             "type": block["type"],
-            "value": to_wire_techno_value(dim, block["value"]),
+            "value": sanitize_techno_value(dim, block["value"]),
         }
 
     schedule = args.get("activity_schedule")
     if schedule is not None:
         validate_schedule(schedule)
-        body["activity_schedule"] = to_wire_schedule(schedule)
+        body["activity_schedule"] = sanitize_schedule(schedule)
 
     conversion_rules = args.get("conversion_rules")
     if conversion_rules is not None:
         validate_conversion_rules(conversion_rules)
-        body["conversion_rules"] = to_wire_conversion_rules(conversion_rules)
+        body["conversion_rules"] = sanitize_conversion_rules(conversion_rules)
 
     publisher_targeting = args.get("publisher_targeting")
     if publisher_targeting is not None:
@@ -152,22 +152,22 @@ def _build_main_payload(args: Dict[str, Any]) -> Dict[str, Any]:
     publisher_bid_modifier = args.get("publisher_bid_modifier")
     if publisher_bid_modifier is not None:
         validate_publisher_bid_modifier(publisher_bid_modifier)
-        body["publisher_bid_modifier"] = to_wire_publisher_bid_modifier(publisher_bid_modifier)
+        body["publisher_bid_modifier"] = sanitize_publisher_bid_modifier(publisher_bid_modifier)
 
-    my_audiences = args.get("my_audiences")
-    if my_audiences is not None:
-        validate_my_audiences(my_audiences)
-        body["audiences_targeting"] = to_wire_my_audiences(my_audiences)
+    audiences_targeting = args.get("audiences_targeting")
+    if audiences_targeting is not None:
+        validate_my_audiences(audiences_targeting)
+        body["audiences_targeting"] = sanitize_my_audiences(audiences_targeting)
 
-    lookalike_audience = args.get("lookalike_audience")
-    if lookalike_audience is not None:
-        validate_lookalike_audience(lookalike_audience)
-        body["lookalike_audience_targeting"] = to_wire_lookalike_audience(lookalike_audience)
+    lookalike_audience_targeting = args.get("lookalike_audience_targeting")
+    if lookalike_audience_targeting is not None:
+        validate_lookalike_audience(lookalike_audience_targeting)
+        body["lookalike_audience_targeting"] = sanitize_lookalike_audience(lookalike_audience_targeting)
 
-    contextual_segments = args.get("contextual_segments")
-    if contextual_segments is not None:
-        validate_contextual_segments(contextual_segments)
-        body["contextual_segments_targeting"] = to_wire_contextual_segments(contextual_segments)
+    contextual_segments_targeting = args.get("contextual_segments_targeting")
+    if contextual_segments_targeting is not None:
+        validate_contextual_segments(contextual_segments_targeting)
+        body["contextual_segments_targeting"] = sanitize_contextual_segments(contextual_segments_targeting)
 
     return body
 

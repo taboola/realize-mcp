@@ -62,7 +62,7 @@ import copy
 # ============================================================================
 
 _TARGETING_BLOCKS_NOTE = """\
-Targeting blocks are FULL-REPLACE: sending `my_audiences` with one audience
+Targeting blocks are FULL-REPLACE: sending `audiences_targeting` with one audience
 wipes the others; sending `country_targeting` replaces all country targeting.
 To edit a single entry, read with get_campaign, modify locally, send the merged
 result. Scalar fields (name, cpc, is_active, …) are partial-merge — omitted
@@ -241,16 +241,22 @@ Days unmentioned default to INCLUDE 0-24. Same day cannot mix INCLUDE+EXCLUDE; w
 
 # 2.6 Conversion rules
 _CONVERSION_RULES_SCHEMA = {
-    "type": "array",
+    "type": "object",
     "description": """\
-Conversion rule attachments. List of {id} objects. Send [] to detach all.
+Conversion rule attachments. {rules: [{id}]}. Send {rules: []} to detach all.
 Discover rule IDs via search_conversion_rules.
 LEADS_GENERATION / ONLINE_PURCHASES typically require >=1 rule.""",
-    "items": {
-        "type": "object",
-        "properties": {"id": {"type": "integer"}},
-        "required": ["id"],
+    "properties": {
+        "rules": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"id": {"type": "integer"}},
+                "required": ["id"],
+            },
+        },
     },
+    "required": ["rules"],
 }
 
 
@@ -296,23 +302,25 @@ Discover publisher names via search_publishers.""",
 _CONTEXTUAL_SEGMENTS_SCHEMA = {
     "type": "object",
     "description": """\
-Contextual segment targeting. {collection: [{type: INCLUDE|EXCLUDE, collection: [int]}]}.
-Send {collection: []} to clear. At most one INCLUDE and one EXCLUDE block.
+Contextual segment targeting (Backstage MultiTargeting<Long>).
+{state: ALL|EXISTS, value: [{type: INCLUDE|EXCLUDE, value: [int]}]}.
+state=ALL with value=[] clears. At most one INCLUDE and one EXCLUDE block.
 Discover segment IDs via search_contextual_segments.""",
     "properties": {
-        "collection": {
+        "state": {"type": "string", "enum": ["ALL", "EXISTS"]},
+        "value": {
             "type": "array",
             "items": {
                 "type": "object",
                 "properties": {
                     "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE"]},
-                    "collection": {"type": "array", "items": {"type": "integer"}},
+                    "value": {"type": "array", "items": {"type": "integer"}},
                 },
-                "required": ["type", "collection"],
+                "required": ["type", "value"],
             },
         },
     },
-    "required": ["collection"],
+    "required": ["state", "value"],
 }
 
 
@@ -320,40 +328,44 @@ Discover segment IDs via search_contextual_segments.""",
 _MY_AUDIENCES_SCHEMA = {
     "type": "object",
     "description": """\
-First-party + custom audience targeting. {collection: [{type: INCLUDE|EXCLUDE, collection: [int]}]}.
-Send {collection: []} to clear. Discover audience IDs via search_audiences.""",
+First-party + custom audience targeting (Backstage MultiTargeting<Long>).
+{state: ALL|EXISTS, value: [{type: INCLUDE|EXCLUDE, value: [int]}]}.
+state=ALL with value=[] clears. Discover audience IDs via search_audiences.""",
     "properties": {
-        "collection": {
+        "state": {"type": "string", "enum": ["ALL", "EXISTS"]},
+        "value": {
             "type": "array",
             "items": {
                 "type": "object",
                 "properties": {
-                    "collection": {"type": "array", "items": {"type": "integer"}},
                     "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE"]},
+                    "value": {"type": "array", "items": {"type": "integer"}},
                 },
-                "required": ["collection", "type"],
+                "required": ["type", "value"],
             },
         },
     },
-    "required": ["collection"],
+    "required": ["state", "value"],
 }
 
 
 _LOOKALIKE_AUDIENCE_SCHEMA = {
     "type": "object",
     "description": """\
-Lookalike audience targeting (CRM/pixel/PBP). {collection: [{type: INCLUDE, collection: [{rule_id, similarity_level}]}]}.
-Send {collection: []} to clear. INCLUDE-only; at most one block. similarity_level: CRM 5/10/15/20/25, pixel 5, PBP 1/2/3/4/5.
+Lookalike audience targeting (Backstage MultiTargeting<APICampaignLookalikeAudienceTargeting>).
+{state: ALL|EXISTS, value: [{type: INCLUDE, value: [{rule_id, similarity_level}]}]}.
+state=ALL with value=[] clears. INCLUDE-only; at most one outer block. similarity_level: CRM 5/10/15/20/25, pixel 5, PBP 1/2/3/4/5.
 Discover rule_ids via search_lookalike_audiences. PBP lookalike audiences must be created in the Realize UI before they can be targeted.""",
     "properties": {
-        "collection": {
+        "state": {"type": "string", "enum": ["ALL", "EXISTS"]},
+        "value": {
             "type": "array",
             "maxItems": 1,
             "items": {
                 "type": "object",
                 "properties": {
                     "type": {"type": "string", "enum": ["INCLUDE"]},
-                    "collection": {
+                    "value": {
                         "type": "array",
                         "items": {
                             "type": "object",
@@ -368,11 +380,11 @@ Discover rule_ids via search_lookalike_audiences. PBP lookalike audiences must b
                         },
                     },
                 },
-                "required": ["type", "collection"],
+                "required": ["type", "value"],
             },
         },
     },
-    "required": ["collection"],
+    "required": ["state", "value"],
 }
 
 
@@ -498,8 +510,8 @@ _SCALAR_PROPERTIES = {
 
 _CLASSIC_GEO_PROPERTIES = {
     "country_targeting": _COUNTRY_TARGETING_SCHEMA,
-    "region_targeting": _REGION_TARGETING_SCHEMA,
-    "dma_targeting": _DMA_TARGETING_SCHEMA,
+    "region_country_targeting": _REGION_TARGETING_SCHEMA,
+    "dma_country_targeting": _DMA_TARGETING_SCHEMA,
     "city_targeting": _CITY_TARGETING_SCHEMA,
     "postal_code_targeting": _POSTAL_CODE_TARGETING_SCHEMA,
 }
@@ -515,9 +527,9 @@ _TARGETING_PROPERTIES_COMMON = {
     "conversion_rules": _CONVERSION_RULES_SCHEMA,
     "publisher_targeting": _PUBLISHER_TARGETING_SCHEMA,
     "publisher_bid_modifier": _PUBLISHER_BID_MODIFIER_SCHEMA,
-    "contextual_segments": _CONTEXTUAL_SEGMENTS_SCHEMA,
-    "my_audiences": _MY_AUDIENCES_SCHEMA,
-    "lookalike_audience": _LOOKALIKE_AUDIENCE_SCHEMA,
+    "contextual_segments_targeting": _CONTEXTUAL_SEGMENTS_SCHEMA,
+    "audiences_targeting": _MY_AUDIENCES_SCHEMA,
+    "lookalike_audience_targeting": _LOOKALIKE_AUDIENCE_SCHEMA,
 }
 
 
@@ -534,7 +546,7 @@ Prerequisite: call search_accounts first to obtain a valid `account_id`. The num
 
 {_TARGETING_BLOCKS_NOTE}
 
-Geo: send any subset of country_targeting, region_targeting, dma_targeting, city_targeting, postal_code_targeting. Sub-dimension mutex: at most one of region/dma/city/postal_code per campaign; INCLUDE country must already be set before a sub-dimension is accepted.
+Geo: send any subset of country_targeting, region_country_targeting, dma_country_targeting, city_targeting, postal_code_targeting. Sub-dimension mutex: at most one of region/dma/city/postal_code per campaign; INCLUDE country must already be set before a sub-dimension is accepted.
 
 All amounts (spending_limit, daily_cap, cpc, cpa_goal, cpc_cap) are numbers in the account's default currency.
 
@@ -547,13 +559,13 @@ Conditional rules:
 - If both start_date and end_date sent: end_date >= start_date.
 
 Discovery (call before constructing the payload to resolve IDs/names):
-- search_geos → country_targeting / region_targeting / dma_targeting / city_targeting / postal_code_targeting values. Each result is `{{code, name}}`; use `code` (e.g. "CA"), not `name` ("California").
+- search_geos → country_targeting / region_country_targeting / dma_country_targeting / city_targeting / postal_code_targeting values. Each result is `{{code, name}}`; use `code` (e.g. "CA"), not `name` ("California").
 - search_techno → `os_targeting` sub_categories and `browser_targeting` values. (platform / connection_type / os_family enums are listed inline in their schema descriptions.)
-- search_audiences → `my_audiences` audience IDs.
-- search_lookalike_audiences → `lookalike_audience` rule_ids.
-- search_contextual_segments → `contextual_segments` segment IDs.
+- search_audiences → `audiences_targeting` audience IDs.
+- search_lookalike_audiences → `lookalike_audience_targeting` rule_ids.
+- search_contextual_segments → `contextual_segments_targeting` segment IDs.
 - search_publishers → `publisher_targeting` and `publisher_bid_modifier.target` names.
-- search_conversion_rules → `conversion_rules` IDs.
+- search_conversion_rules → `conversion_rules.rules` IDs.
 - list_time_zones → `activity_schedule.time_zone` IANA names.
 
 Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, target_cpa, target_cpa_learning_status. (`target_cpa` is server-recommended; user goal is `cpa_goal`.)
@@ -585,7 +597,7 @@ _CREATE_CAMPAIGN_JSON_EXAMPLE = """\
   "traffic_allocation_mode": "OPTIMIZED",
   "is_active": false,
   "country_targeting": {"type": "INCLUDE", "value": ["US"]},
-  "region_targeting":  {"type": "INCLUDE", "value": ["CA", "NY"]},
+  "region_country_targeting": {"type": "INCLUDE", "value": ["CA", "NY"]},
   "platform_targeting": {"type": "INCLUDE", "value": ["DESK", "PHON"]},
   "os_targeting": {"type": "INCLUDE", "value": [
     {"os_family": "iOS", "sub_categories": ["iOS 17"]},
@@ -602,22 +614,22 @@ _CREATE_CAMPAIGN_JSON_EXAMPLE = """\
     {"type": "EXCLUDE", "day": "SATURDAY",  "from_hour": 0, "until_hour": 24},
     {"type": "EXCLUDE", "day": "SUNDAY",    "from_hour": 0, "until_hour": 24}
   ]},
-  "conversion_rules": [{"id": 1234567}, {"id": 7654321}],
+  "conversion_rules": {"rules": [{"id": 1234567}, {"id": 7654321}]},
   "publisher_targeting": {"type": "INCLUDE", "value": ["pub_alpha", "pub_beta"]},
   "publisher_bid_modifier": {"values": [
     {"target": "pub_alpha", "cpc_modification": 1.25},
     {"target": "pub_beta",  "cpc_modification": 0.80}
   ]},
-  "contextual_segments": {"collection": [
-    {"type": "INCLUDE", "collection": [1900004, 1900024]}
+  "contextual_segments_targeting": {"state": "EXISTS", "value": [
+    {"type": "INCLUDE", "value": [1900004, 1900024]}
   ]},
-  "my_audiences": {"collection": [
-    {"type": "INCLUDE", "collection": [224820, 25287]},
-    {"type": "EXCLUDE", "collection": [19884]}
+  "audiences_targeting": {"state": "EXISTS", "value": [
+    {"type": "INCLUDE", "value": [224820, 25287]},
+    {"type": "EXCLUDE", "value": [19884]}
   ]},
-  "lookalike_audience": {"collection": [{"type": "INCLUDE", "collection": [
-    {"rule_id": 1234567, "similarity_level": 10}
-  ]}]}
+  "lookalike_audience_targeting": {"state": "EXISTS", "value": [
+    {"type": "INCLUDE", "value": [{"rule_id": 1234567, "similarity_level": 10}]}
+  ]}
 }"""
 
 
@@ -631,7 +643,7 @@ Prerequisites: call search_accounts first to obtain `account_id`; call list_camp
 
 {_TARGETING_BLOCKS_NOTE}
 
-Geo: send any subset of country_targeting, region_targeting, dma_targeting, city_targeting, postal_code_targeting. Each replaces only its own dimension. Sub-dimension mutex: at most one of region/dma/city/postal_code per campaign; INCLUDE country must already be set before a sub-dimension is accepted.
+Geo: send any subset of country_targeting, region_country_targeting, dma_country_targeting, city_targeting, postal_code_targeting. Each replaces only its own dimension. Sub-dimension mutex: at most one of region/dma/city/postal_code per campaign; INCLUDE country must already be set before a sub-dimension is accepted.
 
 All amounts are numbers in the account's default currency.
 
@@ -668,11 +680,11 @@ Example — activate paused campaign and add publisher bid modifier (partial-mer
   "publisher_bid_modifier": {"values": [{"target": "pub_alpha", "cpc_modification": 1.25}]} }
 
 Example — clear audience targeting only (other targeting untouched, full-replace within section):
-{ "account_id": "acme-inc", "campaign_id": "49184816", "my_audiences": {"collection": []} }
+{ "account_id": "acme-inc", "campaign_id": "49184816", "audiences_targeting": {"state": "ALL", "value": []} }
 
 Example — edit one classic geo dimension:
 { "account_id": "acme-inc", "campaign_id": "49184816",
-  "region_targeting": {"type": "INCLUDE", "value": ["CA", "NY"]} }"""
+  "region_country_targeting": {"type": "INCLUDE", "value": ["CA", "NY"]} }"""
 
 
 _UPDATE_CAMPAIGN_DESCRIPTION = _UPDATE_CAMPAIGN_PROSE + _UPDATE_CAMPAIGN_EXAMPLES
@@ -1114,10 +1126,10 @@ dimension=regions|dma|cities|postal_codes requires country_code (ISO-2, e.g. "US
 DMA is US-only.
 
 Response shape: `{dimension, values: [{code, name}, ...]}`. The `code` field is what
-country_targeting / region_targeting / dma_targeting / city_targeting /
+country_targeting / region_country_targeting / dma_country_targeting / city_targeting /
 postal_code_targeting accept on create_campaign and update_campaign — `name` is the
 human-readable label only (e.g. for regions, code="CA", name="California"; pass
-"CA" to region_targeting, not "California").
+"CA" to region_country_targeting, not "California").
 
 Example — list US states: { "dimension": "regions", "country_code": "US" }""",
         "schema": {
@@ -1177,7 +1189,7 @@ Example — list iOS versions: { "dimension": "operating_system_versions", "os_f
     "search_audiences": {
         "description": """\
 Search first-party and custom audiences for an account (read-only).
-Audience IDs returned here populate `my_audiences.collection[].collection: [int]` on
+Audience IDs returned here populate `audiences_targeting.value[].value: [int]` on
 create_campaign / update_campaign.""",
         "schema": {
             "type": "object",
@@ -1206,7 +1218,7 @@ create_campaign / update_campaign.""",
         "description": """\
 Search lookalike audiences (CRM / pixel / PBP) available for targeting on an account
 (read-only). rule_ids returned here populate
-`lookalike_audience.collection[].collection[].rule_id` on create_campaign / update_campaign.
+`lookalike_audience_targeting.value[].value[].rule_id` on create_campaign / update_campaign.
 Optional country_code (ISO-2) narrows to audiences targeting one country.""",
         "schema": {
             "type": "object",
@@ -1275,7 +1287,7 @@ country, is_active}.""",
     "search_contextual_segments": {
         "description": """\
 Search contextual segments available for targeting on an account (read-only).
-Segment IDs returned here populate `contextual_segments.collection[].collection: [int]`
+Segment IDs returned here populate `contextual_segments_targeting.value[].value: [int]`
 on create_campaign / update_campaign.""",
         "schema": {
             "type": "object",
@@ -1303,7 +1315,7 @@ on create_campaign / update_campaign.""",
     "search_conversion_rules": {
         "description": """\
 Search conversion rules attached to an account (read-only).
-Rule IDs returned here populate `conversion_rules: [{id}]` on
+Rule IDs returned here populate `conversion_rules.rules: [{id}]` on
 create_campaign / update_campaign. LEADS_GENERATION and ONLINE_PURCHASES
 campaigns typically require at least one conversion rule attached.""",
         "schema": {

@@ -76,7 +76,7 @@ def validate_publisher_bid_modifier(bid_modifier: Any) -> None:
         seen_targets[target] = idx
 
 
-def to_wire_publisher_bid_modifier(bid_modifier: Dict[str, Any]) -> Dict[str, Any]:
+def sanitize_publisher_bid_modifier(bid_modifier: Dict[str, Any]) -> Dict[str, Any]:
     """Convert validated bid modifier to APICampaign wire shape."""
     out_values: List[Dict[str, Any]] = []
     for entry in bid_modifier.get("values", []):

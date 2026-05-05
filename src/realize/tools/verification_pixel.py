@@ -46,7 +46,7 @@ def validate_verification_pixel(pixel: Any) -> None:
             )
 
 
-def to_wire_verification_pixel(pixel: Dict[str, Any]) -> Dict[str, Any]:
+def sanitize_verification_pixel(pixel: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "verification_pixel_items": [
             {"url": item["url"], "verification_pixel_type": item["verification_pixel_type"]}

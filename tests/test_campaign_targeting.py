@@ -58,10 +58,10 @@ class TestClassicGeoOnCreate:
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_region_targeting_uses_region_country_wire_field(self, mock_post):
+    async def test_region_country_targeting_passes_through(self, mock_post):
         mock_post.return_value = {"id": "c-1"}
         await handle_call_tool("create_campaign", _create_args(
-            region_targeting={"type": "INCLUDE", "value": ["California"]},
+            region_country_targeting={"type": "INCLUDE", "value": ["California"]},
         ))
         body = _bodies_by_endpoint(mock_post)["/acme-inc/campaigns"]
         assert body["region_country_targeting"] == {"type": "INCLUDE", "value": ["California"]}
@@ -80,10 +80,10 @@ class TestClassicGeoOnUpdate:
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_region_targeting_uses_region_country_wire_field(self, mock_post):
+    async def test_region_country_targeting_passes_through(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
         await handle_call_tool("update_campaign", _update_args(
-            region_targeting={"type": "INCLUDE", "value": ["CA"]},
+            region_country_targeting={"type": "INCLUDE", "value": ["CA"]},
         ))
         body = _bodies_by_endpoint(mock_post)["/acme-inc/campaigns/c-123"]
         assert body["region_country_targeting"] == {"type": "INCLUDE", "value": ["CA"]}
@@ -148,7 +148,7 @@ class TestConversionRulesOnFatTools:
     async def test_attaches_rules(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
         await handle_call_tool("update_campaign", _update_args(
-            conversion_rules=[{"id": 100}, {"id": 200}],
+            conversion_rules={"rules": [{"id": 100}, {"id": 200}]},
         ))
         body = _bodies_by_endpoint(mock_post)["/acme-inc/campaigns/c-123"]
         assert body["conversion_rules"] == {"rules": [{"id": 100}, {"id": 200}]}
@@ -174,10 +174,13 @@ class TestInlineSubResourceTargeting:
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_my_audiences_inline_as_audiences_targeting(self, mock_post):
+    async def test_audiences_targeting_passes_through(self, mock_post):
         mock_post.return_value = {"id": "c-99"}
         await handle_call_tool("create_campaign", _create_args(
-            my_audiences={"collection": [{"type": "INCLUDE", "collection": [123, 456]}]},
+            audiences_targeting={
+                "state": "EXISTS",
+                "value": [{"type": "INCLUDE", "value": [123, 456]}],
+            },
         ))
         bodies = _bodies_by_endpoint(mock_post)
         assert set(bodies.keys()) == {"/acme-inc/campaigns"}  # single POST
@@ -189,23 +192,24 @@ class TestInlineSubResourceTargeting:
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_my_audiences_empty_clears_via_state_all(self, mock_post):
+    async def test_audiences_targeting_clear_via_state_all(self, mock_post):
         mock_post.return_value = {"id": "c-99"}
         await handle_call_tool("create_campaign", _create_args(
-            my_audiences={"collection": []},
+            audiences_targeting={"state": "ALL", "value": []},
         ))
         body = _bodies_by_endpoint(mock_post)["/acme-inc/campaigns"]
         assert body["audiences_targeting"] == {"state": "ALL", "value": []}
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_lookalike_inline_as_lookalike_audience_targeting(self, mock_post):
+    async def test_lookalike_audience_targeting_passes_through(self, mock_post):
         mock_post.return_value = {"id": "c-99"}
         await handle_call_tool("create_campaign", _create_args(
-            lookalike_audience={
-                "collection": [{
+            lookalike_audience_targeting={
+                "state": "EXISTS",
+                "value": [{
                     "type": "INCLUDE",
-                    "collection": [{"rule_id": 7, "similarity_level": 10}],
+                    "value": [{"rule_id": 7, "similarity_level": 10}],
                 }],
             },
         ))
@@ -220,10 +224,13 @@ class TestInlineSubResourceTargeting:
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_contextual_inline_as_contextual_segments_targeting(self, mock_post):
+    async def test_contextual_segments_targeting_passes_through(self, mock_post):
         mock_post.return_value = {"id": "c-99"}
         await handle_call_tool("create_campaign", _create_args(
-            contextual_segments={"collection": [{"type": "EXCLUDE", "collection": [11, 22]}]},
+            contextual_segments_targeting={
+                "state": "EXISTS",
+                "value": [{"type": "EXCLUDE", "value": [11, 22]}],
+            },
         ))
         body = _bodies_by_endpoint(mock_post)["/acme-inc/campaigns"]
         assert body["contextual_segments_targeting"] == {
@@ -236,12 +243,21 @@ class TestInlineSubResourceTargeting:
     async def test_all_three_inline_in_single_post(self, mock_post):
         mock_post.return_value = {"id": "c-99"}
         await handle_call_tool("create_campaign", _create_args(
-            my_audiences={"collection": [{"type": "INCLUDE", "collection": [1]}]},
-            lookalike_audience={"collection": [{
-                "type": "INCLUDE",
-                "collection": [{"rule_id": 9, "similarity_level": 5}],
-            }]},
-            contextual_segments={"collection": [{"type": "INCLUDE", "collection": [42]}]},
+            audiences_targeting={
+                "state": "EXISTS",
+                "value": [{"type": "INCLUDE", "value": [1]}],
+            },
+            lookalike_audience_targeting={
+                "state": "EXISTS",
+                "value": [{
+                    "type": "INCLUDE",
+                    "value": [{"rule_id": 9, "similarity_level": 5}],
+                }],
+            },
+            contextual_segments_targeting={
+                "state": "EXISTS",
+                "value": [{"type": "INCLUDE", "value": [42]}],
+            },
         ))
         bodies = _bodies_by_endpoint(mock_post)
         # Single atomic POST, all three sections in body.
@@ -253,10 +269,13 @@ class TestInlineSubResourceTargeting:
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
-    async def test_update_with_only_my_audiences_single_post(self, mock_post):
+    async def test_update_with_only_audiences_targeting_single_post(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
         await handle_call_tool("update_campaign", _update_args(
-            my_audiences={"collection": [{"type": "INCLUDE", "collection": [42]}]},
+            audiences_targeting={
+                "state": "EXISTS",
+                "value": [{"type": "INCLUDE", "value": [42]}],
+            },
         ))
         bodies = _bodies_by_endpoint(mock_post)
         assert set(bodies.keys()) == {"/acme-inc/campaigns/c-123"}
@@ -269,19 +288,20 @@ class TestInlineSubResourceTargeting:
 
 class TestSubResourceValidationFailFast:
     @pytest.mark.asyncio
-    async def test_invalid_my_audiences_raises_before_post(self):
-        with pytest.raises(ToolInputError, match="my_audiences"):
+    async def test_invalid_audiences_targeting_raises_before_post(self):
+        with pytest.raises(ToolInputError, match="audiences_targeting"):
             await handle_call_tool("create_campaign", _create_args(
-                my_audiences={"collection": "not a list"},
+                audiences_targeting={"state": "EXISTS", "value": "not a list"},
             ))
 
     @pytest.mark.asyncio
     async def test_invalid_lookalike_raises_before_post(self):
-        with pytest.raises(ToolInputError, match="lookalike_audience"):
+        with pytest.raises(ToolInputError, match="lookalike_audience_targeting"):
             await handle_call_tool("update_campaign", _update_args(
-                lookalike_audience={"collection": [
-                    {"type": "EXCLUDE", "collection": []},
-                ]},
+                lookalike_audience_targeting={
+                    "state": "EXISTS",
+                    "value": [{"type": "EXCLUDE", "value": []}],
+                },
             ))
 
 
@@ -297,7 +317,7 @@ class TestFatToolSchemaShape:
             "platform_targeting", "os_targeting", "browser_targeting",
             "connection_type_targeting", "activity_schedule", "conversion_rules",
             "publisher_targeting", "publisher_bid_modifier",
-            "contextual_segments", "my_audiences", "lookalike_audience",
+            "contextual_segments_targeting", "audiences_targeting", "lookalike_audience_targeting",
         ):
             assert f in props, f"create_campaign missing schema property: {f}"
 
@@ -308,7 +328,7 @@ class TestFatToolSchemaShape:
         tools = await handle_list_tools()
         update = next(t for t in tools if t.name == "update_campaign")
         props = update.inputSchema["properties"]
-        for f in ("country_targeting", "region_targeting", "dma_targeting", "city_targeting", "postal_code_targeting"):
+        for f in ("country_targeting", "region_country_targeting", "dma_country_targeting", "city_targeting", "postal_code_targeting"):
             assert f in props, f"update_campaign missing classic geo property: {f}"
 
     @pytest.mark.asyncio
@@ -318,5 +338,5 @@ class TestFatToolSchemaShape:
         tools = await handle_list_tools()
         create = next(t for t in tools if t.name == "create_campaign")
         props = create.inputSchema["properties"]
-        for f in ("country_targeting", "region_targeting", "dma_targeting", "city_targeting", "postal_code_targeting"):
+        for f in ("country_targeting", "region_country_targeting", "dma_country_targeting", "city_targeting", "postal_code_targeting"):
             assert f in props, f"create_campaign missing classic geo property: {f}"

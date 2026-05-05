@@ -4,12 +4,12 @@ from typing import Any, Dict, Tuple
 from realize.tools.errors import ToolInputError
 
 
-CLASSIC_DIMENSIONS: Tuple[str, ...] = ("country", "region", "dma", "city", "postal_code")
+CLASSIC_DIMENSIONS: Tuple[str, ...] = ("country", "region_country", "dma_country", "city", "postal_code")
 
 _CLASSIC_WIRE_FIELD: Dict[str, str] = {
     "country": "country_targeting",
-    "region": "region_country_targeting",
-    "dma": "dma_country_targeting",
+    "region_country": "region_country_targeting",
+    "dma_country": "dma_country_targeting",
     "city": "city_targeting",
     "postal_code": "postal_code_targeting",
 }

@@ -89,7 +89,7 @@ def validate_schedule(schedule: Any) -> None:
         _validate_rule(idx, rule)
 
 
-def to_wire_schedule(schedule: Dict[str, Any]) -> Dict[str, Any]:
+def sanitize_schedule(schedule: Dict[str, Any]) -> Dict[str, Any]:
     """Convert validated schedule input to the APICampaign.activity_schedule wire shape.
 
     Mode-specific shaping: ALWAYS emits only mode (+ time_zone if caller provided one);

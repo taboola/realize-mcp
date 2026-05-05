@@ -43,7 +43,7 @@ def validate_viewability_tag(viewability: Any) -> None:
             )
 
 
-def to_wire_viewability_tag(viewability: Dict[str, Any]) -> Dict[str, Any]:
+def sanitize_viewability_tag(viewability: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "values": [
             {"tag": item["tag"], "type": item["type"]}
