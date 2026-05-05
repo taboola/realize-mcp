@@ -62,7 +62,7 @@ _TECHNO_DISPATCH: Dict[str, Callable[[Dict[str, Any]], str]] = {
 
 
 _TIME_ZONES_ENDPOINT = "/resources/campaigns_properties/activity-scheduler-time-zone"
-_CTA_TYPES_ENDPOINT = "/resources/campaigns_properties/items_properties/cta"
+_CTA_TYPES_ENDPOINT = "/resources/campaigns_properties/items_properties/cta_type"
 
 
 SUPPORTED_GEO_DIMENSIONS = tuple(_GEO_DISPATCH.keys())
@@ -119,5 +119,22 @@ async def list_time_zones(arguments: dict = None) -> List[types.TextContent]:
 
 
 async def list_cta_types(arguments: dict = None) -> List[types.TextContent]:
-    """List allowed cta.cta_type values for create/update_campaign_item."""
-    return await _fetch_and_format("resource", "cta_types", _CTA_TYPES_ENDPOINT)
+    """List allowed cta.cta_type values for create/update_campaign_item.
+
+    The Backstage resource emits {name, value} per entry where `name` is the API
+    enum (e.g. "SHOP_NOW") and `value` is the i18n display label ("Shop Now").
+    The cta validator does strict `APICtaType.valueOf(...)`, so only enum names
+    are accepted on input — emit those.
+    """
+    response = await client.get(_CTA_TYPES_ENDPOINT)
+    results = response.get("results") if isinstance(response, dict) else None
+    if isinstance(results, list):
+        values = [
+            entry["name"] for entry in results
+            if isinstance(entry, dict) and "name" in entry
+        ]
+    else:
+        values = flatten_results(response)
+    return [
+        types.TextContent(type="text", text=format_discovery_payload("resource", "cta_types", values))
+    ]

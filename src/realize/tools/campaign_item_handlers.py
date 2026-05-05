@@ -13,7 +13,6 @@ import mcp.types as types
 from realize.client import client
 from realize.tools.cta import to_wire_cta, validate_cta
 from realize.tools.errors import ToolInputError
-from realize.tools.schedule import to_wire_schedule, validate_schedule
 from realize.tools.utils import format_response, validate_account_id
 from realize.tools.verification_pixel import (
     to_wire_verification_pixel,
@@ -29,10 +28,10 @@ _CREATE_REQUIRED = ("url",)
 
 _CREATE_BODY_FIELDS = (
     "url", "title", "description", "thumbnail_url",
-    "is_active", "branding_text",
+    "branding_text",
 )
 
-_UPDATE_BODY_FIELDS = _CREATE_BODY_FIELDS + ("start_date", "end_date")
+_UPDATE_BODY_FIELDS = _CREATE_BODY_FIELDS + ("is_active",)
 
 
 async def list_campaign_items(arguments: dict = None) -> List[types.TextContent]:
@@ -86,9 +85,8 @@ def _build_item_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str, A
 
     Skip-None for scalars; per-section validate-then-transform for nested
     objects. Used by both create_campaign_item and update_campaign_item.
-    The is_create flag gates update-only fields (start_date, end_date,
-    activity_schedule, verification_pixel, viewability_tag) so the create
-    surface stays minimal even if a caller passes them.
+    The is_create flag gates update-only fields (is_active, verification_pixel,
+    viewability_tag) so the create surface stays minimal even if a caller passes them.
     """
     body: Dict[str, Any] = {}
 
@@ -103,11 +101,6 @@ def _build_item_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str, A
         body["cta"] = to_wire_cta(cta)
 
     if not is_create:
-        schedule = args.get("activity_schedule")
-        if schedule is not None:
-            validate_schedule(schedule)
-            body["activity_schedule"] = to_wire_schedule(schedule)
-
         verification_pixel = args.get("verification_pixel")
         if verification_pixel is not None:
             validate_verification_pixel(verification_pixel)

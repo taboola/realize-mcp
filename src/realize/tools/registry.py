@@ -392,37 +392,57 @@ of hard-coding.""",
 
 
 _ITEM_VERIFICATION_PIXEL_SCHEMA = {
-    "type": "array",
+    "type": "object",
     "description": """\
-Third-party verification pixels. List of {type, url}.
-type ∈ {CLICK, VIEWABLE_IMPRESSION, IMPRESSION}.
+Third-party verification pixels. {verification_pixel_items: [{url, verification_pixel_type}]}.
+verification_pixel_type ∈ {CLICK, VIEWABLE_IMPRESSION, IMPRESSION}.
 FULL-REPLACE within section: sending this field overwrites the entire prior list.
-Send [] to clear all pixels.""",
-    "items": {
-        "type": "object",
-        "properties": {
-            "type": {"type": "string", "enum": ["CLICK", "VIEWABLE_IMPRESSION", "IMPRESSION"]},
-            "url": {"type": "string"},
+Send {"verification_pixel_items": []} to clear all pixels.""",
+    "properties": {
+        "verification_pixel_items": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string"},
+                    "verification_pixel_type": {
+                        "type": "string",
+                        "enum": ["CLICK", "VIEWABLE_IMPRESSION", "IMPRESSION"],
+                    },
+                },
+                "required": ["url", "verification_pixel_type"],
+            },
         },
-        "required": ["type", "url"],
     },
+    "required": ["verification_pixel_items"],
 }
 
 
 _ITEM_VIEWABILITY_TAG_SCHEMA = {
-    "type": "array",
+    "type": "object",
     "description": """\
-Viewability tracking tags. List of {type, value}. type ∈ {MOAT, IAS}.
+Viewability tracking tags (third-party JavaScript). {values: [{tag, type}]}.
+type ∈ {IAS, GOOGLE_DCM, DOUBLE_VERIFY, ADLOOX} (MOAT is deprecated).
+`tag` is the raw JS / noscript markup served by the third-party vendor.
 FULL-REPLACE within section: sending this field overwrites the entire prior list.
-Send [] to clear all tags.""",
-    "items": {
-        "type": "object",
-        "properties": {
-            "type": {"type": "string", "enum": ["MOAT", "IAS"]},
-            "value": {"type": "string"},
+Send {"values": []} to clear all tags.""",
+    "properties": {
+        "values": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "tag": {"type": "string"},
+                    "type": {
+                        "type": "string",
+                        "enum": ["IAS", "GOOGLE_DCM", "DOUBLE_VERIFY", "ADLOOX"],
+                    },
+                },
+                "required": ["tag", "type"],
+            },
         },
-        "required": ["type", "value"],
     },
+    "required": ["values"],
 }
 
 
@@ -708,10 +728,6 @@ _ITEM_SCALAR_PROPERTIES_CREATE = {
         "type": "string",
         "description": "Image URL shown with the ad. Auto-crawled from `url` if omitted.",
     },
-    "is_active": {
-        "type": "boolean",
-        "description": "true = serving (subject to campaign status + approval state); false = paused.",
-    },
     "branding_text": {
         "type": "string",
         "description": "Brand name shown with the ad. Inherits from campaign if omitted.",
@@ -720,13 +736,9 @@ _ITEM_SCALAR_PROPERTIES_CREATE = {
 
 
 _ITEM_SCALAR_PROPERTIES_UPDATE_EXTRAS = {
-    "start_date": {
-        "type": "string",
-        "description": "Item-level start date/time. Format: \"yyyy-MM-dd HH:mm:ss\".",
-    },
-    "end_date": {
-        "type": "string",
-        "description": "Item-level end date/time. Format: \"yyyy-MM-dd HH:mm:ss\".",
+    "is_active": {
+        "type": "boolean",
+        "description": "true = serving (subject to campaign status + approval state); false = paused.",
     },
 }
 
@@ -738,7 +750,6 @@ _ITEM_NESTED_PROPERTIES_CREATE = {
 
 _ITEM_NESTED_PROPERTIES_UPDATE = {
     "cta": _ITEM_CTA_SCHEMA,
-    "activity_schedule": _ACTIVITY_SCHEDULE_SCHEMA,
     "verification_pixel": _ITEM_VERIFICATION_PIXEL_SCHEMA,
     "viewability_tag": _ITEM_VIEWABILITY_TAG_SCHEMA,
 }
@@ -762,7 +773,7 @@ Item creation goes in one atomic POST to Backstage; either the item commits with
 
 Comprehensive example (every available field set; trim what you don't need — only `account_id`, `campaign_id`, and `url` are mandatory).
 
-Plain English: a "Spring Sale" creative for the Acme brand, landing at example.com/landing, with explicit headline / body / thumbnail (overriding auto-crawl), Shop Now CTA, and shipped active so it serves as soon as approval clears.
+Plain English: a "Spring Sale" creative for the Acme brand, landing at example.com/landing, with explicit headline / body / thumbnail (overriding auto-crawl) and Shop Now CTA. New items are always created active; use update_campaign_item to pause if needed.
 
 """
 
@@ -776,8 +787,7 @@ _CREATE_CAMPAIGN_ITEM_JSON_EXAMPLE = """\
   "description": "Limited-time offer on all spring collection items.",
   "thumbnail_url": "https://cdn.example.com/spring.jpg",
   "branding_text": "Acme",
-  "cta": {"cta_type": "SHOP_NOW"},
-  "is_active": true
+  "cta": {"cta_type": "SHOP_NOW"}
 }"""
 
 
@@ -785,7 +795,7 @@ _CREATE_CAMPAIGN_ITEM_DESCRIPTION = _CREATE_CAMPAIGN_ITEM_PROSE + _CREATE_CAMPAI
 
 
 _UPDATE_CAMPAIGN_ITEM_PROSE = """\
-Update an existing campaign item: scalars and any nested block (cta, activity_schedule, verification_pixel, viewability_tag) in one call. "Campaign item", "item", "ad", and "creative" all refer to the same object — this tool updates one.
+Update an existing campaign item: scalars and any nested block (cta, verification_pixel, viewability_tag) in one call. "Campaign item", "item", "ad", and "creative" all refer to the same object — this tool updates one.
 
 Prerequisites: call search_accounts (`account_id`), list_campaigns or get_campaign (`campaign_id`), list_campaign_items or get_campaign_item (`item_id`). Numeric account IDs are rejected.
 
@@ -799,17 +809,16 @@ Scope: standard `ITEM` only. RSS feed items, motion ads, performance video, disp
 
 Discovery (call before constructing the payload to resolve IDs/names):
 - list_cta_types → `cta.cta_type` allowed values.
-- list_time_zones → `activity_schedule.time_zone` IANA names.
 
 Read-only — NEVER send: id, campaign_id (set via path), type, status, approval_state, learning_state, orientation, policy_review.
 
 At least one updatable field besides account_id, campaign_id, and item_id must be sent.
 
-All updates (including verification_pixel, viewability_tag, activity_schedule) go in one atomic POST to Backstage.
+All updates (including verification_pixel and viewability_tag) go in one atomic POST to Backstage.
 
 Comprehensive example (every available field set; trim what you don't need — only `account_id`, `campaign_id`, and `item_id` are mandatory, plus at least one updatable field).
 
-Plain English: refresh an existing creative — new headline / body / thumbnail / branding, Learn More CTA, run window May 1 – Jun 30 2026, deliver Mon-Fri 9 AM-5 PM Eastern (off weekends by default), CLICK + VIEWABLE_IMPRESSION verification pixels and a MOAT viewability tag, shipped active.
+Plain English: refresh an existing creative — new headline / body / thumbnail / branding, Learn More CTA, CLICK + VIEWABLE_IMPRESSION verification pixels and a MOAT viewability tag, shipped active.
 
 """
 
@@ -826,29 +835,24 @@ _UPDATE_CAMPAIGN_ITEM_JSON_EXAMPLE = """\
   "branding_text": "Acme",
   "cta": {"cta_type": "LEARN_MORE"},
   "is_active": true,
-  "start_date": "2026-05-01 00:00:00",
-  "end_date": "2026-06-30 23:59:59",
-  "activity_schedule": {"mode": "CUSTOM", "time_zone": "America/New_York", "rules": [
-    {"type": "INCLUDE", "day": "MONDAY",    "from_hour": 9, "until_hour": 17},
-    {"type": "INCLUDE", "day": "TUESDAY",   "from_hour": 9, "until_hour": 17},
-    {"type": "INCLUDE", "day": "WEDNESDAY", "from_hour": 9, "until_hour": 17},
-    {"type": "INCLUDE", "day": "THURSDAY",  "from_hour": 9, "until_hour": 17},
-    {"type": "INCLUDE", "day": "FRIDAY",    "from_hour": 9, "until_hour": 17}
-  ]},
-  "verification_pixel": [
-    {"type": "CLICK", "url": "https://verifier.example.com/c?x=1"},
-    {"type": "VIEWABLE_IMPRESSION", "url": "https://verifier.example.com/v?x=1"}
-  ],
-  "viewability_tag": [
-    {"type": "MOAT", "value": "moat-tag-payload"}
-  ]
+  "verification_pixel": {
+    "verification_pixel_items": [
+      {"url": "https://verifier.example.com/c?x=1", "verification_pixel_type": "CLICK"},
+      {"url": "https://verifier.example.com/v?x=1", "verification_pixel_type": "VIEWABLE_IMPRESSION"}
+    ]
+  },
+  "viewability_tag": {
+    "values": [
+      {"tag": "<noscript class=...></noscript><script src=...></script>", "type": "IAS"}
+    ]
+  }
 }
 
 Example — pause item (partial-merge, scalars only):
 { "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321", "is_active": false }
 
 Example — clear all verification pixels (full-replace within section):
-{ "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321", "verification_pixel": [] }"""
+{ "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321", "verification_pixel": {"verification_pixel_items": []} }"""
 
 
 _UPDATE_CAMPAIGN_ITEM_DESCRIPTION = _UPDATE_CAMPAIGN_ITEM_PROSE + _UPDATE_CAMPAIGN_ITEM_JSON_EXAMPLE

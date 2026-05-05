@@ -121,8 +121,6 @@ class TestUpdateCampaignItemWireMapping:
         ("thumbnail_url", "https://cdn.example.com/new.jpg"),
         ("branding_text", "Acme Pro"),
         ("is_active", True),
-        ("start_date", "2026-05-01 00:00:00"),
-        ("end_date", "2026-06-30 23:59:59"),
     ])
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
@@ -152,95 +150,102 @@ class TestUpdateCampaignItemNested:
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
-    async def test_activity_schedule_validates_and_serializes(self, mock_post):
+    async def test_verification_pixel_full_replace(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
         await handle_call_tool("update_campaign_item", _args(
-            activity_schedule={
-                "mode": "CUSTOM",
-                "time_zone": "America/New_York",
-                "rules": [
-                    {"type": "INCLUDE", "day": "MONDAY", "from_hour": 9, "until_hour": 17},
+            verification_pixel={
+                "verification_pixel_items": [
+                    {"url": "https://verify.example.com/c", "verification_pixel_type": "CLICK"},
+                    {"url": "https://verify.example.com/v", "verification_pixel_type": "VIEWABLE_IMPRESSION"},
                 ],
             },
         ))
         body = _post_body(mock_post)
-        assert body["activity_schedule"]["mode"] == "CUSTOM"
-        assert body["activity_schedule"]["time_zone"] == "America/New_York"
-        assert len(body["activity_schedule"]["rules"]) == 1
-
-    @pytest.mark.asyncio
-    @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
-    async def test_verification_pixel_full_replace(self, mock_post):
-        mock_post.return_value = {"id": "987654321"}
-        await handle_call_tool("update_campaign_item", _args(
-            verification_pixel=[
-                {"type": "CLICK", "url": "https://verify.example.com/c"},
-                {"type": "VIEWABLE_IMPRESSION", "url": "https://verify.example.com/v"},
+        assert body["verification_pixel"] == {
+            "verification_pixel_items": [
+                {"url": "https://verify.example.com/c", "verification_pixel_type": "CLICK"},
+                {"url": "https://verify.example.com/v", "verification_pixel_type": "VIEWABLE_IMPRESSION"},
             ],
-        ))
-        body = _post_body(mock_post)
-        assert body["verification_pixel"] == [
-            {"type": "CLICK", "url": "https://verify.example.com/c"},
-            {"type": "VIEWABLE_IMPRESSION", "url": "https://verify.example.com/v"},
-        ]
+        }
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_verification_pixel_empty_clears(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
-        await handle_call_tool("update_campaign_item", _args(verification_pixel=[]))
+        await handle_call_tool("update_campaign_item", _args(
+            verification_pixel={"verification_pixel_items": []},
+        ))
         body = _post_body(mock_post)
-        assert body["verification_pixel"] == []
+        assert body["verification_pixel"] == {"verification_pixel_items": []}
 
     @pytest.mark.asyncio
     async def test_verification_pixel_invalid_type_rejected(self):
-        with pytest.raises(ToolInputError, match="verification_pixel.*type"):
+        with pytest.raises(ToolInputError, match="verification_pixel_type"):
             await handle_call_tool("update_campaign_item", _args(
-                verification_pixel=[{"type": "BOGUS", "url": "https://x.example/"}],
+                verification_pixel={
+                    "verification_pixel_items": [
+                        {"url": "https://x.example/", "verification_pixel_type": "BOGUS"},
+                    ],
+                },
             ))
 
     @pytest.mark.asyncio
     async def test_verification_pixel_missing_url_rejected(self):
         with pytest.raises(ToolInputError, match="verification_pixel.*url"):
             await handle_call_tool("update_campaign_item", _args(
-                verification_pixel=[{"type": "CLICK"}],
+                verification_pixel={
+                    "verification_pixel_items": [
+                        {"verification_pixel_type": "CLICK"},
+                    ],
+                },
             ))
 
     @pytest.mark.asyncio
-    async def test_verification_pixel_not_list_rejected(self):
-        with pytest.raises(ToolInputError, match="verification_pixel must be a list"):
-            await handle_call_tool("update_campaign_item", _args(verification_pixel={}))
+    async def test_verification_pixel_not_object_rejected(self):
+        with pytest.raises(ToolInputError, match="verification_pixel must be an object"):
+            await handle_call_tool("update_campaign_item", _args(verification_pixel=[]))
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_viewability_tag_full_replace(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
         await handle_call_tool("update_campaign_item", _args(
-            viewability_tag=[
-                {"type": "MOAT", "value": "moat-id-1"},
-                {"type": "IAS", "value": "ias-id-2"},
-            ],
+            viewability_tag={
+                "values": [
+                    {"tag": "<script>1</script>", "type": "IAS"},
+                    {"tag": "<script>2</script>", "type": "DOUBLE_VERIFY"},
+                ],
+            },
         ))
         body = _post_body(mock_post)
-        assert body["viewability_tag"] == [
-            {"type": "MOAT", "value": "moat-id-1"},
-            {"type": "IAS", "value": "ias-id-2"},
-        ]
+        assert body["viewability_tag"] == {
+            "values": [
+                {"tag": "<script>1</script>", "type": "IAS"},
+                {"tag": "<script>2</script>", "type": "DOUBLE_VERIFY"},
+            ],
+        }
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_viewability_tag_empty_clears(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
-        await handle_call_tool("update_campaign_item", _args(viewability_tag=[]))
+        await handle_call_tool("update_campaign_item", _args(
+            viewability_tag={"values": []},
+        ))
         body = _post_body(mock_post)
-        assert body["viewability_tag"] == []
+        assert body["viewability_tag"] == {"values": []}
 
     @pytest.mark.asyncio
     async def test_viewability_tag_invalid_type_rejected(self):
         with pytest.raises(ToolInputError, match="viewability_tag.*type"):
             await handle_call_tool("update_campaign_item", _args(
-                viewability_tag=[{"type": "BOGUS", "value": "x"}],
+                viewability_tag={"values": [{"tag": "x", "type": "BOGUS"}]},
             ))
+
+    @pytest.mark.asyncio
+    async def test_viewability_tag_not_object_rejected(self):
+        with pytest.raises(ToolInputError, match="viewability_tag must be an object"):
+            await handle_call_tool("update_campaign_item", _args(viewability_tag=[]))
 
 
 class TestUpdateCampaignItemMultiField:
@@ -251,13 +256,21 @@ class TestUpdateCampaignItemMultiField:
         await handle_call_tool("update_campaign_item", _args(
             title="New title",
             cta={"cta_type": "READ_MORE"},
-            verification_pixel=[{"type": "CLICK", "url": "https://x.example/c"}],
+            verification_pixel={
+                "verification_pixel_items": [
+                    {"url": "https://x.example/c", "verification_pixel_type": "CLICK"},
+                ],
+            },
         ))
         body = _post_body(mock_post)
         assert body["is_active"] is False
         assert body["title"] == "New title"
         assert body["cta"] == {"cta_type": "READ_MORE"}
-        assert body["verification_pixel"] == [{"type": "CLICK", "url": "https://x.example/c"}]
+        assert body["verification_pixel"] == {
+            "verification_pixel_items": [
+                {"url": "https://x.example/c", "verification_pixel_type": "CLICK"},
+            ],
+        }
 
 
 class TestUpdateCampaignItemAnnotations:

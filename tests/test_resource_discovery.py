@@ -120,12 +120,17 @@ class TestListCtaTypes:
     async def test_endpoint(self, mock_get):
         mock_get.return_value = {"results": []}
         await handle_call_tool("list_cta_types", {})
-        assert _get_endpoint(mock_get) == "/resources/campaigns_properties/items_properties/cta"
+        assert _get_endpoint(mock_get) == "/resources/campaigns_properties/items_properties/cta_type"
 
     @pytest.mark.asyncio
     @patch('realize.tools.resources.client.get', new_callable=AsyncMock)
     async def test_response_shape(self, mock_get):
-        mock_get.return_value = {"results": [{"value": "SHOP_NOW"}, {"value": "LEARN_MORE"}]}
+        mock_get.return_value = {
+            "results": [
+                {"name": "SHOP_NOW", "value": "Shop Now"},
+                {"name": "LEARN_MORE", "value": "Learn More"},
+            ]
+        }
         result = await handle_call_tool("list_cta_types", {})
         payload = json.loads(result[0].text)
         assert payload["resource"] == "cta_types"

@@ -58,7 +58,6 @@ class TestCreateCampaignItemHappyPath:
             thumbnail_url="https://cdn.example.com/spring.jpg",
             branding_text="Acme",
             cta={"cta_type": "SHOP_NOW"},
-            is_active=True,
         ))
 
         item = _post_item(mock_post)
@@ -68,7 +67,7 @@ class TestCreateCampaignItemHappyPath:
         assert item["thumbnail_url"] == "https://cdn.example.com/spring.jpg"
         assert item["branding_text"] == "Acme"
         assert item["cta"] == {"cta_type": "SHOP_NOW"}
-        assert item["is_active"] is True
+        assert "is_active" not in item
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
@@ -167,9 +166,10 @@ class TestCreateCampaignItemAnnotations:
         tools = await handle_list_tools()
         create = next(t for t in tools if t.name == "create_campaign_item")
 
-        for f in ("title", "description", "thumbnail_url", "is_active", "branding_text", "cta"):
+        for f in ("title", "description", "thumbnail_url", "branding_text", "cta"):
             assert f in create.inputSchema["properties"]
             assert f not in create.inputSchema["required"]
+        assert "is_active" not in create.inputSchema["properties"]
 
     @pytest.mark.asyncio
     async def test_update_only_fields_not_in_create_schema(self):
@@ -179,7 +179,7 @@ class TestCreateCampaignItemAnnotations:
         tools = await handle_list_tools()
         create = next(t for t in tools if t.name == "create_campaign_item")
 
-        for f in ("start_date", "end_date", "activity_schedule", "verification_pixel", "viewability_tag"):
+        for f in ("is_active", "start_date", "end_date", "activity_schedule", "verification_pixel", "viewability_tag"):
             assert f not in create.inputSchema["properties"], \
                 f"create_campaign_item must not expose {f} (update-only field)"
 
