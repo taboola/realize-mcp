@@ -115,13 +115,62 @@ class TestSearchPublishers:
     @patch('realize.tools.discovery_handlers.client.get', new_callable=AsyncMock)
     async def test_endpoint(self, mock_get):
         mock_get.return_value = {"results": []}
-        await handle_call_tool("search_publishers", {"account_id": "acme-inc"})
+        await handle_call_tool("search_publishers", {"account_id": "acme-inc", "query": "*"})
         assert _get_endpoint(mock_get) == "/acme-inc/allowed-publishers"
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.discovery_handlers.client.get', new_callable=AsyncMock)
+    async def test_query_filter_forwarded(self, mock_get):
+        mock_get.return_value = {"results": []}
+        await handle_call_tool("search_publishers", {"account_id": "acme-inc", "query": "yahoo"})
+        params = mock_get.call_args.kwargs.get("params") or mock_get.call_args.args[1]
+        assert params["search_text"] == "yahoo"
+        assert params["page"] == 1
+        assert params["page_size"] == 10
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.discovery_handlers.client.get', new_callable=AsyncMock)
+    async def test_wildcard_omits_search_text(self, mock_get):
+        mock_get.return_value = {"results": []}
+        await handle_call_tool("search_publishers", {"account_id": "acme-inc", "query": "*"})
+        params = mock_get.call_args.kwargs.get("params") or mock_get.call_args.args[1]
+        assert "search_text" not in params
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.discovery_handlers.client.get', new_callable=AsyncMock)
+    async def test_publisher_ids_forwarded(self, mock_get):
+        mock_get.return_value = {"results": []}
+        await handle_call_tool(
+            "search_publishers",
+            {"account_id": "acme-inc", "query": "*", "publisher_ids": [1, 2, 3]},
+        )
+        params = mock_get.call_args.kwargs.get("params") or mock_get.call_args.args[1]
+        assert params["publisher_ids"] == "1,2,3"
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.discovery_handlers.client.get', new_callable=AsyncMock)
+    async def test_response_trimmed(self, mock_get):
+        mock_get.return_value = {"results": [{
+            "id": 99, "name": "P1", "account_id": "p1", "country": "US", "is_active": True,
+            "external_metadata": {"big": "x" * 1000}, "language": "en", "currency": "USD",
+        }]}
+        result = await handle_call_tool(
+            "search_publishers", {"account_id": "acme-inc", "query": "*"}
+        )
+        text = result[0].text
+        assert "external_metadata" not in text
+        assert "currency" not in text
+        assert "P1" in text
+
+    @pytest.mark.asyncio
+    async def test_missing_query_rejected(self):
+        with pytest.raises(ToolInputError, match="query is required"):
+            await handle_call_tool("search_publishers", {"account_id": "acme-inc"})
 
     @pytest.mark.asyncio
     async def test_missing_account_id_rejected(self):
         with pytest.raises(ToolInputError, match="account_id is required"):
-            await handle_call_tool("search_publishers", {})
+            await handle_call_tool("search_publishers", {"query": "*"})
 
 
 class TestSearchConversionRules:
@@ -153,7 +202,7 @@ class TestDiscoverySchemas:
         assert sa.inputSchema["required"] == ["account_id"]
 
     @pytest.mark.asyncio
-    async def test_all_four_discovery_tools_registered(self):
+    async def test_all_discovery_tools_registered(self):
         from realize.realize_server import handle_list_tools
 
         tools = await handle_list_tools()
@@ -161,7 +210,34 @@ class TestDiscoverySchemas:
         expected = {
             "search_audiences",
             "search_lookalike_audiences",
+            "search_contextual_segments",
             "search_publishers",
             "search_conversion_rules",
         }
         assert expected.issubset(names)
+
+
+class TestSearchContextualSegments:
+    @pytest.mark.asyncio
+    @patch('realize.tools.discovery_handlers.client.get', new_callable=AsyncMock)
+    async def test_endpoint(self, mock_get):
+        mock_get.return_value = {"results": []}
+        await handle_call_tool("search_contextual_segments", {"account_id": "acme-inc"})
+        assert _get_endpoint(mock_get) == "/acme-inc/dictionary/contextual_segments"
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.discovery_handlers.client.get', new_callable=AsyncMock)
+    async def test_country_filters_forwarded(self, mock_get):
+        mock_get.return_value = {"results": []}
+        await handle_call_tool(
+            "search_contextual_segments",
+            {"account_id": "acme-inc", "country_codes": "US,CA", "country_targeting_type": "INCLUDE"},
+        )
+        params = mock_get.call_args.kwargs.get("params") or mock_get.call_args.args[1]
+        assert params["countryCodes"] == "US,CA"
+        assert params["countryTargetingType"] == "INCLUDE"
+
+    @pytest.mark.asyncio
+    async def test_missing_account_id_rejected(self):
+        with pytest.raises(ToolInputError, match="account_id is required"):
+            await handle_call_tool("search_contextual_segments", {})

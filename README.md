@@ -80,6 +80,7 @@ Use these to populate campaign and item targeting fields with valid values.
 - **`list_cta_types`** — `cta.cta_type` values for `create_campaign_item` / `update_campaign_item`.
 - **`search_audiences`** — First-party and custom audiences for an account.
 - **`search_lookalike_audiences`** — CRM/pixel/PBP lookalike audiences.
+- **`search_contextual_segments`** — Contextual segments for an account.
 - **`search_publishers`** — Publishers an account may target.
 - **`search_conversion_rules`** — Conversion rules attached to an account.
 

@@ -32,6 +32,7 @@ Discovery (resources for resolving IDs/names used in campaign + item payloads):
   - list_cta_types                       (cta.cta_type values for create/update_campaign_item)
   - search_audiences                     (first-party + custom audience IDs)
   - search_lookalike_audiences           (CRM/pixel/PBP rule_ids)
+  - search_contextual_segments           (contextual segment IDs per account)
   - search_publishers                    (publisher names per account)
   - search_conversion_rules              (conversion rule IDs per account)
 
@@ -297,7 +298,7 @@ _CONTEXTUAL_SEGMENTS_SCHEMA = {
     "description": """\
 Contextual segment targeting. {collection: [{type: INCLUDE|EXCLUDE, collection: [int]}]}.
 Send {collection: []} to clear. At most one INCLUDE and one EXCLUDE block.
-Segment IDs are authored in the Realize UI; not discoverable via this MCP.""",
+Discover segment IDs via search_contextual_segments.""",
     "properties": {
         "collection": {
             "type": "array",
@@ -445,7 +446,7 @@ _SCALAR_PROPERTIES = {
         "description": "Budget model. NONE = no overall cap (uses daily_cap). MONTHLY = monthly cap. ENTIRE = lifetime cap. Discover values via list_realize_resource(resource=spending_limit_models).",
     },
     "spending_limit": {"type": "number", "description": "Budget amount in account's default currency."},
-    "daily_cap": {"type": "number", "description": "Daily spend cap in account's default currency."},
+    "daily_cap": {"type": "number", "description": "Daily spend cap in account's default currency. Only valid when daily_ad_delivery_model=STRICT; rejected with BALANCED."},
     "cpc": {"type": "number", "description": "Fixed cost per click in account's default currency."},
     "bid_strategy": {
         "type": "string",
@@ -456,12 +457,12 @@ _SCALAR_PROPERTIES = {
     "start_date": {"type": "string", "description": "YYYY-MM-DD. Optional; defaults to immediate."},
     "end_date": {"type": "string", "description": "YYYY-MM-DD. Optional; omit for ongoing."},
     "tracking_code": {"type": "string", "description": "Query string appended to item URLs."},
-    "cpc_cap": {"type": "number", "description": "Upper bound on bids in account's default currency."},
+    "cpc_cap": {"type": "number", "description": "Upper bound on bids in account's default currency. Only valid when bid_strategy=MAX_CONVERSIONS."},
     "comments": {"type": "string", "description": "Internal notes."},
     "daily_ad_delivery_model": {
         "type": "string",
         "enum": ["BALANCED", "STRICT"],
-        "description": "Pacing model. BALANCED smooths spend; STRICT caps within tighter daily windows. ACCELERATED was deprecated Aug 1.",
+        "description": "Pacing model. BALANCED smooths spend; STRICT caps within tighter daily windows and requires daily_cap. BALANCED forbids daily_cap. ACCELERATED was deprecated.",
     },
     "traffic_allocation_mode": {
         "type": "string",
@@ -519,6 +520,8 @@ All amounts (spending_limit, daily_cap, cpc, cpa_goal, cpc_cap) are numbers in t
 
 Conditional rules:
 - spending_limit_model = MONTHLY|ENTIRE → also send spending_limit. NONE → also send daily_cap.
+- daily_ad_delivery_model = STRICT → also send daily_cap. BALANCED → omit daily_cap.
+- bid_strategy = MAX_CONVERSIONS → cpc_cap allowed. Other strategies → omit cpc_cap.
 - marketing_objective = BRAND_AWARENESS|DRIVE_WEBSITE_TRAFFIC → send cpc; bid_strategy SMART (default) or FIXED; omit cpa_goal.
 - marketing_objective = LEADS_GENERATION|ONLINE_PURCHASES|MOBILE_APP_INSTALL → bid_strategy = TARGET_CPA|MAX_CONVERSIONS|MAX_VALUE; if TARGET_CPA also send cpa_goal; omit cpc.
 - If both start_date and end_date sent: end_date >= start_date.
@@ -528,6 +531,7 @@ Discovery (call before constructing the payload to resolve IDs/names):
 - search_techno → `os_targeting` sub_categories and `browser_targeting` values. (platform / connection_type / os_family enums are listed inline in their schema descriptions.)
 - search_audiences → `my_audiences` audience IDs.
 - search_lookalike_audiences → `lookalike_audience` rule_ids.
+- search_contextual_segments → `contextual_segments` segment IDs.
 - search_publishers → `publisher_targeting` and `publisher_bid_modifier.target` names.
 - search_conversion_rules → `conversion_rules` IDs.
 - list_time_zones → `activity_schedule.time_zone` IANA names.
@@ -613,6 +617,8 @@ All amounts are numbers in the account's default currency.
 
 Conditional rules (apply only when the gating field is in this request):
 - spending_limit_model = MONTHLY|ENTIRE → also send spending_limit. NONE → also send daily_cap.
+- daily_ad_delivery_model = STRICT → also send daily_cap. BALANCED → omit daily_cap.
+- bid_strategy = MAX_CONVERSIONS → cpc_cap allowed. Other strategies → omit cpc_cap.
 - bid_strategy = TARGET_CPA → also send cpa_goal.
 - If both start_date and end_date sent: end_date >= start_date.
 - Solo updates of a partner field (e.g. only spending_limit, or only cpa_goal) are allowed — stored gating field is reused.
@@ -625,7 +631,7 @@ Server-side constraints (returns 4xx if violated):
 - TERMINATED campaigns cannot be reactivated.
 - Lookalike: account must have user-segments edit permission and campaign must allow retargeting.
 
-Discovery: same as create_campaign — search_geos, search_techno, search_audiences, search_lookalike_audiences, search_publishers, search_conversion_rules, list_time_zones. Each schema property below names which tool populates it.
+Discovery: same as create_campaign — search_geos, search_techno, search_audiences, search_lookalike_audiences, search_contextual_segments, search_publishers, search_conversion_rules, list_time_zones. Each schema property below names which tool populates it.
 
 Field shapes are identical to create_campaign — see its comprehensive example for every targeting block. Examples below focus on update-only patterns (partial-merge, classic-geo, full-replace within a section).
 
@@ -1220,7 +1226,12 @@ Optional country_code (ISO-2) narrows to audiences targeting one country.""",
         "description": """\
 Search publishers an account is allowed to target (read-only).
 Publisher names returned here populate `publisher_targeting.value` on
-create_campaign / update_campaign.""",
+create_campaign / update_campaign.
+
+`query` is required: pass a name substring to filter, or '*' to list all.
+Use `publisher_ids` for direct lookup. Pagination via `page` / `page_size`
+(page_size capped at 50). Results are trimmed to {id, name, account_id,
+country, is_active}.""",
         "schema": {
             "type": "object",
             "properties": {
@@ -1228,10 +1239,60 @@ create_campaign / update_campaign.""",
                     "type": "string",
                     "description": "Value from search_accounts.account_id (NOT numeric).",
                 },
+                "query": {
+                    "type": "string",
+                    "description": "Name substring filter (case-insensitive). Pass '*' to list all (paginated).",
+                },
+                "publisher_ids": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "Optional. Filter to specific publisher IDs.",
+                },
+                "page": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 1,
+                    "description": "Page number (default 1).",
+                },
+                "page_size": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50,
+                    "default": 10,
+                    "description": "Records per page (1-50, default 10).",
+                },
+            },
+            "required": ["account_id", "query"],
+        },
+        "handler": "discovery_handlers.search_publishers",
+        "category": "resources",
+    },
+
+    "search_contextual_segments": {
+        "description": """\
+Search contextual segments available for targeting on an account (read-only).
+Segment IDs returned here populate `contextual_segments.collection[].collection: [int]`
+on create_campaign / update_campaign.""",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string",
+                    "description": "Value from search_accounts.account_id (NOT numeric).",
+                },
+                "country_codes": {
+                    "type": "string",
+                    "description": "Optional. Comma-separated ISO-2 codes (e.g. \"US,CA\"). Narrows to segments targeting these countries.",
+                },
+                "country_targeting_type": {
+                    "type": "string",
+                    "enum": ["ALL", "INCLUDE", "EXCLUDE"],
+                    "description": "Optional. Interprets country_codes. ALL (default) returns segments regardless of targeting type; INCLUDE/EXCLUDE narrow further.",
+                },
             },
             "required": ["account_id"],
         },
-        "handler": "discovery_handlers.search_publishers",
+        "handler": "discovery_handlers.search_contextual_segments",
         "category": "resources",
     },
 

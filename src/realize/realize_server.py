@@ -135,6 +135,10 @@ async def handle_call_tool(
             from realize.tools.discovery_handlers import search_lookalike_audiences
             result = await search_lookalike_audiences(arguments)
 
+        elif handler_path == "discovery_handlers.search_contextual_segments":
+            from realize.tools.discovery_handlers import search_contextual_segments
+            result = await search_contextual_segments(arguments)
+
         elif handler_path == "discovery_handlers.search_publishers":
             from realize.tools.discovery_handlers import search_publishers
             result = await search_publishers(arguments)
