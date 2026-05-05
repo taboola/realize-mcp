@@ -60,13 +60,12 @@ import copy
 # 1. Shared description fragments
 # ============================================================================
 
-_TARGETING_BLOCKS_NOTE = (
-    "Targeting blocks are FULL-REPLACE: sending `my_audiences` with one audience "
-    "wipes the others; sending `country_targeting` replaces all country targeting. "
-    "To edit a single entry, read with get_campaign, modify locally, send the merged "
-    "result. Scalar fields (name, cpc, is_active, …) are partial-merge — omitted "
-    "scalars keep their prior value."
-)
+_TARGETING_BLOCKS_NOTE = """\
+Targeting blocks are FULL-REPLACE: sending `my_audiences` with one audience
+wipes the others; sending `country_targeting` replaces all country targeting.
+To edit a single entry, read with get_campaign, modify locally, send the merged
+result. Scalar fields (name, cpc, is_active, …) are partial-merge — omitted
+scalars keep their prior value."""
 
 
 # ============================================================================
@@ -85,69 +84,64 @@ _TARGETING_STRING_SHAPE_PROPERTIES = {
 
 _COUNTRY_TARGETING_SCHEMA = {
     "type": "object",
-    "description": (
-        "Classic country targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
-        "value=[] when type=ALL. "
-        "Each entry is the ISO-2 country `code` (e.g. \"US\", \"CA\"), NOT the display name. "
-        "Discover via search_geos(dimension=countries) and use the `code` field of each result."
-    ),
+    "description": """\
+Classic country targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}.
+value=[] when type=ALL.
+Each entry is the ISO-2 country `code` (e.g. "US", "CA"), NOT the display name.
+Discover via search_geos(dimension=countries) and use the `code` field of each result.""",
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
     "required": ["type", "value"],
 }
 
 _REGION_TARGETING_SCHEMA = {
     "type": "object",
-    "description": (
-        "Classic region targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
-        "value=[] when type=ALL. "
-        "Each entry is the region `code` (e.g. \"CA\" for California, \"NY\" for New York), "
-        "NOT the display name. Sub-dimension mutex: at most ONE of region/dma/city/postal_code "
-        "on a campaign; requires INCLUDE country already set. "
-        "Discover via search_geos(dimension=regions, country_code=<ISO-2>) and use the `code` "
-        "field of each result."
-    ),
+    "description": """\
+Classic region targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}.
+value=[] when type=ALL.
+Each entry is the region `code` (e.g. "CA" for California, "NY" for New York),
+NOT the display name. Sub-dimension mutex: at most ONE of region/dma/city/postal_code
+on a campaign; requires INCLUDE country already set.
+Discover via search_geos(dimension=regions, country_code=<ISO-2>) and use the `code`
+field of each result.""",
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
     "required": ["type", "value"],
 }
 
 _DMA_TARGETING_SCHEMA = {
     "type": "object",
-    "description": (
-        "Classic dma targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
-        "value=[] when type=ALL. "
-        "Each entry is the DMA `code`, NOT the display name. Sub-dimension mutex: at most ONE "
-        "of region/dma/city/postal_code on a campaign; requires INCLUDE country already set. "
-        "Discover via search_geos(dimension=dma, country_code=US) and use the `code` field of "
-        "each result. DMA is US-only."
-    ),
+    "description": """\
+Classic dma targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}.
+value=[] when type=ALL.
+Each entry is the DMA `code`, NOT the display name. Sub-dimension mutex: at most ONE
+of region/dma/city/postal_code on a campaign; requires INCLUDE country already set.
+Discover via search_geos(dimension=dma, country_code=US) and use the `code` field of
+each result. DMA is US-only.""",
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
     "required": ["type", "value"],
 }
 
 _CITY_TARGETING_SCHEMA = {
     "type": "object",
-    "description": (
-        "Classic city targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
-        "value=[] when type=ALL. "
-        "Each entry is the city `code`, NOT the display name. Sub-dimension mutex: at most ONE "
-        "of region/dma/city/postal_code on a campaign; requires INCLUDE country already set. "
-        "Discover via search_geos(dimension=cities, country_code=<ISO-2>) and use the `code` "
-        "field of each result."
-    ),
+    "description": """\
+Classic city targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}.
+value=[] when type=ALL.
+Each entry is the city `code`, NOT the display name. Sub-dimension mutex: at most ONE
+of region/dma/city/postal_code on a campaign; requires INCLUDE country already set.
+Discover via search_geos(dimension=cities, country_code=<ISO-2>) and use the `code`
+field of each result.""",
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
     "required": ["type", "value"],
 }
 
 _POSTAL_CODE_TARGETING_SCHEMA = {
     "type": "object",
-    "description": (
-        "Classic postal_code targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}. "
-        "value=[] when type=ALL. "
-        "Each entry is the postal `code`, NOT the display name. Sub-dimension mutex: at most ONE "
-        "of region/dma/city/postal_code on a campaign; requires INCLUDE country already set. "
-        "Discover via search_geos(dimension=postal_codes, country_code=<ISO-2>) and use the "
-        "`code` field of each result."
-    ),
+    "description": """\
+Classic postal_code targeting. {type: INCLUDE|EXCLUDE|ALL, value: [string]}.
+value=[] when type=ALL.
+Each entry is the postal `code`, NOT the display name. Sub-dimension mutex: at most ONE
+of region/dma/city/postal_code on a campaign; requires INCLUDE country already set.
+Discover via search_geos(dimension=postal_codes, country_code=<ISO-2>) and use the
+`code` field of each result.""",
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
     "required": ["type", "value"],
 }
@@ -158,45 +152,41 @@ _POSTAL_CODE_TARGETING_SCHEMA = {
 
 _PLATFORM_TARGETING_SCHEMA = {
     "type": "object",
-    "description": (
-        "platform targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}. "
-        "value=[] when type=ALL. "
-        "Values: NA | DESK | PHON | TBLT | TV | OTHR (mobile = PHON; desktop = DESK; tablet = TBLT)."
-    ),
+    "description": """\
+platform targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}.
+value=[] when type=ALL.
+Values: NA | DESK | PHON | TBLT | TV | OTHR (mobile = PHON; desktop = DESK; tablet = TBLT).""",
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
     "required": ["type", "value"],
 }
 
 _BROWSER_TARGETING_SCHEMA = {
     "type": "object",
-    "description": (
-        "browser targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}. "
-        "value=[] when type=ALL. Browser names are dynamically maintained server-side; "
-        "discover the authoritative list via search_techno(dimension=browsers)."
-    ),
+    "description": """\
+browser targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}.
+value=[] when type=ALL. Browser names are dynamically maintained server-side;
+discover the authoritative list via search_techno(dimension=browsers).""",
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
     "required": ["type", "value"],
 }
 
 _CONNECTION_TYPE_TARGETING_SCHEMA = {
     "type": "object",
-    "description": (
-        "connection_type targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}. "
-        "value=[] when type=ALL. Values: WIFI."
-    ),
+    "description": """\
+connection_type targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}.
+value=[] when type=ALL. Values: WIFI.""",
     "properties": _TARGETING_STRING_SHAPE_PROPERTIES,
     "required": ["type", "value"],
 }
 
 _OS_TARGETING_SCHEMA = {
     "type": "object",
-    "description": (
-        "os targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}. "
-        "value=[] when type=ALL. Items: {os_family, sub_categories?}. "
-        "os_family values: Mac OS X | Linux | Windows | iOS | iPadOS | Android. "
-        "Discover sub_categories per family via search_techno(dimension=operating_system_versions, os_family=<family>) "
-        "(returns wire-usable strings like \"iOS 17\", \"Android 14\")."
-    ),
+    "description": """\
+os targeting. {type: INCLUDE|EXCLUDE|ALL, value: [...]}.
+value=[] when type=ALL. Items: {os_family, sub_categories?}.
+os_family values: Mac OS X | Linux | Windows | iOS | iPadOS | Android.
+Discover sub_categories per family via search_techno(dimension=operating_system_versions, os_family=<family>)
+(returns wire-usable strings like "iOS 17", "Android 14").""",
     "properties": {
         "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
         "value": {
@@ -218,13 +208,12 @@ _OS_TARGETING_SCHEMA = {
 # 2.5 Activity schedule (dayparting)
 _ACTIVITY_SCHEDULE_SCHEMA = {
     "type": "object",
-    "description": (
-        "Activity schedule (dayparting). {mode: ALWAYS|CUSTOM, time_zone?, rules?}. "
-        "mode=ALWAYS clears any custom schedule. mode=CUSTOM requires time_zone (IANA name; "
-        "discover via list_time_zones) and rules. "
-        "Each rule: {type: INCLUDE|EXCLUDE, day: MONDAY..SUNDAY, from_hour: 0-23, until_hour: 1-24}. "
-        "Days unmentioned default to INCLUDE 0-24. Same day cannot mix INCLUDE+EXCLUDE; windows cannot overlap."
-    ),
+    "description": """\
+Activity schedule (dayparting). {mode: ALWAYS|CUSTOM, time_zone?, rules?}.
+mode=ALWAYS clears any custom schedule. mode=CUSTOM requires time_zone (IANA name;
+discover via list_time_zones) and rules.
+Each rule: {type: INCLUDE|EXCLUDE, day: MONDAY..SUNDAY, from_hour: 0-23, until_hour: 1-24}.
+Days unmentioned default to INCLUDE 0-24. Same day cannot mix INCLUDE+EXCLUDE; windows cannot overlap.""",
     "properties": {
         "mode": {"type": "string", "enum": ["ALWAYS", "CUSTOM"]},
         "time_zone": {"type": "string"},
@@ -252,11 +241,10 @@ _ACTIVITY_SCHEDULE_SCHEMA = {
 # 2.6 Conversion rules
 _CONVERSION_RULES_SCHEMA = {
     "type": "array",
-    "description": (
-        "Conversion rule attachments. List of {id} objects. Send [] to detach all. "
-        "Discover rule IDs via search_conversion_rules. "
-        "LEADS_GENERATION / ONLINE_PURCHASES typically require >=1 rule."
-    ),
+    "description": """\
+Conversion rule attachments. List of {id} objects. Send [] to detach all.
+Discover rule IDs via search_conversion_rules.
+LEADS_GENERATION / ONLINE_PURCHASES typically require >=1 rule.""",
     "items": {
         "type": "object",
         "properties": {"id": {"type": "integer"}},
@@ -268,11 +256,10 @@ _CONVERSION_RULES_SCHEMA = {
 # 2.7 Publishers (targeting + bid modifier)
 _PUBLISHER_TARGETING_SCHEMA = {
     "type": "object",
-    "description": (
-        "Publisher targeting. {type: INCLUDE|EXCLUDE|ALL, value: [publisher_name]}. "
-        "value=[] when type=ALL. Names (not IDs) — server resolves them. "
-        "Discover names via search_publishers."
-    ),
+    "description": """\
+Publisher targeting. {type: INCLUDE|EXCLUDE|ALL, value: [publisher_name]}.
+value=[] when type=ALL. Names (not IDs) — server resolves them.
+Discover names via search_publishers.""",
     "properties": {
         "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
         "value": {"type": "array", "items": {"type": "string"}},
@@ -283,11 +270,10 @@ _PUBLISHER_TARGETING_SCHEMA = {
 
 _PUBLISHER_BID_MODIFIER_SCHEMA = {
     "type": "object",
-    "description": (
-        "Per-publisher CPC bid modifier. {values: [{target: <publisher_name>, cpc_modification: <number>}]}. "
-        "cpc_modification is a multiplier (1.25 = +25%). values=[] clears all modifiers. "
-        "Discover publisher names via search_publishers."
-    ),
+    "description": """\
+Per-publisher CPC bid modifier. {values: [{target: <publisher_name>, cpc_modification: <number>}]}.
+cpc_modification is a multiplier (1.25 = +25%). values=[] clears all modifiers.
+Discover publisher names via search_publishers.""",
     "properties": {
         "values": {
             "type": "array",
@@ -308,11 +294,10 @@ _PUBLISHER_BID_MODIFIER_SCHEMA = {
 # 2.8 Contextual segments
 _CONTEXTUAL_SEGMENTS_SCHEMA = {
     "type": "object",
-    "description": (
-        "Contextual segment targeting. {collection: [{type: INCLUDE|EXCLUDE, collection: [int]}]}. "
-        "Send {collection: []} to clear. At most one INCLUDE and one EXCLUDE block. "
-        "Segment IDs are authored in the Realize UI; not discoverable via this MCP."
-    ),
+    "description": """\
+Contextual segment targeting. {collection: [{type: INCLUDE|EXCLUDE, collection: [int]}]}.
+Send {collection: []} to clear. At most one INCLUDE and one EXCLUDE block.
+Segment IDs are authored in the Realize UI; not discoverable via this MCP.""",
     "properties": {
         "collection": {
             "type": "array",
@@ -333,10 +318,9 @@ _CONTEXTUAL_SEGMENTS_SCHEMA = {
 # 2.9 Audiences (first-party / custom + lookalike)
 _MY_AUDIENCES_SCHEMA = {
     "type": "object",
-    "description": (
-        "First-party + custom audience targeting. {collection: [{type: INCLUDE|EXCLUDE, collection: [int]}]}. "
-        "Send {collection: []} to clear. Discover audience IDs via search_audiences."
-    ),
+    "description": """\
+First-party + custom audience targeting. {collection: [{type: INCLUDE|EXCLUDE, collection: [int]}]}.
+Send {collection: []} to clear. Discover audience IDs via search_audiences.""",
     "properties": {
         "collection": {
             "type": "array",
@@ -356,11 +340,10 @@ _MY_AUDIENCES_SCHEMA = {
 
 _LOOKALIKE_AUDIENCE_SCHEMA = {
     "type": "object",
-    "description": (
-        "Lookalike audience targeting (CRM/pixel/PBP). {collection: [{type: INCLUDE, collection: [{rule_id, similarity_level}]}]}. "
-        "Send {collection: []} to clear. INCLUDE-only; at most one block. similarity_level: CRM 5/10/15/20/25, pixel 5, PBP 1/2/3/4/5. "
-        "Discover rule_ids via search_lookalike_audiences. PBP lookalike audiences must be created in the Realize UI before they can be targeted."
-    ),
+    "description": """\
+Lookalike audience targeting (CRM/pixel/PBP). {collection: [{type: INCLUDE, collection: [{rule_id, similarity_level}]}]}.
+Send {collection: []} to clear. INCLUDE-only; at most one block. similarity_level: CRM 5/10/15/20/25, pixel 5, PBP 1/2/3/4/5.
+Discover rule_ids via search_lookalike_audiences. PBP lookalike audiences must be created in the Realize UI before they can be targeted.""",
     "properties": {
         "collection": {
             "type": "array",
@@ -396,11 +379,10 @@ _LOOKALIKE_AUDIENCE_SCHEMA = {
 
 _ITEM_CTA_SCHEMA = {
     "type": "object",
-    "description": (
-        "Call-to-action object. {cta_type}. The cta_type set is curated by Realize "
-        "and changes over time; discover allowed values via list_cta_types instead "
-        "of hard-coding."
-    ),
+    "description": """\
+Call-to-action object. {cta_type}. The cta_type set is curated by Realize
+and changes over time; discover allowed values via list_cta_types instead
+of hard-coding.""",
     "properties": {
         "cta_type": {"type": "string"},
     },
@@ -410,12 +392,11 @@ _ITEM_CTA_SCHEMA = {
 
 _ITEM_VERIFICATION_PIXEL_SCHEMA = {
     "type": "array",
-    "description": (
-        "Third-party verification pixels. List of {type, url}. "
-        "type ∈ {CLICK, VIEWABLE_IMPRESSION, IMPRESSION}. "
-        "FULL-REPLACE within section: sending this field overwrites the entire prior list. "
-        "Send [] to clear all pixels."
-    ),
+    "description": """\
+Third-party verification pixels. List of {type, url}.
+type ∈ {CLICK, VIEWABLE_IMPRESSION, IMPRESSION}.
+FULL-REPLACE within section: sending this field overwrites the entire prior list.
+Send [] to clear all pixels.""",
     "items": {
         "type": "object",
         "properties": {
@@ -429,11 +410,10 @@ _ITEM_VERIFICATION_PIXEL_SCHEMA = {
 
 _ITEM_VIEWABILITY_TAG_SCHEMA = {
     "type": "array",
-    "description": (
-        "Viewability tracking tags. List of {type, value}. type ∈ {MOAT, IAS}. "
-        "FULL-REPLACE within section: sending this field overwrites the entire prior list. "
-        "Send [] to clear all tags."
-    ),
+    "description": """\
+Viewability tracking tags. List of {type, value}. type ∈ {MOAT, IAS}.
+FULL-REPLACE within section: sending this field overwrites the entire prior list.
+Send [] to clear all tags.""",
     "items": {
         "type": "object",
         "properties": {
@@ -936,15 +916,14 @@ _AUTH_TOOLS = {
 # 5.2 Accounts
 _ACCOUNT_TOOLS = {
     "search_accounts": {
-        "description": (
-            "Search for accounts by numeric ID or text query (read-only). Use this first — "
-            "every other tool's `account_id` parameter takes the value from the `account_id` field "
-            "returned here. Each result includes the account's `currency`, `country`, and "
-            "`time_zone_name` — use these to choose budget amounts in the right currency and to "
-            "populate `activity_schedule.time_zone`. Response metadata includes `Total` (full match "
-            "count across pages). Keep page_size constant across pages to avoid duplicate or "
-            "missing results."
-        ),
+        "description": """\
+Search for accounts by numeric ID or text query (read-only). Use this first —
+every other tool's `account_id` parameter takes the value from the `account_id` field
+returned here. Each result includes the account's `currency`, `country`, and
+`time_zone_name` — use these to choose budget amounts in the right currency and to
+populate `activity_schedule.time_zone`. Response metadata includes `Total` (full match
+count across pages). Keep page_size constant across pages to avoid duplicate or
+missing results.""",
         "schema": {
             "type": "object",
             "properties": {
@@ -1117,21 +1096,20 @@ _CAMPAIGN_ITEM_TOOLS = {
 # 5.6 Discovery — resolve IDs/names used in campaign payloads
 _DISCOVERY_TOOLS = {
     "search_geos": {
-        "description": (
-            "Search valid country / region / dma / city / postal_code values for create_campaign and update_campaign geo targeting (read-only).\n"
-            "\n"
-            "dimension=countries (no country_code) returns countries. "
-            "dimension=regions|dma|cities|postal_codes requires country_code (ISO-2, e.g. \"US\"). "
-            "DMA is US-only.\n"
-            "\n"
-            "Response shape: `{dimension, values: [{code, name}, ...]}`. The `code` field is what "
-            "country_targeting / region_targeting / dma_targeting / city_targeting / "
-            "postal_code_targeting accept on create_campaign and update_campaign — `name` is the "
-            "human-readable label only (e.g. for regions, code=\"CA\", name=\"California\"; pass "
-            "\"CA\" to region_targeting, not \"California\").\n"
-            "\n"
-            "Example — list US states: { \"dimension\": \"regions\", \"country_code\": \"US\" }"
-        ),
+        "description": """\
+Search valid country / region / dma / city / postal_code values for create_campaign and update_campaign geo targeting (read-only).
+
+dimension=countries (no country_code) returns countries.
+dimension=regions|dma|cities|postal_codes requires country_code (ISO-2, e.g. "US").
+DMA is US-only.
+
+Response shape: `{dimension, values: [{code, name}, ...]}`. The `code` field is what
+country_targeting / region_targeting / dma_targeting / city_targeting /
+postal_code_targeting accept on create_campaign and update_campaign — `name` is the
+human-readable label only (e.g. for regions, code="CA", name="California"; pass
+"CA" to region_targeting, not "California").
+
+Example — list US states: { "dimension": "regions", "country_code": "US" }""",
         "schema": {
             "type": "object",
             "properties": {
@@ -1152,19 +1130,18 @@ _DISCOVERY_TOOLS = {
     },
 
     "search_techno": {
-        "description": (
-            "Search valid technology-targeting values for create_campaign and update_campaign "
-            "os_targeting (sub_categories) and browser_targeting (read-only).\n"
-            "\n"
-            "Other techno enums (platforms, os_family, connection_type) are inlined in their schema descriptions "
-            "as small fixed enums and don't require discovery.\n"
-            "\n"
-            "dimension=browsers takes no extra args. "
-            "dimension=operating_system_versions requires os_family (e.g. \"iOS\", \"Android\") and returns "
-            "values usable as `sub_categories` on os_targeting items.\n"
-            "\n"
-            "Example — list iOS versions: { \"dimension\": \"operating_system_versions\", \"os_family\": \"iOS\" }"
-        ),
+        "description": """\
+Search valid technology-targeting values for create_campaign and update_campaign
+os_targeting (sub_categories) and browser_targeting (read-only).
+
+Other techno enums (platforms, os_family, connection_type) are inlined in their schema descriptions
+as small fixed enums and don't require discovery.
+
+dimension=browsers takes no extra args.
+dimension=operating_system_versions requires os_family (e.g. "iOS", "Android") and returns
+values usable as `sub_categories` on os_targeting items.
+
+Example — list iOS versions: { "dimension": "operating_system_versions", "os_family": "iOS" }""",
         "schema": {
             "type": "object",
             "properties": {
@@ -1188,11 +1165,10 @@ _DISCOVERY_TOOLS = {
     },
 
     "search_audiences": {
-        "description": (
-            "Search first-party and custom audiences for an account (read-only). "
-            "Audience IDs returned here populate `my_audiences.collection[].collection: [int]` on "
-            "create_campaign / update_campaign."
-        ),
+        "description": """\
+Search first-party and custom audiences for an account (read-only).
+Audience IDs returned here populate `my_audiences.collection[].collection: [int]` on
+create_campaign / update_campaign.""",
         "schema": {
             "type": "object",
             "properties": {
@@ -1217,12 +1193,11 @@ _DISCOVERY_TOOLS = {
     },
 
     "search_lookalike_audiences": {
-        "description": (
-            "Search lookalike audiences (CRM / pixel / PBP) available for targeting on an account "
-            "(read-only). rule_ids returned here populate "
-            "`lookalike_audience.collection[].collection[].rule_id` on create_campaign / update_campaign. "
-            "Optional country_code (ISO-2) narrows to audiences targeting one country."
-        ),
+        "description": """\
+Search lookalike audiences (CRM / pixel / PBP) available for targeting on an account
+(read-only). rule_ids returned here populate
+`lookalike_audience.collection[].collection[].rule_id` on create_campaign / update_campaign.
+Optional country_code (ISO-2) narrows to audiences targeting one country.""",
         "schema": {
             "type": "object",
             "properties": {
@@ -1242,11 +1217,10 @@ _DISCOVERY_TOOLS = {
     },
 
     "search_publishers": {
-        "description": (
-            "Search publishers an account is allowed to target (read-only). "
-            "Publisher names returned here populate `publisher_targeting.value` on "
-            "create_campaign / update_campaign."
-        ),
+        "description": """\
+Search publishers an account is allowed to target (read-only).
+Publisher names returned here populate `publisher_targeting.value` on
+create_campaign / update_campaign.""",
         "schema": {
             "type": "object",
             "properties": {
@@ -1262,12 +1236,11 @@ _DISCOVERY_TOOLS = {
     },
 
     "search_conversion_rules": {
-        "description": (
-            "Search conversion rules attached to an account (read-only). "
-            "Rule IDs returned here populate `conversion_rules: [{id}]` on "
-            "create_campaign / update_campaign. LEADS_GENERATION and ONLINE_PURCHASES "
-            "campaigns typically require at least one conversion rule attached."
-        ),
+        "description": """\
+Search conversion rules attached to an account (read-only).
+Rule IDs returned here populate `conversion_rules: [{id}]` on
+create_campaign / update_campaign. LEADS_GENERATION and ONLINE_PURCHASES
+campaigns typically require at least one conversion rule attached.""",
         "schema": {
             "type": "object",
             "properties": {
@@ -1283,11 +1256,10 @@ _DISCOVERY_TOOLS = {
     },
 
     "list_time_zones": {
-        "description": (
-            "List valid IANA time zone names for `activity_schedule.time_zone` on create_campaign / update_campaign "
-            "(CUSTOM mode). Output values are directly usable on the wire (e.g. \"America/New_York\", \"US/Eastern\", "
-            "\"Europe/London\")."
-        ),
+        "description": """\
+List valid IANA time zone names for `activity_schedule.time_zone` on create_campaign / update_campaign
+(CUSTOM mode). Output values are directly usable on the wire (e.g. "America/New_York", "US/Eastern",
+"Europe/London").""",
         "schema": {
             "type": "object",
             "properties": {},
@@ -1298,11 +1270,10 @@ _DISCOVERY_TOOLS = {
     },
 
     "list_cta_types": {
-        "description": (
-            "List allowed values for `cta.cta_type` on create_campaign_item / update_campaign_item "
-            "(read-only). The set is curated by Realize and changes over time; prefer this tool over "
-            "hard-coded enums."
-        ),
+        "description": """\
+List allowed values for `cta.cta_type` on create_campaign_item / update_campaign_item
+(read-only). The set is curated by Realize and changes over time; prefer this tool over
+hard-coded enums.""",
         "schema": {
             "type": "object",
             "properties": {},
