@@ -1365,7 +1365,10 @@ hard-coded enums.""",
 # 5.7 Reports (CSV)
 _REPORT_TOOLS = {
     "get_top_campaign_content_report": {
-        "description": "Get the top-performing campaign content report for an account (read-only). Returns CSV with a summary header. One call per page returns complete data — do not retry unless an error is returned.\n\nCheck `Total` in the response header for the full record count across all pages.",
+        "description": """\
+Get the top-performing campaign content report for an account (read-only). Returns CSV with a summary header. One call per page returns complete data — do not retry unless an error is returned.
+
+Check `Total` in the response header for the full record count across all pages.""",
         "schema": {
             "type": "object",
             "properties": {
@@ -1413,7 +1416,10 @@ _REPORT_TOOLS = {
     },
 
     "get_campaign_history_report": {
-        "description": "Get the campaign history report for an account (read-only). Returns CSV with historical metrics. One call per page returns complete data — do not retry unless an error is returned.\n\nCheck `Total` in the response header for the full record count across all pages.",
+        "description": """\
+Get the campaign history report for an account (read-only). Returns CSV with historical metrics. One call per page returns complete data — do not retry unless an error is returned.
+
+Check `Total` in the response header for the full record count across all pages.""",
         "schema": {
             "type": "object",
             "properties": {
@@ -1450,7 +1456,10 @@ _REPORT_TOOLS = {
     },
 
     "get_campaign_breakdown_report": {
-        "description": "Get the campaign breakdown report for an account (read-only). Returns CSV with per-campaign metrics. One call per page returns complete data — do not retry unless an error is returned.\n\nCheck `Total` in the response header for the full record count across all pages.",
+        "description": """\
+Get the campaign breakdown report for an account (read-only). Returns CSV with per-campaign metrics. One call per page returns complete data — do not retry unless an error is returned.
+
+Check `Total` in the response header for the full record count across all pages.""",
         "schema": {
             "type": "object",
             "properties": {
@@ -1503,7 +1512,10 @@ _REPORT_TOOLS = {
     },
 
     "get_campaign_site_day_breakdown_report": {
-        "description": "Get the campaign site/day breakdown report for an account (read-only). Returns CSV with per-site, per-day metrics. One call per page returns complete data — do not retry unless an error is returned.\n\nCheck `Total` in the response header for the full record count across all pages.",
+        "description": """\
+Get the campaign site/day breakdown report for an account (read-only). Returns CSV with per-site, per-day metrics. One call per page returns complete data — do not retry unless an error is returned.
+
+Check `Total` in the response header for the full record count across all pages.""",
         "schema": {
             "type": "object",
             "properties": {
