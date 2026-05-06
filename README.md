@@ -42,63 +42,240 @@ claude mcp add --transport http --callback-port 3000 realize-mcp https://mcp.rea
 
 ## Tools Reference
 
-Every account-scoped tool takes an `account_id` from `search_accounts` (never a raw numeric ID). Write tools carry `destructiveHint: true`.
+Every account-scoped tool takes an `account_id` from `search_accounts` (never a raw numeric ID). Write tools (`create_*`, `update_*`) carry `destructiveHint: true` and commit atomically — all fields land together or not at all.
 
-### Accounts
+### Account Management
 
-- **`search_accounts`** — Find an account by numeric ID or name. Call first. Results include `currency`, `country`, and `time_zone_name` so the LLM can pick the right budget amounts and timezone.
+**`search_accounts`** — Search accounts by numeric ID or text query. **Call this first** to get `account_id` values needed by all other tools. Results include `currency`, `country`, and `time_zone_name` so the LLM can pick the right budget amounts and timezone.
 
-### Campaigns
+```
+query        (string, required)            Cannot be empty. Numeric = exact ID; text = fuzzy name
+page         (integer, default: 1)         min: 1
+page_size    (integer, default: 10)        min: 1, max: 10 (hard cap)
+```
+
+### Campaign Management
 
 A campaign holds budget, bidding, schedule, and targeting. It contains items.
 
-- **`list_campaigns`** — List campaigns on an account.
-- **`get_campaign`** — Read one campaign.
-- **`create_campaign`** — Create a campaign with all targeting in one call. Ships paused.
-- **`update_campaign`** — Update subset of fields of a campaign. Pause/resume via `is_active`.
+**`list_campaigns`** — List all campaigns for an account.
 
-Both write tools accept scalars (name, budget, bidding, schedule dates, `is_active`) plus targeting blocks: `country_targeting`, `region_targeting`, `dma_targeting`, `city_targeting`, `postal_code_targeting`, `platform_targeting`, `os_targeting`, `browser_targeting`, `connection_type_targeting`, `activity_schedule`, `conversion_rules`, `publisher_targeting`, `publisher_bid_modifier`, `contextual_segments`, `my_audiences`, `lookalike_audience`. Scalars partial-merge; targeting blocks full-replace. Geo targeting uses classic dimension fields (`country_targeting`, `region_targeting`, `dma_targeting`, `city_targeting`, `postal_code_targeting`) on both create and update; values are codes (e.g. `"CA"` for California), not display names — discover via `search_geos` and use the `code` field of each result. Single atomic POST — all targeting commits together or not at all.
+```
+account_id   (string, required)
+```
+
+**`get_campaign`** — Get specific campaign details.
+
+```
+account_id   (string, required)
+campaign_id  (string, required)
+```
+
+#### Campaign write tools (`create_campaign`, `update_campaign`)
+
+Both tools accept the same scalars and targeting blocks. Scalars partial-merge; targeting blocks full-replace within block. New campaigns ship paused unless `is_active=true` is sent.
+
+Required differs:
+
+```
+create_campaign:  account_id, name, marketing_objective, branding_text, spending_limit_model, bid_strategy
+update_campaign:  account_id, campaign_id
+```
+
+Scalars (all optional on update; the create-required ones above are mandatory on create):
+
+```
+name                     (string)             Required on create.
+marketing_objective      (string enum)        Required on create. BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC | LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL
+branding_text            (string)             Required on create. Brand name shown with ads.
+spending_limit_model     (string enum)        Required on create. NONE | MONTHLY | ENTIRE
+spending_limit           (number)             Budget amount in account's default currency
+daily_cap                (number)             Daily spend cap
+bid_strategy             (string enum)        Required on create. SMART | FIXED | TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE
+cpc                      (number)             Fixed cost per click (FIXED only)
+cpa_goal                 (number)             Target cost per acquisition (TARGET_CPA only)
+cpc_cap                  (number)             Upper bound on bids
+start_date               (string)             YYYY-MM-DD
+end_date                 (string)             YYYY-MM-DD
+tracking_code            (string)             Query string appended to item URLs
+comments                 (string)             Internal notes
+daily_ad_delivery_model  (string enum)        BALANCED | STRICT
+traffic_allocation_mode  (string enum)        OPTIMIZED | EVEN
+is_active                (boolean)            true to launch, false to pause
+```
+
+Targeting blocks (all `object`, optional, full-replace within block):
+
+```
+country_targeting              Classic country (codes from search_geos dimension=countries)
+region_country_targeting       Classic region (codes from search_geos dimension=regions)
+dma_country_targeting          Classic DMA — US-only (codes from search_geos dimension=dma)
+city_targeting                 Classic city (codes from search_geos dimension=cities)
+postal_code_targeting          Classic postal code (codes from search_geos dimension=postal_codes)
+platform_targeting             DESK | PHON | TBLT | TV | OTHR
+os_targeting                   OS family + version (versions via search_techno)
+browser_targeting              Browser names from search_techno dimension=browsers
+connection_type_targeting      WIFI
+activity_schedule              Dayparting (time_zone via list_time_zones)
+conversion_rules               Conversion rule attachments (rules via search_conversion_rules)
+publisher_targeting            Publisher allow/block-list (search_publishers)
+publisher_bid_modifier         Per-publisher CPC bid modifier
+contextual_segments_targeting  Contextual segments (search_contextual_segments)
+audiences_targeting            First-party + custom audiences (search_audiences)
+lookalike_audience_targeting   Lookalike audiences (search_lookalike_audiences)
+```
 
 ### Campaign Items
 
-An item is a creative (headline, image, URL) served under a campaign. "Campaign item", "item", "ad", and "creative" all refer to the same object. Distinct from the campaign itself. Standard `ITEM` type only — RSS, motion ads, performance video, display, hierarchy carousel, and the Creative Library are not supported.
+An item is a creative (headline, image, URL) served under a campaign. Standard `ITEM` type only — RSS, motion ads, performance video, display, hierarchy carousel, and the Creative Library are not supported.
 
-- **`list_campaign_items`** — List items on a campaign.
-- **`get_campaign_item`** — Read one item.
-- **`create_campaign_item`** — Create an item on a campaign in one call.
-- **`update_campaign_item`** — Update subset of fields of an item. Pause/resume via `is_active`.
+**`list_campaign_items`** — List items for a campaign.
 
-Both write tools accept scalars (`url`, `title`, `description`, `thumbnail_url`, `branding_text`, `is_active`) plus the `cta` nested block. Update adds `start_date`, `end_date`, `activity_schedule`, `verification_pixel`, `viewability_tag`. Scalars partial-merge; `verification_pixel` and `viewability_tag` arrays full-replace within section (send `[]` to clear). On create, omitting `title` / `description` / `thumbnail_url` triggers a server-side crawl of `url`. Discover `cta.cta_type` values via `list_cta_types` and `activity_schedule.time_zone` IANA names via `list_time_zones`. Single atomic POST — all fields commit together or not at all. Editability: items in CRAWLING / PENDING_APPROVAL accept full edits; items in RUNNING / PAUSED accept only `is_active` toggles plus minor metadata; REJECTED items cannot be edited (recreate).
+```
+account_id   (string, required)
+campaign_id  (string, required)
+```
+
+**`get_campaign_item`** — Get a specific item.
+
+```
+account_id   (string, required)
+campaign_id  (string, required)
+item_id      (string, required)
+```
+
+**`create_campaign_item`** — Create an item on a campaign. Omit `title` / `description` / `thumbnail_url` to trigger a server-side crawl of `url`.
+
+```
+account_id     (string, required)
+campaign_id    (string, required)
+url            (string, required)            Landing URL
+title          (string)                      Headline
+description    (string)                      Body
+thumbnail_url  (string)                      Image URL
+branding_text  (string)
+cta            (object)                      {cta_type} — values from list_cta_types
+```
+
+**`update_campaign_item`** — Update specific fields on an item. Send `[]` for `verification_pixel` / `viewability_tag` to clear.
+
+```
+account_id          (string, required)
+campaign_id         (string, required)
+item_id             (string, required)
+url                 (string)
+title               (string)
+description         (string)
+thumbnail_url       (string)
+branding_text       (string)
+is_active           (boolean)                Pause/resume
+cta                 (object)                 {cta_type}
+verification_pixel  (object)                 Tracking pixels (full-replace within block)
+viewability_tag     (object)                 Viewability tag (full-replace within block)
+```
+
+Editability: items in CRAWLING / PENDING_APPROVAL accept full edits; RUNNING / PAUSED accept only `is_active` toggles plus minor metadata; REJECTED items cannot be edited (recreate).
 
 ### Discovery
 
 Use these to populate campaign and item targeting fields with valid values.
 
-- **`search_geos`** — Countries, regions, DMAs, cities, postal codes.
-- **`search_techno`** — OS sub_categories per family (e.g. iOS versions) and browsers. Other techno enums (platform / connection_type / os_family) are inlined in the campaign schema descriptions.
-- **`list_time_zones`** — IANA time-zone names for `activity_schedule.time_zone`.
-- **`list_cta_types`** — `cta.cta_type` values for `create_campaign_item` / `update_campaign_item`.
-- **`search_audiences`** — First-party and custom audiences for an account.
-- **`search_lookalike_audiences`** — CRM/pixel/PBP lookalike audiences.
-- **`search_contextual_segments`** — Contextual segments for an account.
-- **`search_publishers`** — Publishers an account may target.
-- **`search_conversion_rules`** — Conversion rules attached to an account.
+**`search_geos`** — Countries, regions, DMAs, cities, postal codes. Returns `{code, name}` pairs; use the `code` field for targeting.
 
-### Reports (CSV)
+```
+dimension     (string enum, required)       countries | regions | dma | cities | postal_codes
+country_code  (string)                      Required for regions / dma / cities / postal_codes
+```
 
-All take `account_id`, `start_date`, `end_date` (YYYY-MM-DD), with optional `page` / `page_size` (default 20, max 100). `sort_field` is `clicks | spent | impressions`; `sort_direction` is `ASC | DESC`.
+**`search_techno`** — OS versions and browsers.
 
-- **`get_top_campaign_content_report`** — Top-performing content. Sortable.
-- **`get_campaign_breakdown_report`** — Per-campaign performance. Sortable + filterable.
-- **`get_campaign_history_report`** — Historical metrics over time.
-- **`get_campaign_site_day_breakdown_report`** — Per-site, per-day breakdown. Sortable + filterable.
+```
+dimension  (string enum, required)          operating_system_versions | browsers
+os_family  (string)                         Required for operating_system_versions
+```
+
+**`search_audiences`** — First-party and custom audiences for an account.
+
+```
+account_id              (string, required)
+country_codes           (string)
+country_targeting_type  (string enum)       ALL | INCLUDE | EXCLUDE
+```
+
+**`search_lookalike_audiences`** — CRM / pixel / PBP lookalike audiences.
+
+```
+account_id    (string, required)
+country_code  (string)
+```
+
+**`search_contextual_segments`** — Contextual segments.
+
+```
+account_id              (string, required)
+country_codes           (string)
+country_targeting_type  (string enum)       ALL | INCLUDE | EXCLUDE
+```
+
+**`search_publishers`** — Publishers an account may target.
+
+```
+account_id     (string, required)
+query          (string, required)
+publisher_ids  (array)
+page           (integer, default: 1)        min: 1
+page_size      (integer, default: 10)       min: 1, max: 50
+```
+
+**`search_conversion_rules`** — Conversion rules attached to an account.
+
+```
+account_id  (string, required)
+```
+
+**`list_time_zones`** — IANA time-zone names for `activity_schedule.time_zone`. No parameters.
+
+**`list_cta_types`** — `cta.cta_type` values for `create_campaign_item` / `update_campaign_item`. No parameters.
+
+### Reporting (CSV Format)
+
+All report tools return CSV with a summary header. Every report requires these parameters:
+
+```
+account_id  (string, required)            From search_accounts
+start_date  (string, required)            Format: YYYY-MM-DD
+end_date    (string, required)            Format: YYYY-MM-DD
+page        (integer, default: 1)         min: 1
+page_size   (integer, default: 20)        min: 1, max: 100
+```
+
+Some reports also support sorting and filtering:
+
+```
+sort_field      (string enum)             clicks | spent | impressions
+sort_direction  (string enum, default: DESC)   ASC | DESC
+filters         (object)                  JSON object with string values only
+```
+
+**`get_top_campaign_content_report`** — Top performing campaign content.
+Supports: shared params + sort.
+
+**`get_campaign_breakdown_report`** — Campaign performance breakdown.
+Supports: shared params + sort + filters.
+
+**`get_campaign_history_report`** — Historical campaign data.
+Supports: shared params only (no sort, no filters).
+
+**`get_campaign_site_day_breakdown_report`** — Site/day performance breakdown.
+Supports: shared params + sort + filters.
 
 ### Authentication (stdio only)
 
-Streamable HTTP mode handles auth via OAuth 2.1 at the transport layer; these tools are excluded there.
+These tools are only available in stdio mode. In Streamable HTTP mode authentication is handled at the transport layer via OAuth 2.1, so they are excluded.
 
-- **`get_auth_token`** — Authenticate via `REALIZE_CLIENT_ID` / `REALIZE_CLIENT_SECRET`.
-- **`get_token_details`** — Inspect the current token.
+**`get_auth_token`** — Authenticate via `REALIZE_CLIENT_ID` / `REALIZE_CLIENT_SECRET`.
+
+**`get_token_details`** — Inspect the current token.
 
 ---
 
