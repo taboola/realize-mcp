@@ -42,8 +42,6 @@ claude mcp add --transport http --callback-port 3000 realize-mcp https://mcp.rea
 
 ## Tools Reference
 
-Every account-scoped tool takes an `account_id` from `search_accounts` (never a raw numeric ID). Write tools (`create_*`, `update_*`) carry `destructiveHint: true` and commit atomically — all fields land together or not at all.
-
 ### Account Management
 
 **`search_accounts`** — Search accounts by numeric ID or text query. **Call this first** to get `account_id` values needed by all other tools. Results include `currency`, `country`, and `time_zone_name` so the LLM can pick the right budget amounts and timezone.
@@ -85,13 +83,13 @@ update_campaign:  account_id, campaign_id
 Scalars (all optional on update; the create-required ones above are mandatory on create):
 
 ```
-name                     (string)             Required on create.
-marketing_objective      (string enum)        Required on create. BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC | LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL
-branding_text            (string)             Required on create. Brand name shown with ads.
-spending_limit_model     (string enum)        Required on create. NONE | MONTHLY | ENTIRE
+name                     (string)
+marketing_objective      (string enum)        BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC | LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL
+branding_text            (string)             Brand name shown with ads
+spending_limit_model     (string enum)        NONE | MONTHLY | ENTIRE
 spending_limit           (number)             Budget amount in account's default currency
 daily_cap                (number)             Daily spend cap
-bid_strategy             (string enum)        Required on create. SMART | FIXED | TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE
+bid_strategy             (string enum)        SMART | FIXED | TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE
 cpc                      (number)             Fixed cost per click (FIXED only)
 cpa_goal                 (number)             Target cost per acquisition (TARGET_CPA only)
 cpc_cap                  (number)             Upper bound on bids
@@ -331,6 +329,37 @@ AI Process:
     sort_direction="DESC"
   )
   Result: Top content sorted by spend
+```
+
+### Update a Campaign Budget
+
+```
+User: "Bump the daily cap on Marketing Corp's Spring Sale campaign to $500"
+AI Process:
+  Step 1: search_accounts("Marketing Corp") → account_id: "mktg_corp_001"
+  Step 2: list_campaigns(account_id="mktg_corp_001") → find Spring Sale → campaign_id: "12345678"
+  Step 3: update_campaign(
+    account_id="mktg_corp_001",
+    campaign_id="12345678",
+    daily_cap=500
+  )
+  Result: Campaign updated; other fields and targeting untouched
+```
+
+### Create a Campaign Item
+
+```
+User: "Add a new ad to campaign 12345678 pointing at example.com/landing with a Shop Now CTA"
+AI Process:
+  Step 1: search_accounts(...) → account_id: "mktg_corp_001"
+  Step 2: list_cta_types() → confirm "SHOP_NOW" is a valid cta_type
+  Step 3: create_campaign_item(
+    account_id="mktg_corp_001",
+    campaign_id="12345678",
+    url="https://example.com/landing",
+    cta={"cta_type": "SHOP_NOW"}
+  )
+  Result: Item created; title/description/thumbnail server-crawled from url
 ```
 
 ### Report Features
