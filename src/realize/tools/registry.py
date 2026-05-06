@@ -302,7 +302,7 @@ Discover publisher names via search_publishers.""",
 _CONTEXTUAL_SEGMENTS_SCHEMA = {
     "type": "object",
     "description": """\
-Contextual segment targeting (Backstage MultiTargeting<Long>).
+Contextual segment targeting.
 {state: ALL|EXISTS, value: [{type: INCLUDE|EXCLUDE, value: [int]}]}.
 state=ALL with value=[] clears. At most one INCLUDE and one EXCLUDE block.
 Discover segment IDs via search_contextual_segments.""",
@@ -328,7 +328,7 @@ Discover segment IDs via search_contextual_segments.""",
 _MY_AUDIENCES_SCHEMA = {
     "type": "object",
     "description": """\
-First-party + custom audience targeting (Backstage MultiTargeting<Long>).
+First-party + custom audience targeting.
 {state: ALL|EXISTS, value: [{type: INCLUDE|EXCLUDE, value: [int]}]}.
 state=ALL with value=[] clears. Discover audience IDs via search_audiences.""",
     "properties": {
@@ -352,7 +352,7 @@ state=ALL with value=[] clears. Discover audience IDs via search_audiences.""",
 _LOOKALIKE_AUDIENCE_SCHEMA = {
     "type": "object",
     "description": """\
-Lookalike audience targeting (Backstage MultiTargeting<APICampaignLookalikeAudienceTargeting>).
+Lookalike audience targeting.
 {state: ALL|EXISTS, value: [{type: INCLUDE, value: [{rule_id, similarity_level}]}]}.
 state=ALL with value=[] clears. INCLUDE-only; at most one outer block. similarity_level: CRM 5/10/15/20/25, pixel 5, PBP 1/2/3/4/5.
 Discover rule_ids via search_lookalike_audiences. PBP lookalike audiences must be created in the Realize UI before they can be targeted.""",
@@ -570,7 +570,7 @@ Discovery (call before constructing the payload to resolve IDs/names):
 
 Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, target_cpa, target_cpa_learning_status. (`target_cpa` is server-recommended; user goal is `cpa_goal`.)
 
-All targeting (including audiences, lookalike, contextual segments) goes in one atomic POST to Backstage; either the whole campaign with all targeting commits, or none of it does.
+All targeting (including audiences, lookalike, contextual segments) goes in one atomic call; either the whole campaign with all targeting commits, or none of it does.
 
 Comprehensive example (every available field set; trim what you don't need — only the five required scalars are mandatory).
 
@@ -669,7 +669,7 @@ Field shapes are identical to create_campaign — see its comprehensive example 
 
 Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, target_cpa, target_cpa_learning_status.
 
-All updates (including audiences, lookalike, contextual segments) go in one atomic POST to Backstage.
+All updates (including audiences, lookalike, contextual segments) go in one atomic call.
 
 """
 
@@ -781,7 +781,7 @@ Discovery (call before constructing the payload to resolve IDs/names):
 
 Read-only — NEVER send: id, campaign_id (set via path), type, status, approval_state, learning_state, orientation, policy_review.
 
-Item creation goes in one atomic POST to Backstage; either the item commits with all fields, or it doesn't.
+Item creation goes in one atomic call; either the item commits with all fields, or it doesn't.
 
 Comprehensive example (every available field set; trim what you don't need — only `account_id`, `campaign_id`, and `url` are mandatory).
 
@@ -826,7 +826,7 @@ Read-only — NEVER send: id, campaign_id (set via path), type, status, approval
 
 At least one updatable field besides account_id, campaign_id, and item_id must be sent.
 
-All updates (including verification_pixel and viewability_tag) go in one atomic POST to Backstage.
+All updates (including verification_pixel and viewability_tag) go in one atomic call.
 
 Comprehensive example (every available field set; trim what you don't need — only `account_id`, `campaign_id`, and `item_id` are mandatory, plus at least one updatable field).
 
