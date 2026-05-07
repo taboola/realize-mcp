@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Realize MCP Server - Main entry point."""
 
+import realize.sse_keepalive  # noqa: F401, E402  isort:skip  side-effect import; must run first
 import asyncio
 import time
 from typing import Any
