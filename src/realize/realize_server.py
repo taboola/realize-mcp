@@ -26,14 +26,18 @@ async def handle_list_tools() -> list[types.Tool]:
 
     tools = []
     for tool_name, tool_config in get_all_tools().items():
+        annotations = None
+        if "annotations" in tool_config:
+            annotations = types.ToolAnnotations(**tool_config["annotations"])
         tools.append(
             types.Tool(
                 name=tool_name,
                 description=tool_config["description"],
-                inputSchema=tool_config["schema"]
+                inputSchema=tool_config["schema"],
+                annotations=annotations,
             )
         )
-    
+
     return tools
 
 @server.call_tool()
@@ -74,21 +78,74 @@ async def handle_call_tool(
             )
 
         # Campaign handlers
-        elif handler_path == "campaign_handlers.get_all_campaigns":
-            from realize.tools.campaign_handlers import get_all_campaigns
-            result = await get_all_campaigns(arguments)
+        elif handler_path == "campaign_handlers.list_campaigns":
+            from realize.tools.campaign_handlers import list_campaigns
+            result = await list_campaigns(arguments)
 
         elif handler_path == "campaign_handlers.get_campaign":
             from realize.tools.campaign_handlers import get_campaign
             result = await get_campaign(arguments)
 
-        elif handler_path == "campaign_handlers.get_campaign_items":
-            from realize.tools.campaign_handlers import get_campaign_items
-            result = await get_campaign_items(arguments)
+        elif handler_path == "campaign_handlers.create_campaign":
+            from realize.tools.campaign_handlers import create_campaign
+            result = await create_campaign(arguments)
 
-        elif handler_path == "campaign_handlers.get_campaign_item":
-            from realize.tools.campaign_handlers import get_campaign_item
-            result = await get_campaign_item(arguments)
+        elif handler_path == "campaign_handlers.update_campaign":
+            from realize.tools.campaign_handlers import update_campaign
+            result = await update_campaign(arguments)
+
+        elif handler_path == "item_handlers.list_items":
+            from realize.tools.item_handlers import list_items
+            result = await list_items(arguments)
+
+        elif handler_path == "item_handlers.get_item":
+            from realize.tools.item_handlers import get_item
+            result = await get_item(arguments)
+
+        elif handler_path == "item_handlers.create_native_item":
+            from realize.tools.item_handlers import create_native_item
+            result = await create_native_item(arguments)
+
+        elif handler_path == "item_handlers.update_native_item":
+            from realize.tools.item_handlers import update_native_item
+            result = await update_native_item(arguments)
+
+        # Resource discovery handlers
+        elif handler_path == "resources.search_geos":
+            from realize.tools.resources import search_geos
+            result = await search_geos(arguments)
+
+        elif handler_path == "resources.search_techno":
+            from realize.tools.resources import search_techno
+            result = await search_techno(arguments)
+
+        elif handler_path == "resources.list_time_zones":
+            from realize.tools.resources import list_time_zones
+            result = await list_time_zones(arguments)
+
+        elif handler_path == "resources.list_cta_types":
+            from realize.tools.resources import list_cta_types
+            result = await list_cta_types(arguments)
+
+        elif handler_path == "discovery_handlers.search_audiences":
+            from realize.tools.discovery_handlers import search_audiences
+            result = await search_audiences(arguments)
+
+        elif handler_path == "discovery_handlers.search_lookalike_audiences":
+            from realize.tools.discovery_handlers import search_lookalike_audiences
+            result = await search_lookalike_audiences(arguments)
+
+        elif handler_path == "discovery_handlers.search_contextual_segments":
+            from realize.tools.discovery_handlers import search_contextual_segments
+            result = await search_contextual_segments(arguments)
+
+        elif handler_path == "discovery_handlers.search_publishers":
+            from realize.tools.discovery_handlers import search_publishers
+            result = await search_publishers(arguments)
+
+        elif handler_path == "discovery_handlers.search_conversion_rules":
+            from realize.tools.discovery_handlers import search_conversion_rules
+            result = await search_conversion_rules(arguments)
 
         # Report handlers
         elif handler_path == "report_handlers.get_top_campaign_content_report":

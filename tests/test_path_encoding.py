@@ -21,38 +21,38 @@ def _get_endpoint_arg(mock_get):
 class TestCampaignHandlersEncoding:
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.get', new_callable=AsyncMock)
-    async def test_get_all_campaigns_encodes_slash_in_account_id(self, mock_get):
+    async def test_list_campaigns_encodes_slash_in_account_id(self, mock_get):
         mock_get.return_value = {"results": [], "metadata": {"total": 0}}
 
-        await handle_call_tool("get_all_campaigns", {"account_id": "acme/evil"})
+        await handle_call_tool("list_campaigns", {"account_id": "acme/evil"})
 
         assert _get_endpoint_arg(mock_get) == "/acme%2Fevil/campaigns"
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.get', new_callable=AsyncMock)
-    async def test_get_all_campaigns_preserves_alphanumeric(self, mock_get):
+    async def test_list_campaigns_preserves_alphanumeric(self, mock_get):
         mock_get.return_value = {"results": [], "metadata": {"total": 0}}
 
-        await handle_call_tool("get_all_campaigns", {"account_id": "acme-inc"})
+        await handle_call_tool("list_campaigns", {"account_id": "acme-inc"})
 
         assert _get_endpoint_arg(mock_get) == "/acme-inc/campaigns"
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.get', new_callable=AsyncMock)
-    async def test_get_all_campaigns_preserves_dots(self, mock_get):
+    async def test_list_campaigns_preserves_dots(self, mock_get):
         mock_get.return_value = {"results": [], "metadata": {"total": 0}}
 
-        await handle_call_tool("get_all_campaigns", {"account_id": "acct.1"})
+        await handle_call_tool("list_campaigns", {"account_id": "acct.1"})
 
         # "." is unreserved in RFC 3986 and is preserved by quote()
         assert _get_endpoint_arg(mock_get) == "/acct.1/campaigns"
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.get', new_callable=AsyncMock)
-    async def test_get_all_campaigns_encodes_unicode(self, mock_get):
+    async def test_list_campaigns_encodes_unicode(self, mock_get):
         mock_get.return_value = {"results": [], "metadata": {"total": 0}}
 
-        await handle_call_tool("get_all_campaigns", {"account_id": "tëst"})
+        await handle_call_tool("list_campaigns", {"account_id": "tëst"})
 
         # UTF-8 percent-encoded
         assert _get_endpoint_arg(mock_get) == "/t%C3%ABst/campaigns"
@@ -70,23 +70,23 @@ class TestCampaignHandlersEncoding:
         assert _get_endpoint_arg(mock_get) == "/acct.1/campaigns/123%3Fx%3D1"
 
     @pytest.mark.asyncio
-    @patch('realize.tools.campaign_handlers.client.get', new_callable=AsyncMock)
-    async def test_get_campaign_items_encodes_both_ids(self, mock_get):
+    @patch('realize.tools.item_handlers.client.get', new_callable=AsyncMock)
+    async def test_list_items_encodes_both_ids(self, mock_get):
         mock_get.return_value = {"results": []}
 
-        await handle_call_tool("get_campaign_items", {
+        await handle_call_tool("list_items", {
             "account_id": "a/b",
             "campaign_id": "c#d",
         })
 
-        assert _get_endpoint_arg(mock_get) == "/a%2Fb/campaigns/c%23d/items/"
+        assert _get_endpoint_arg(mock_get) == "/a%2Fb/campaigns/c%23d/items"
 
     @pytest.mark.asyncio
-    @patch('realize.tools.campaign_handlers.client.get', new_callable=AsyncMock)
-    async def test_get_campaign_item_encodes_all_three_ids(self, mock_get):
+    @patch('realize.tools.item_handlers.client.get', new_callable=AsyncMock)
+    async def test_get_item_encodes_all_three_ids(self, mock_get):
         mock_get.return_value = {"id": "x"}
 
-        await handle_call_tool("get_campaign_item", {
+        await handle_call_tool("get_item", {
             "account_id": "a/b",
             "campaign_id": "c#d",
             "item_id": "e?f",

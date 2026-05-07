@@ -23,8 +23,8 @@ class TestProductionReadiness:
         required_tools = [
             'get_auth_token', 'get_token_details',
             'search_accounts',
-            'get_all_campaigns', 'get_campaign',
-            'get_campaign_items', 'get_campaign_item',
+            'list_campaigns', 'get_campaign',
+            'list_items', 'get_item',
             'get_top_campaign_content_report', 'get_campaign_history_report',
             'get_campaign_breakdown_report', 'get_campaign_site_day_breakdown_report'
         ]
@@ -33,45 +33,50 @@ class TestProductionReadiness:
             assert tool in tools, f"Required read-only tool {tool} not found in registry"
     
     def test_no_write_operations(self):
-        """Test that no write operations are included for safety."""
+        """Write tools must declare destructiveHint; unknown write tools are forbidden."""
         tools = get_all_tools()
-        
-        # Verify no write operations exist
+
         forbidden_operations = [
-            'create_campaign', 'update_campaign', 'delete_campaign', 'duplicate_campaign',
-            'create_campaign_item', 'update_campaign_item', 'delete_campaign_item',
-            'create_', 'update_', 'delete_', 'post_', 'put_', 'patch_'
+            'update_campaign', 'delete_campaign', 'duplicate_campaign',
+            'delete_native_item',
+            'update_', 'delete_', 'post_', 'put_', 'patch_'
         ]
-        
-        for tool_name in tools.keys():
+
+        for tool_name, tool_config in tools.items():
+            annotations = tool_config.get("annotations") or {}
+            if annotations.get("destructiveHint"):
+                # Declared write tool; allowed.
+                continue
             for forbidden in forbidden_operations:
                 assert not tool_name.startswith(forbidden.lower()), \
-                    f"Found write operation {tool_name} - only read operations allowed"
+                    f"Found write operation {tool_name} without destructiveHint annotation"
     
     def test_tool_categories_exist(self):
         """Test that all tool categories are properly defined for read-only operations."""
-        categories = ['authentication', 'accounts', 'campaigns', 'campaign_items', 'reports']
+        categories = ['authentication', 'accounts', 'campaigns', 'items', 'reports']
         
         for category in categories:
             tools = get_tools_by_category(category)
             assert len(tools) > 0, f"Category {category} has no tools"
     
-    def test_tool_schemas_valid_read_only(self):
-        """Test that all tool schemas are valid for read-only raw JSON handling."""
+    def test_tool_schemas_valid(self):
+        """Test that all tool registry entries have the required structure."""
         tools = get_all_tools()
-        
+
         for tool_name, tool_config in tools.items():
             # Check required fields
             assert 'description' in tool_config
             assert 'schema' in tool_config
             assert 'handler' in tool_config
             assert 'category' in tool_config
-            
-            # Verify description indicates read-only
-            description = tool_config['description'].lower()
-            assert 'read-only' in description or 'get' in description, \
-                f"Tool {tool_name} should be clearly marked as read-only"
-            
+
+            # Write tools must declare destructiveHint via annotations; read tools
+            # may omit annotations entirely.
+            if tool_name.startswith(('create_', 'update_', 'delete_')):
+                annotations = tool_config.get('annotations', {})
+                assert annotations.get('destructiveHint') is True, \
+                    f"Write tool {tool_name} must declare destructiveHint=True"
+
             # Check schema structure supports flexible JSON
             schema = tool_config['schema']
             assert schema['type'] == 'object'
@@ -232,7 +237,7 @@ class TestReadOnlyToolHandlers:
     async def test_campaign_read_handlers_raw_json(self, mock_client):
         """Test read-only campaign handlers work with raw JSON responses."""
         # Test campaign handlers with raw JSON
-        from realize.tools.campaign_handlers import get_all_campaigns, get_campaign
+        from realize.tools.campaign_handlers import list_campaigns, get_campaign
         
         # Test campaign listing (read-only) - reset mock first
         mock_client.get.reset_mock()
@@ -248,7 +253,7 @@ class TestReadOnlyToolHandlers:
             ]
         })
         
-        result = await get_all_campaigns({"account_id": "acc_123"})
+        result = await list_campaigns({"account_id": "acc_123"})
         assert len(result) == 1
         assert "Test Campaign" in result[0].text
         

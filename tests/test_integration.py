@@ -25,23 +25,24 @@ class TestReadOnlyIntegration:
         
         # Check that essential read-only tools are present
         tool_names = [tool.name for tool in tools]
-        essential_tools = ['get_auth_token', 'search_accounts', 'get_all_campaigns']
+        essential_tools = ['get_auth_token', 'search_accounts', 'list_campaigns']
         
         for tool in essential_tools:
             assert tool in tool_names, f"Essential read-only tool {tool} missing"
     
     @pytest.mark.asyncio
     async def test_no_write_tools_available(self):
-        """Test that no write operations are available."""
+        """Write tools must declare destructiveHint; unknown writes are forbidden."""
         tools = await handle_list_tools()
-        tool_names = [tool.name for tool in tools]
-        
-        # Verify no write operations
-        forbidden_patterns = ['create_', 'update_', 'delete_', 'post_', 'put_', 'patch_']
-        for tool_name in tool_names:
+
+        forbidden_patterns = ['update_', 'delete_', 'post_', 'put_', 'patch_']
+        for tool in tools:
+            if tool.annotations and tool.annotations.destructiveHint:
+                # Declared write tool; allowed.
+                continue
             for pattern in forbidden_patterns:
-                assert not tool_name.startswith(pattern), \
-                    f"Found write operation {tool_name} - only read operations should be available"
+                assert not tool.name.startswith(pattern), \
+                    f"Found write operation {tool.name} without destructiveHint annotation"
     
     @pytest.mark.asyncio
     @patch('realize.tools.auth_handlers.auth.get_auth_token')
@@ -84,8 +85,8 @@ class TestReadOnlyIntegration:
             "metadata": {"total": 1}
         }
         
-        # Test get_all_campaigns
-        result = await handle_call_tool("get_all_campaigns", {
+        # Test list_campaigns
+        result = await handle_call_tool("list_campaigns", {
             "account_id": "test_account"
         })
         assert len(result) == 1
@@ -109,7 +110,7 @@ class TestReadOnlyIntegration:
     @patch('realize.tools.campaign_handlers.client.get')
     async def test_campaign_items_integration(self, mock_get):
         """Test campaign items tools integration with raw JSON."""
-        # Test get_campaign_items
+        # Test list_items
         mock_get.return_value = {
             "results": [
                 {
@@ -120,24 +121,24 @@ class TestReadOnlyIntegration:
                 }
             ]
         }
-        
-        result = await handle_call_tool("get_campaign_items", {
-            "account_id": "test_account", 
+
+        result = await handle_call_tool("list_items", {
+            "account_id": "test_account",
             "campaign_id": "123"
         })
         assert len(result) == 1
         assert "Test Campaign Item" in result[0].text
-        
-        # Test get_campaign_item - reset mock with new data
+
+        # Test get_item - reset mock with new data
         mock_get.return_value = {
             "id": "item_123",
             "title": "Single Campaign Item",
             "status": "APPROVED"
         }
-        
-        result = await handle_call_tool("get_campaign_item", {
+
+        result = await handle_call_tool("get_item", {
             "account_id": "test_account",
-            "campaign_id": "123", 
+            "campaign_id": "123",
             "item_id": "item_123"
         })
         assert len(result) == 1
@@ -196,9 +197,9 @@ class TestReadOnlyIntegration:
     async def test_error_handling_integration(self, mock_get):
         """Test error handling integration across all tools — errors propagate."""
         error_tools = [
-            ("get_all_campaigns", {"account_id": "test"}),
+            ("list_campaigns", {"account_id": "test"}),
             ("get_campaign", {"account_id": "test", "campaign_id": "123"}),
-            ("get_campaign_items", {"account_id": "test", "campaign_id": "123"})
+            ("list_items", {"account_id": "test", "campaign_id": "123"})
         ]
 
         for tool_name, args in error_tools:
@@ -211,10 +212,10 @@ class TestReadOnlyIntegration:
     async def test_parameter_validation_integration(self):
         """Test parameter validation across all tools — raises ToolInputError."""
         validation_tests = [
-            ("get_all_campaigns", {}, "account_id is required"),
+            ("list_campaigns", {}, "account_id is required"),
             ("get_campaign", {"account_id": "test"}, "campaign_id"),
-            ("get_campaign_items", {"account_id": "test"}, "campaign_id"),
-            ("get_campaign_item", {"account_id": "test", "campaign_id": "123"}, "item_id"),
+            ("list_items", {"account_id": "test"}, "campaign_id"),
+            ("get_item", {"account_id": "test", "campaign_id": "123"}, "item_id"),
             ("get_campaign_breakdown_report", {"account_id": "test"}, "start_date"),
             ("get_top_campaign_content_report", {"account_id": "test"}, "start_date"),
             ("get_campaign_history_report", {"account_id": "test"}, "start_date")
@@ -239,7 +240,7 @@ class TestReadOnlyIntegration:
                 category_counts[category] = category_counts.get(category, 0) + 1
         
         # Verify we have tools in all expected categories
-        expected_categories = ['authentication', 'accounts', 'campaigns', 'campaign_items', 'reports']
+        expected_categories = ['authentication', 'accounts', 'campaigns', 'items', 'reports']
         for category in expected_categories:
             assert category in category_counts, f"No tools found in category: {category}"
             assert category_counts[category] > 0, f"Category {category} has no tools"

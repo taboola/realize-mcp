@@ -77,7 +77,10 @@ class TestToolRegistryEdgeCases:
             'auth_handlers.',
             'account_handlers.',
             'campaign_handlers.',
-            'report_handlers.'
+            'item_handlers.',
+            'report_handlers.',
+            'resources.',
+            'discovery_handlers.',
         ]
         
         for tool_name, tool_config in tools.items():
@@ -99,7 +102,7 @@ class TestToolRegistryEdgeCases:
         categories = get_tool_categories()
         
         # Should have all expected categories
-        expected_categories = ['authentication', 'accounts', 'campaigns', 'campaign_items', 'reports']
+        expected_categories = ['authentication', 'accounts', 'campaigns', 'items', 'reports']
         
         for expected in expected_categories:
             assert expected in categories, f"Expected category {expected} not found"
@@ -131,20 +134,19 @@ class TestToolRegistryEdgeCases:
     
     def test_no_tool_name_conflicts(self):
         """Test that there are no tool name conflicts across categories."""
-        all_tools = get_all_tools()
         categories = get_tool_categories()
-        
+
         seen_tools = set()
-        
+
         for category in categories:
             category_tools = get_tools_by_category(category)
-            
+
             for tool_name in category_tools:
                 assert tool_name not in seen_tools, f"Tool {tool_name} appears in multiple categories"
                 seen_tools.add(tool_name)
-        
-        # Should have seen all tools
-        assert len(seen_tools) == len(all_tools)
+
+        # Every registry entry should have been visited exactly once
+        assert seen_tools == set(TOOL_REGISTRY.keys())
 
 
 class TestToolHandlerImports:
@@ -158,21 +160,11 @@ class TestToolHandlerImports:
             handler_path = tool_config['handler']
             
             try:
-                # Parse handler path
-                if handler_path.startswith('auth_handlers.'):
-                    module_name = 'realize.tools.auth_handlers'
-                    function_name = handler_path.split('.', 1)[1]
-                elif handler_path.startswith('account_handlers.'):
-                    module_name = 'realize.tools.account_handlers'
-                    function_name = handler_path.split('.', 1)[1]
-                elif handler_path.startswith('campaign_handlers.'):
-                    module_name = 'realize.tools.campaign_handlers'
-                    function_name = handler_path.split('.', 1)[1]
-                elif handler_path.startswith('report_handlers.'):
-                    module_name = 'realize.tools.report_handlers'
-                    function_name = handler_path.split('.', 1)[1]
-                else:
-                    pytest.fail(f"Unknown handler pattern for tool {tool_name}: {handler_path}")
+                # Parse handler path: <module>.<function> under realize.tools.
+                module_prefix, _, function_name = handler_path.partition('.')
+                if not module_prefix or not function_name:
+                    pytest.fail(f"Malformed handler path for tool {tool_name}: {handler_path}")
+                module_name = f"realize.tools.{module_prefix}"
                 
                 # Try to import the module and function
                 import importlib
@@ -192,8 +184,9 @@ class TestToolHandlerImports:
         """Test that all handler modules exist and can be imported."""
         expected_modules = [
             'realize.tools.auth_handlers',
-            'realize.tools.account_handlers', 
+            'realize.tools.account_handlers',
             'realize.tools.campaign_handlers',
+            'realize.tools.item_handlers',
             'realize.tools.report_handlers'
         ]
         
@@ -210,24 +203,29 @@ class TestToolDescriptions:
     """Test tool descriptions for quality and consistency."""
     
     def test_all_descriptions_indicate_read_only(self):
-        """Test that all tool descriptions clearly indicate read-only nature."""
+        """Read-only tool descriptions must contain at least one read verb.
+
+        The earlier check forbidding 'create'/'update' substrings was removed:
+        read tools now intentionally cross-reference write tools by name (e.g.
+        create_campaign, update_campaign_*) to point callers at the next step.
+        Write semantics are tracked authoritatively via the destructiveHint
+        annotation, not via substring sniffing.
+        """
         tools = get_all_tools()
-        
-        read_only_indicators = ['read-only', 'get', 'retrieve', 'fetch', 'search', 'view', 'list']
-        
+
+        read_only_indicators = ['read-only', 'get', 'retrieve', 'fetch', 'search', 'view', 'list', 'authenticate', 'discover']
+
         for tool_name, tool_config in tools.items():
+            # Skip write tools (declared via destructiveHint annotation)
+            annotations = tool_config.get("annotations") or {}
+            if annotations.get("destructiveHint"):
+                continue
+
             description = tool_config['description'].lower()
-            
-            # Should contain at least one read-only indicator
+
             has_indicator = any(indicator in description for indicator in read_only_indicators)
             assert has_indicator, \
                 f"Tool {tool_name} description doesn't clearly indicate read-only: {description}"
-            
-            # Should not contain write indicators
-            write_indicators = ['create', 'update', 'delete', 'modify', 'edit', 'write', 'post', 'put']
-            has_write = any(indicator in description for indicator in write_indicators)
-            assert not has_write, \
-                f"Tool {tool_name} description contains write indicators: {description}"
     
     def test_descriptions_are_informative(self):
         """Test that descriptions are informative and helpful."""
@@ -298,8 +296,38 @@ class TestToolTransportFiltering:
         )
         assert len(tools) == non_auth_count
         assert "search_accounts" in tools
-        assert "get_all_campaigns" in tools
+        assert "list_campaigns" in tools
+
+
+class TestItemAndDiscoveryAdditions:
+    """Smoke checks for the item write + discovery tools."""
+
+    def test_create_native_item_registered(self):
+        assert "create_native_item" in TOOL_REGISTRY
+        entry = TOOL_REGISTRY["create_native_item"]
+        assert entry["category"] == "items"
+        assert entry["handler"] == "item_handlers.create_native_item"
+        assert entry["annotations"]["destructiveHint"] is True
+        assert entry["annotations"]["idempotentHint"] is False
+
+    def test_update_native_item_registered(self):
+        assert "update_native_item" in TOOL_REGISTRY
+        entry = TOOL_REGISTRY["update_native_item"]
+        assert entry["category"] == "items"
+        assert entry["handler"] == "item_handlers.update_native_item"
+        assert entry["annotations"]["destructiveHint"] is True
+        assert entry["annotations"]["idempotentHint"] is True
+
+    def test_list_cta_types_registered(self):
+        assert "list_cta_types" in TOOL_REGISTRY
+        entry = TOOL_REGISTRY["list_cta_types"]
+        assert entry["category"] == "resources"
+        assert entry["handler"] == "resources.list_cta_types"
+
+    def test_read_item_tools_repointed(self):
+        assert TOOL_REGISTRY["list_items"]["handler"] == "item_handlers.list_items"
+        assert TOOL_REGISTRY["get_item"]["handler"] == "item_handlers.get_item"
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, "-v"]) 
+    pytest.main([__file__, "-v"])

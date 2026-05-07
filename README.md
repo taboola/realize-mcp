@@ -1,6 +1,6 @@
 # Realize MCP Server
 
-A Model Context Protocol (MCP) server that provides read-only access to Taboola's Realize API, enabling AI assistants to analyze campaigns, retrieve performance data, and generate reports through natural language. Install the MCP Server with stdio transport for single-user local use, or Streamable HTTP transport for multi-user deployment.
+A Model Context Protocol (MCP) server providing read and write access to Taboola's Realize API. Enables AI assistants to analyze campaigns, retrieve performance data, generate reports, and manage campaigns and items through natural language. Install with stdio transport for single-user local use, or Streamable HTTP transport for multi-user deployment.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![Python](https://img.shields.io/badge/Python-3.10+-green.svg)](https://python.org) [![MCP](https://img.shields.io/badge/MCP-Compatible-orange.svg)](https://modelcontextprotocol.io/) [![Latest Version][mdversion-button]][md-pypi]
 
@@ -44,46 +44,196 @@ claude mcp add --transport http --callback-port 3000 realize-mcp https://mcp.rea
 
 ### Account Management
 
-**`search_accounts`** — Search accounts by numeric ID or text query. **Call this first** to get `account_id` values needed by all other tools.
+**`search_accounts`** — Search accounts by numeric ID or text query. **Call this first** to get `account_id` values needed by all other tools. Results include `currency`, `country`, and `time_zone_name` so the LLM can pick the right budget amounts and timezone.
 
 ```
-query       (string, required)            Cannot be empty. Numeric = exact ID; text = fuzzy name
-page        (integer, default: 1)         min: 1
-page_size   (integer, default: 10)        min: 1, max: 10 (hard cap)
+query        (string, required)            Cannot be empty. Numeric = exact ID; text = fuzzy name
+page         (integer, default: 1)         min: 1
+page_size    (integer, default: 10)        min: 1, max: 10 (hard cap)
 ```
 
 ### Campaign Management
 
-All campaign tools require `account_id` (string from `search_accounts`), not a raw numeric ID.
-No pagination — all results returned in a single response.
+A campaign holds budget, bidding, schedule, and targeting. It contains items.
 
-**`get_all_campaigns`** — List all campaigns for an account.
+**`list_campaigns`** — List all campaigns for an account.
 
 ```
-account_id  (string, required)
+account_id   (string, required)
 ```
 
 **`get_campaign`** — Get specific campaign details.
 
 ```
+account_id   (string, required)
+campaign_id  (string, required)
+```
+
+#### Campaign write tools (`create_campaign`, `update_campaign`)
+
+Both tools accept the same scalars and targeting blocks. Scalars partial-merge; targeting blocks full-replace within block. New campaigns ship paused unless `is_active=true` is sent.
+
+Required differs:
+
+```
+create_campaign:  account_id, name, marketing_objective, branding_text, spending_limit_model, bid_strategy
+update_campaign:  account_id, campaign_id
+```
+
+Scalars (all optional on update; the create-required ones above are mandatory on create):
+
+```
+name                     (string)
+marketing_objective      (string enum)        BRAND_AWARENESS | DRIVE_WEBSITE_TRAFFIC | LEADS_GENERATION | ONLINE_PURCHASES | MOBILE_APP_INSTALL
+branding_text            (string)             Brand name shown with ads
+spending_limit_model     (string enum)        NONE | MONTHLY | ENTIRE
+spending_limit           (number)             Budget amount in account's default currency
+daily_cap                (number)             Daily spend cap
+bid_strategy             (string enum)        SMART | FIXED | TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE
+cpc                      (number)             Fixed cost per click (FIXED only)
+cpa_goal                 (number)             Target cost per acquisition (TARGET_CPA only)
+cpc_cap                  (number)             Upper bound on bids
+start_date               (string)             YYYY-MM-DD
+end_date                 (string)             YYYY-MM-DD
+tracking_code            (string)             Query string appended to item URLs
+comments                 (string)             Internal notes
+daily_ad_delivery_model  (string enum)        BALANCED | STRICT
+traffic_allocation_mode  (string enum)        OPTIMIZED | EVEN
+is_active                (boolean)            true to launch, false to pause
+```
+
+Targeting blocks (all `object`, optional, full-replace within block):
+
+```
+country_targeting              Classic country (codes from search_geos dimension=countries)
+region_country_targeting       Classic region (codes from search_geos dimension=regions)
+dma_country_targeting          Classic DMA — US-only (codes from search_geos dimension=dma)
+city_targeting                 Classic city (codes from search_geos dimension=cities)
+postal_code_targeting          Classic postal code (codes from search_geos dimension=postal_codes)
+platform_targeting             DESK | PHON | TBLT | TV | OTHR
+os_targeting                   OS family + version (versions via search_techno)
+browser_targeting              Browser names from search_techno dimension=browsers
+connection_type_targeting      WIFI
+activity_schedule              Dayparting (time_zone via list_time_zones)
+conversion_rules               Conversion rule attachments (rules via search_conversion_rules)
+publisher_targeting            Publisher allow/block-list (search_publishers)
+publisher_bid_modifier         Per-publisher CPC bid modifier
+contextual_segments_targeting  Contextual segments (search_contextual_segments)
+audiences_targeting            First-party + custom audiences (search_audiences)
+lookalike_audience_targeting   Lookalike audiences (search_lookalike_audiences)
+```
+
+### Items
+
+An item is a creative (headline, image, URL) served under a campaign. Native `ITEM` type only — RSS, motion ads, performance video, display, hierarchy carousel, and the Creative Library are not supported.
+
+**`list_items`** — List items for a campaign.
+
+```
+account_id   (string, required)
+campaign_id  (string, required)
+```
+
+**`get_item`** — Get a specific item.
+
+```
+account_id   (string, required)
+campaign_id  (string, required)
+item_id      (string, required)
+```
+
+**`create_native_item`** — Create a native item on a campaign. Omit `title` / `description` / `thumbnail_url` to trigger a server-side crawl of `url`.
+
+```
+account_id     (string, required)
+campaign_id    (string, required)
+url            (string, required)            Landing URL
+title          (string)                      Headline
+description    (string)                      Body
+thumbnail_url  (string)                      Image URL
+branding_text  (string)
+cta            (object)                      {cta_type} — values from list_cta_types
+```
+
+**`update_native_item`** — Update specific fields on a native item. Send `[]` for `verification_pixel` / `viewability_tag` to clear.
+
+```
+account_id          (string, required)
+campaign_id         (string, required)
+item_id             (string, required)
+url                 (string)
+title               (string)
+description         (string)
+thumbnail_url       (string)
+branding_text       (string)
+is_active           (boolean)                Pause/resume
+cta                 (object)                 {cta_type}
+verification_pixel  (object)                 Tracking pixels (full-replace within block)
+viewability_tag     (object)                 Viewability tag (full-replace within block)
+```
+
+Editability: items in CRAWLING / PENDING_APPROVAL accept full edits; RUNNING / PAUSED accept only `is_active` toggles plus minor metadata; REJECTED items cannot be edited (recreate).
+
+### Discovery
+
+Use these to populate campaign and item targeting fields with valid values.
+
+**`search_geos`** — Countries, regions, DMAs, cities, postal codes. Returns `{code, name}` pairs; use the `code` field for targeting.
+
+```
+dimension     (string enum, required)       countries | regions | dma | cities | postal_codes
+country_code  (string)                      Required for regions / dma / cities / postal_codes
+```
+
+**`search_techno`** — OS versions and browsers.
+
+```
+dimension  (string enum, required)          operating_system_versions | browsers
+os_family  (string)                         Required for operating_system_versions
+```
+
+**`search_audiences`** — First-party and custom audiences for an account.
+
+```
+account_id              (string, required)
+country_codes           (string)
+country_targeting_type  (string enum)       ALL | INCLUDE | EXCLUDE
+```
+
+**`search_lookalike_audiences`** — CRM / pixel / PBP lookalike audiences.
+
+```
+account_id    (string, required)
+country_code  (string)
+```
+
+**`search_contextual_segments`** — Contextual segments.
+
+```
+account_id              (string, required)
+country_codes           (string)
+country_targeting_type  (string enum)       ALL | INCLUDE | EXCLUDE
+```
+
+**`search_publishers`** — Publishers an account may target.
+
+```
+account_id     (string, required)
+query          (string, required)
+publisher_ids  (array)
+page           (integer, default: 1)        min: 1
+page_size      (integer, default: 10)       min: 1, max: 50
+```
+
+**`search_conversion_rules`** — Conversion rules attached to an account.
+
+```
 account_id  (string, required)
-campaign_id (string, required)
 ```
 
-**`get_campaign_items`** — Get all items/creatives for a campaign.
+**`list_time_zones`** — IANA time-zone names for `activity_schedule.time_zone`. No parameters.
 
-```
-account_id  (string, required)
-campaign_id (string, required)
-```
-
-**`get_campaign_item`** — Get a specific campaign item's details.
-
-```
-account_id  (string, required)
-campaign_id (string, required)
-item_id     (string, required)
-```
+**`list_cta_types`** — `cta.cta_type` values for `create_native_item` / `update_native_item`. No parameters.
 
 ### Reporting (CSV Format)
 
@@ -100,9 +250,9 @@ page_size   (integer, default: 20)        min: 1, max: 100
 Some reports also support sorting and filtering:
 
 ```
-sort_field      (string, optional)        Allowed: clicks, spent, impressions
-sort_direction  (string, default: DESC)   Allowed: ASC, DESC
-filters         (object, optional)        JSON object with string values only
+sort_field      (string enum)             clicks | spent | impressions
+sort_direction  (string enum, default: DESC)   ASC | DESC
+filters         (object)                  JSON object with string values only
 ```
 
 **`get_top_campaign_content_report`** — Top performing campaign content.
@@ -119,11 +269,11 @@ Supports: shared params + sort + filters.
 
 ### Authentication (stdio only)
 
-These tools are only available in stdio mode, where the server manages its own client credentials. In Streamable HTTP mode, authentication is handled at the transport layer via OAuth 2.1 so these tools are excluded.
+These tools are only available in stdio mode. In Streamable HTTP mode authentication is handled at the transport layer via OAuth 2.1, so they are excluded.
 
-**`get_auth_token`** — Authenticate with Realize API using client credentials (`REALIZE_CLIENT_ID`/`REALIZE_CLIENT_SECRET`).
+**`get_auth_token`** — Authenticate via `REALIZE_CLIENT_ID` / `REALIZE_CLIENT_SECRET`.
 
-**`get_token_details`** — Get details about the current authentication token.
+**`get_token_details`** — Inspect the current token.
 
 ---
 
@@ -179,6 +329,37 @@ AI Process:
     sort_direction="DESC"
   )
   Result: Top content sorted by spend
+```
+
+### Update a Campaign Budget
+
+```
+User: "Bump the daily cap on Marketing Corp's Spring Sale campaign to $500"
+AI Process:
+  Step 1: search_accounts("Marketing Corp") → account_id: "mktg_corp_001"
+  Step 2: list_campaigns(account_id="mktg_corp_001") → find Spring Sale → campaign_id: "12345678"
+  Step 3: update_campaign(
+    account_id="mktg_corp_001",
+    campaign_id="12345678",
+    daily_cap=500
+  )
+  Result: Campaign updated; other fields and targeting untouched
+```
+
+### Create a Native Item
+
+```
+User: "Add a new ad to campaign 12345678 pointing at example.com/landing with a Shop Now CTA"
+AI Process:
+  Step 1: search_accounts(...) → account_id: "mktg_corp_001"
+  Step 2: list_cta_types() → confirm "SHOP_NOW" is a valid cta_type
+  Step 3: create_native_item(
+    account_id="mktg_corp_001",
+    campaign_id="12345678",
+    url="https://example.com/landing",
+    cta={"cta_type": "SHOP_NOW"}
+  )
+  Result: Native item created; title/description/thumbnail server-crawled from url
 ```
 
 ### Report Features

@@ -5,6 +5,67 @@ import io
 from typing import Dict, Any, Tuple, List
 
 
+def flatten_results(payload: Any) -> List[Any]:
+    """Unwrap APIResults<APIResource<T>> -> flat list of values.
+
+    Used by resource discovery tools to project the standard Backstage
+    pagination wrapper (`{"results": [{"value": …}, …]}`) into a flat list.
+    Non-dict payloads and dicts without a `results` list pass through.
+    """
+    if not isinstance(payload, dict):
+        return payload
+    results = payload.get("results")
+    if not isinstance(results, list):
+        return payload
+    flattened: List[Any] = []
+    for entry in results:
+        if isinstance(entry, dict) and "value" in entry:
+            flattened.append(entry["value"])
+        else:
+            flattened.append(entry)
+    return flattened
+
+
+def flatten_geo_results(payload: Any) -> List[Any]:
+    """Project APIResource<String> entries into [{code, name}] pairs.
+
+    Backstage's geo dictionary endpoints emit each entry as
+    `{"name": "<code>", "value": "<display name>"}` (e.g. `{"name": "CA",
+    "value": "California"}`). The targeting wire fields (country_targeting,
+    region_targeting, etc.) accept the *code* — `name` here. To make that
+    contract obvious to LLM callers, we emit `{code, name}` objects so the
+    code is unambiguous and the human-readable label is still visible.
+
+    Entries that don't match the {name, value} shape pass through unchanged.
+    """
+    if not isinstance(payload, dict):
+        return payload
+    results = payload.get("results")
+    if not isinstance(results, list):
+        return payload
+    flattened: List[Any] = []
+    for entry in results:
+        if isinstance(entry, dict) and "name" in entry and "value" in entry:
+            flattened.append({"code": entry["name"], "name": entry["value"]})
+        else:
+            flattened.append(entry)
+    return flattened
+
+
+def format_discovery_payload(label: str, label_value: str, values: Any) -> str:
+    """Render a discovery-tool response as `{<label>: <label_value>, "values": [...]}` JSON.
+
+    Shared by resources.py and discovery_handlers.py so all `search_*` / `list_*` tools
+    return the same shape. Pass `label=None` for tools without a context label
+    (network-scoped discovery), which emits `{"values": [...]}` only.
+    """
+    body: Dict[str, Any] = {}
+    if label is not None:
+        body[label] = label_value
+    body["values"] = values
+    return json.dumps(body, ensure_ascii=False, indent=2)
+
+
 def format_response_as_csv(data: Dict[str, Any], max_records_display: int = 1000) -> str:
     """
     Format API response data as CSV with summary header for maximum compactness.
@@ -179,93 +240,13 @@ FORCE_DISPLAY_FIELDS = {
 
 
 def format_response(data: Dict[str, Any], max_records_display: int = 10) -> str:
+    """Render API response as raw JSON.
+
+    Both single-item and collection responses pass through unchanged so the LLM
+    sees full state including nested targeting blocks. Earlier heuristic display
+    truncated nested fields and hid load-bearing data.
     """
-    Format API response data for display with intelligent truncation and summary.
-    Handles both collection responses (with results array) and single item responses.
-
-    Args:
-        data: Raw API response data
-        max_records_display: Maximum number of detailed records to show
-
-    Returns:
-        Formatted string with summary, sample data, and pagination info
-    """
-    if not isinstance(data, dict):
-        return json.dumps(data, indent=2, ensure_ascii=False)
-
-    # Check if this is a collection response (has results array)
-    results = data.get("results", [])
-    metadata = data.get("metadata", {})
-
-    # If no results array, treat this as a single item response
-    if "results" not in data:
-        formatted_parts = []
-        formatted_parts.append(f"📋 **ITEM DETAILS:**")
-
-        # Display key-value pairs for single item
-        for key, value in data.items():
-            if isinstance(value, (int, float, str, bool)):
-                # Always show important fields, otherwise apply length limit
-                if key in FORCE_DISPLAY_FIELDS or len(str(value)) < 100:
-                    formatted_parts.append(f"   • {key}: {value}")
-            elif isinstance(value, (dict, list)):
-                # For complex nested data, show first few items or summarize
-                if isinstance(value, list) and len(value) <= 3:
-                    formatted_parts.append(f"   • {key}: {value}")
-                elif isinstance(value, dict) and len(value) <= 5:
-                    formatted_parts.append(f"   • {key}: {value}")
-                else:
-                    formatted_parts.append(f"   • {key}: [Complex data - {type(value).__name__}]")
-
-        return "\n".join(formatted_parts)
-
-    # Handle collection responses (with results array)
-    formatted_parts = []
-
-    # Summary section
-    if results:
-        formatted_parts.append(f"📊 **SUMMARY:**")
-        formatted_parts.append(f"   • Total records in response: {len(results)}")
-
-        if metadata:
-            if "total" in metadata:
-                formatted_parts.append(f"   • Total available: {metadata['total']}")
-            if "page" in metadata:
-                formatted_parts.append(f"   • Current page: {metadata['page']}")
-            if "page_size" in metadata:
-                formatted_parts.append(f"   • Page size: {metadata['page_size']}")
-
-        # Data preview section
-        formatted_parts.append(f"\n📈 **DATA PREVIEW ({min(len(results), max_records_display)} of {len(results)} records):**")
-
-        for i, record in enumerate(results[:max_records_display]):
-            formatted_parts.append(f"\n   Record {i+1}:")
-            # Show key metrics for report data
-            for key, value in record.items():
-                if isinstance(value, (int, float, str, bool)):
-                    # Always show important fields, otherwise apply length limit
-                    if key in FORCE_DISPLAY_FIELDS or len(str(value)) < 100:
-                        formatted_parts.append(f"     • {key}: {value}")
-        
-        if len(results) > max_records_display:
-            formatted_parts.append(f"\n   ... and {len(results) - max_records_display} more records")
-        
-        # Pagination guidance
-        if metadata.get("total", len(results)) > len(results):
-            formatted_parts.append(f"\n🔄 **PAGINATION INFO:**")
-            formatted_parts.append(f"   • More data available - use 'page' parameter to get additional records")
-            formatted_parts.append(f"   • Increase 'page_size' (max: 1000) to get more records per request")
-    else:
-        formatted_parts.append("📊 **SUMMARY:** No records found")
-    
-    # Metadata section (if any additional info)
-    if metadata and any(k not in ["total", "page", "page_size"] for k in metadata.keys()):
-        formatted_parts.append(f"\n📋 **METADATA:**")
-        for key, value in metadata.items():
-            if key not in ["total", "page", "page_size"]:
-                formatted_parts.append(f"   • {key}: {value}")
-    
-    return "\n".join(formatted_parts)
+    return json.dumps(data, indent=2, ensure_ascii=False)
 
 
 def safe_get(data: Dict[str, Any], key: str, default: Any = "N/A") -> Any:

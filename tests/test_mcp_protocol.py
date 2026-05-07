@@ -225,7 +225,7 @@ class TestErrorHandling:
 
     @pytest.mark.asyncio
     async def test_4xx_error_proxied(self):
-        """Test that 4xx errors are proxied verbatim."""
+        """Test that 4xx errors surface status code + response body."""
         import httpx
 
         error = httpx.HTTPStatusError(
@@ -235,7 +235,7 @@ class TestErrorHandling:
         with patch('realize.tools.account_handlers.client.get') as mock_get:
             mock_get.side_effect = error
 
-            with pytest.raises(Exception, match="404 Not Found"):
+            with pytest.raises(Exception, match="Realize API returned 404"):
                 await handle_call_tool("search_accounts", {"query": "test"})
 
     @pytest.mark.asyncio
