@@ -456,6 +456,7 @@ Run the Streamable HTTP transport yourself (multi-user via OAuth 2.1, stateless,
 - Optional: `OAUTH_SERVER_URL` (defaults to `https://authentication.taboola.com/authentication`)
 - Publicly accessible server URL for OAuth callbacks
 - `MCP_SERVER_SCHEME` — defaults to `https`. Set to `http` for local dev without TLS.
+- `MCP_SSE_PING_INTERVAL` — SSE keepalive interval in seconds, defaults to `5`. Lower than the smallest between-bytes timeout in your proxy chain so the response stream stays alive on slow tool calls.
 
 **Install:**
 
