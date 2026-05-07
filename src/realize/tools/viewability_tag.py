@@ -1,4 +1,4 @@
-"""Viewability-tag helpers for update_campaign_item.
+"""Viewability-tag helpers for update_native_item.
 
 Public Realize wire shape (matches Backstage APIViewabilityTag):
 {

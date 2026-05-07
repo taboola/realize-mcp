@@ -1,4 +1,4 @@
-"""Third-party verification pixel helpers for update_campaign_item.
+"""Third-party verification pixel helpers for update_native_item.
 
 Public Realize wire shape (matches Backstage APIVerificationPixel):
 {

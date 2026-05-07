@@ -19,17 +19,17 @@ Campaigns (write — fat tools, all targeting inline, single atomic POST):
   - create_campaign
   - update_campaign
 
-Campaign items:
-  - list_campaign_items                  (read)
-  - get_campaign_item                    (read)
-  - create_campaign_item                 (write — standard ITEM only; auto-crawl when title/description/thumbnail omitted)
-  - update_campaign_item                 (write — partial-merge scalars; full-replace verification_pixel / viewability_tag arrays)
+Items (creatives):
+  - list_items                           (read — generic; returns whichever creative type the campaign holds)
+  - get_item                             (read — generic; response carries `creative_type`)
+  - create_native_item                   (write — Backstage `STATIC_IMAGE`; auto-crawl when title/description/thumbnail omitted)
+  - update_native_item                   (write — partial-merge scalars; full-replace verification_pixel / viewability_tag arrays)
 
 Discovery (resources for resolving IDs/names used in campaign + item payloads):
   - search_geos                          (countries / regions / dma / cities / postal_codes)
   - search_techno                        (browsers, operating_system_versions per family)
   - list_time_zones                      (IANA names for activity_schedule.time_zone)
-  - list_cta_types                       (cta.cta_type values for create/update_campaign_item)
+  - list_cta_types                       (cta.cta_type values for create/update_native_item)
   - search_audiences                     (first-party + custom audience IDs)
   - search_lookalike_audiences           (CRM/pixel/PBP rule_ids)
   - search_contextual_segments           (contextual segment IDs per account)
@@ -388,7 +388,7 @@ Discover rule_ids via search_lookalike_audiences. PBP lookalike audiences must b
 }
 
 
-# 2.10 Campaign-item schemas — used by create_campaign_item / update_campaign_item
+# 2.10 Item schemas — used by create_native_item / update_native_item
 
 _ITEM_CTA_SCHEMA = {
     "type": "object",
@@ -768,13 +768,13 @@ _ITEM_NESTED_PROPERTIES_UPDATE = {
 
 
 _CREATE_CAMPAIGN_ITEM_PROSE = """\
-Create a campaign item directly attached to a campaign on Realize. "Campaign item", "item", "ad", and "creative" all refer to the same object — this tool creates one. Returns the created item with its server-assigned `id`, `status`, and `approval_state`.
+Create a native item (Backstage `STATIC_IMAGE`) directly attached to a campaign on Realize. "Item", "ad", and "creative" all refer to the same object — this tool creates one. Returns the created item with its server-assigned `id`, `status`, and `approval_state`.
 
 Prerequisites: call search_accounts to obtain `account_id`; call list_campaigns or get_campaign to obtain `campaign_id`. Numeric account IDs are rejected.
 
 Auto-crawl: omitting `title`, `description`, and/or `thumbnail_url` triggers a server-side crawl of `url`; the crawler populates the missing fields. New items typically transition CRAWLING → PENDING_APPROVAL → RUNNING. Override any crawled field by passing it explicitly.
 
-Scope: this tool creates a regular `ITEM` directly attached to the campaign. RSS feed items, motion ads, performance video items, display creatives, hierarchy carousel items, and the Creative Library are not supported.
+Scope: native creatives only (headline + image + landing url). Display creatives (banner / HTML / 3rd-party tag) and performance-video creatives have separate tools (`create_display_item`, `create_video_item` — coming in follow-up PRs). RSS feed items, hierarchy carousel items, and the Creative Library are not supported. Note: Backstage enforces single-creative-type per campaign — once a campaign holds an item of one type, only items of that same type can be added.
 
 Discovery (call before constructing the payload to resolve IDs/names):
 - list_cta_types → `cta.cta_type` allowed values.
@@ -785,7 +785,7 @@ Item creation goes in one atomic call; either the item commits with all fields, 
 
 Comprehensive example (every available field set; trim what you don't need — only `account_id`, `campaign_id`, and `url` are mandatory).
 
-Plain English: a "Spring Sale" creative for the Acme brand, landing at example.com/landing, with explicit headline / body / thumbnail (overriding auto-crawl) and Shop Now CTA. New items are always created active; use update_campaign_item to pause if needed.
+Plain English: a "Spring Sale" creative for the Acme brand, landing at example.com/landing, with explicit headline / body / thumbnail (overriding auto-crawl) and Shop Now CTA. New items are always created active; use update_native_item to pause if needed.
 
 """
 
@@ -807,17 +807,17 @@ _CREATE_CAMPAIGN_ITEM_DESCRIPTION = _CREATE_CAMPAIGN_ITEM_PROSE + _CREATE_CAMPAI
 
 
 _UPDATE_CAMPAIGN_ITEM_PROSE = """\
-Update an existing campaign item: scalars and any nested block (cta, verification_pixel, viewability_tag) in one call. "Campaign item", "item", "ad", and "creative" all refer to the same object — this tool updates one.
+Update an existing native item: scalars and any nested block (cta, verification_pixel, viewability_tag) in one call. "Item", "ad", and "creative" all refer to the same object — this tool updates one. Use only on items whose `creative_type` is `STATIC_IMAGE` (verify via get_item).
 
-Prerequisites: call search_accounts (`account_id`), list_campaigns or get_campaign (`campaign_id`), list_campaign_items or get_campaign_item (`item_id`). Numeric account IDs are rejected.
+Prerequisites: call search_accounts (`account_id`), list_campaigns or get_campaign (`campaign_id`), list_items or get_item (`item_id`). Numeric account IDs are rejected.
 
 Partial-merge for scalars: fields omitted from the request keep their prior value.
 
-Array semantics — FULL-REPLACE within section: sending `verification_pixel` or `viewability_tag` overwrites the entire prior list for that field. Send [] to clear. To edit one entry, read with get_campaign_item, modify locally, send the merged result.
+Array semantics — FULL-REPLACE within section: sending `verification_pixel` or `viewability_tag` overwrites the entire prior list for that field. Send [] to clear. To edit one entry, read with get_item, modify locally, send the merged result.
 
 Editability: items in CRAWLING / CRAWLING_ERROR / PENDING_APPROVAL accept full edits. Items in RUNNING / PAUSED practically only accept `is_active` toggles and minor metadata; the API surfaces 4xx for non-allowed transitions. REJECTED items cannot be edited — recreate.
 
-Scope: standard `ITEM` only. RSS feed items, motion ads, performance video, display, hierarchy carousel, and the Creative Library are not supported.
+Scope: native creatives only (`STATIC_IMAGE`). Display and performance-video items have separate update tools (`update_display_item`, `update_video_item` — coming in follow-up PRs).
 
 Discovery (call before constructing the payload to resolve IDs/names):
 - list_cta_types → `cta.cta_type` allowed values.
@@ -895,7 +895,7 @@ _UPDATE_CAMPAIGN_ITEM_PROPERTIES = {
     },
     "item_id": {
         "type": "string",
-        "description": "Value from list_campaign_items.id or get_campaign_item.id. Numeric ID as a string (e.g. \"987654321\").",
+        "description": "Value from list_items.id or get_item.id. Numeric ID as a string (e.g. \"987654321\").",
     },
     **_ITEM_SCALAR_PROPERTIES_CREATE,
     **_ITEM_SCALAR_PROPERTIES_UPDATE_EXTRAS,
@@ -1043,10 +1043,10 @@ _CAMPAIGN_WRITE_TOOLS = {
 }
 
 
-# 5.5 Campaign items (read + write)
+# 5.5 Items (read + write)
 _CAMPAIGN_ITEM_TOOLS = {
-    "list_campaign_items": {
-        "description": "List all items on a campaign (read-only). \"Campaign item\", \"item\", \"ad\", and \"creative\" all refer to the same object.",
+    "list_items": {
+        "description": "List all items on a campaign (read-only). \"Item\", \"ad\", and \"creative\" all refer to the same object. Returns whichever creative type the campaign holds (Backstage enforces single-creative-type per campaign); each result carries `creative_type` so callers know which write tool fits.",
         "schema": {
             "type": "object",
             "properties": {
@@ -1061,12 +1061,12 @@ _CAMPAIGN_ITEM_TOOLS = {
             },
             "required": ["account_id", "campaign_id"]
         },
-        "handler": "campaign_item_handlers.list_campaign_items",
-        "category": "campaign_items"
+        "handler": "campaign_item_handlers.list_items",
+        "category": "items"
     },
 
-    "get_campaign_item": {
-        "description": "Get details for one item on a campaign (read-only). \"Campaign item\", \"item\", \"ad\", and \"creative\" all refer to the same object.",
+    "get_item": {
+        "description": "Get details for one item (read-only). \"Item\", \"ad\", and \"creative\" all refer to the same object. Response carries `creative_type` (`STATIC_IMAGE` | `HTML_CARD` | `PERFORMANCE_VIDEO`) — use this to pick the right update tool.",
         "schema": {
             "type": "object",
             "properties": {
@@ -1080,36 +1080,36 @@ _CAMPAIGN_ITEM_TOOLS = {
                 },
                 "item_id": {
                     "type": "string",
-                    "description": "Value from list_campaign_items.id."
+                    "description": "Value from list_items.id."
                 }
             },
             "required": ["account_id", "campaign_id", "item_id"]
         },
-        "handler": "campaign_item_handlers.get_campaign_item",
-        "category": "campaign_items"
+        "handler": "campaign_item_handlers.get_item",
+        "category": "items"
     },
 
-    "create_campaign_item": {
+    "create_native_item": {
         "description": _CREATE_CAMPAIGN_ITEM_DESCRIPTION,
         "schema": {
             "type": "object",
             "properties": _CREATE_CAMPAIGN_ITEM_PROPERTIES,
             "required": ["account_id", "campaign_id", "url"],
         },
-        "handler": "campaign_item_handlers.create_campaign_item",
-        "category": "campaign_items",
+        "handler": "campaign_item_handlers.create_native_item",
+        "category": "items",
         "annotations": _DESTRUCTIVE_ANNOTATIONS_CREATE,
     },
 
-    "update_campaign_item": {
+    "update_native_item": {
         "description": _UPDATE_CAMPAIGN_ITEM_DESCRIPTION,
         "schema": {
             "type": "object",
             "properties": _UPDATE_CAMPAIGN_ITEM_PROPERTIES,
             "required": ["account_id", "campaign_id", "item_id"],
         },
-        "handler": "campaign_item_handlers.update_campaign_item",
-        "category": "campaign_items",
+        "handler": "campaign_item_handlers.update_native_item",
+        "category": "items",
         "annotations": _DESTRUCTIVE_ANNOTATIONS_UPDATE,
     },
 }
@@ -1348,7 +1348,7 @@ List valid IANA time zone names for `activity_schedule.time_zone` on create_camp
 
     "list_cta_types": {
         "description": """\
-List allowed values for `cta.cta_type` on create_campaign_item / update_campaign_item
+List allowed values for `cta.cta_type` on create_native_item / update_native_item
 (read-only). The set is curated by Realize and changes over time; prefer this tool over
 hard-coded enums.""",
         "schema": {

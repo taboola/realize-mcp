@@ -102,7 +102,7 @@ class TestToolRegistryEdgeCases:
         categories = get_tool_categories()
         
         # Should have all expected categories
-        expected_categories = ['authentication', 'accounts', 'campaigns', 'campaign_items', 'reports']
+        expected_categories = ['authentication', 'accounts', 'campaigns', 'items', 'reports']
         
         for expected in expected_categories:
             assert expected in categories, f"Expected category {expected} not found"
@@ -299,22 +299,22 @@ class TestToolTransportFiltering:
         assert "list_campaigns" in tools
 
 
-class TestCampaignItemAndDiscoveryAdditions:
-    """Smoke checks for the new write + discovery tools."""
+class TestItemAndDiscoveryAdditions:
+    """Smoke checks for the item write + discovery tools."""
 
-    def test_create_campaign_item_registered(self):
-        assert "create_campaign_item" in TOOL_REGISTRY
-        entry = TOOL_REGISTRY["create_campaign_item"]
-        assert entry["category"] == "campaign_items"
-        assert entry["handler"] == "campaign_item_handlers.create_campaign_item"
+    def test_create_native_item_registered(self):
+        assert "create_native_item" in TOOL_REGISTRY
+        entry = TOOL_REGISTRY["create_native_item"]
+        assert entry["category"] == "items"
+        assert entry["handler"] == "campaign_item_handlers.create_native_item"
         assert entry["annotations"]["destructiveHint"] is True
         assert entry["annotations"]["idempotentHint"] is False
 
-    def test_update_campaign_item_registered(self):
-        assert "update_campaign_item" in TOOL_REGISTRY
-        entry = TOOL_REGISTRY["update_campaign_item"]
-        assert entry["category"] == "campaign_items"
-        assert entry["handler"] == "campaign_item_handlers.update_campaign_item"
+    def test_update_native_item_registered(self):
+        assert "update_native_item" in TOOL_REGISTRY
+        entry = TOOL_REGISTRY["update_native_item"]
+        assert entry["category"] == "items"
+        assert entry["handler"] == "campaign_item_handlers.update_native_item"
         assert entry["annotations"]["destructiveHint"] is True
         assert entry["annotations"]["idempotentHint"] is True
 
@@ -325,8 +325,8 @@ class TestCampaignItemAndDiscoveryAdditions:
         assert entry["handler"] == "resources.list_cta_types"
 
     def test_read_item_tools_repointed(self):
-        assert TOOL_REGISTRY["list_campaign_items"]["handler"] == "campaign_item_handlers.list_campaign_items"
-        assert TOOL_REGISTRY["get_campaign_item"]["handler"] == "campaign_item_handlers.get_campaign_item"
+        assert TOOL_REGISTRY["list_items"]["handler"] == "campaign_item_handlers.list_items"
+        assert TOOL_REGISTRY["get_item"]["handler"] == "campaign_item_handlers.get_item"
 
 
 if __name__ == "__main__":

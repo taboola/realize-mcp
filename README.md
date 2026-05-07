@@ -123,18 +123,20 @@ audiences_targeting            First-party + custom audiences (search_audiences)
 lookalike_audience_targeting   Lookalike audiences (search_lookalike_audiences)
 ```
 
-### Campaign Items
+### Items
 
-An item is a creative (headline, image, URL) served under a campaign. Standard `ITEM` type only — RSS, motion ads, performance video, display, hierarchy carousel, and the Creative Library are not supported.
+An item is a creative (headline, image, URL) served under a campaign. Backstage enforces single-creative-type per campaign — once a campaign holds an item of one type, only items of that same type can be added. Reads (`list_items` / `get_item`) are generic and return whichever creative type the campaign holds; writes are split per type.
 
-**`list_campaign_items`** — List items for a campaign.
+Today only **native** creatives (`STATIC_IMAGE`) are supported via `create_native_item` / `update_native_item`. Display (banner / HTML / 3rd-party tag) and performance-video creatives ship in follow-up PRs as separate `*_display_item` / `*_video_item` tool pairs. RSS, hierarchy carousel, and the Creative Library are not supported.
+
+**`list_items`** — List items for a campaign. Each result carries `creative_type`.
 
 ```
 account_id   (string, required)
 campaign_id  (string, required)
 ```
 
-**`get_campaign_item`** — Get a specific item.
+**`get_item`** — Get one item. Response carries `creative_type` (`STATIC_IMAGE` | `HTML_CARD` | `PERFORMANCE_VIDEO`).
 
 ```
 account_id   (string, required)
@@ -142,7 +144,7 @@ campaign_id  (string, required)
 item_id      (string, required)
 ```
 
-**`create_campaign_item`** — Create an item on a campaign. Omit `title` / `description` / `thumbnail_url` to trigger a server-side crawl of `url`.
+**`create_native_item`** — Create a native item on a campaign. Omit `title` / `description` / `thumbnail_url` to trigger a server-side crawl of `url`.
 
 ```
 account_id     (string, required)
@@ -155,7 +157,7 @@ branding_text  (string)
 cta            (object)                      {cta_type} — values from list_cta_types
 ```
 
-**`update_campaign_item`** — Update specific fields on an item. Send `[]` for `verification_pixel` / `viewability_tag` to clear.
+**`update_native_item`** — Update specific fields on a native item. Send `[]` for `verification_pixel` / `viewability_tag` to clear.
 
 ```
 account_id          (string, required)
@@ -233,7 +235,7 @@ account_id  (string, required)
 
 **`list_time_zones`** — IANA time-zone names for `activity_schedule.time_zone`. No parameters.
 
-**`list_cta_types`** — `cta.cta_type` values for `create_campaign_item` / `update_campaign_item`. No parameters.
+**`list_cta_types`** — `cta.cta_type` values for `create_native_item` / `update_native_item`. No parameters.
 
 ### Reporting (CSV Format)
 
@@ -346,20 +348,20 @@ AI Process:
   Result: Campaign updated; other fields and targeting untouched
 ```
 
-### Create a Campaign Item
+### Create a Native Item
 
 ```
 User: "Add a new ad to campaign 12345678 pointing at example.com/landing with a Shop Now CTA"
 AI Process:
   Step 1: search_accounts(...) → account_id: "mktg_corp_001"
   Step 2: list_cta_types() → confirm "SHOP_NOW" is a valid cta_type
-  Step 3: create_campaign_item(
+  Step 3: create_native_item(
     account_id="mktg_corp_001",
     campaign_id="12345678",
     url="https://example.com/landing",
     cta={"cta_type": "SHOP_NOW"}
   )
-  Result: Item created; title/description/thumbnail server-crawled from url
+  Result: Native item created; title/description/thumbnail server-crawled from url
 ```
 
 ### Report Features

@@ -24,7 +24,7 @@ class TestProductionReadiness:
             'get_auth_token', 'get_token_details',
             'search_accounts',
             'list_campaigns', 'get_campaign',
-            'list_campaign_items', 'get_campaign_item',
+            'list_items', 'get_item',
             'get_top_campaign_content_report', 'get_campaign_history_report',
             'get_campaign_breakdown_report', 'get_campaign_site_day_breakdown_report'
         ]
@@ -38,7 +38,7 @@ class TestProductionReadiness:
 
         forbidden_operations = [
             'update_campaign', 'delete_campaign', 'duplicate_campaign',
-            'create_campaign_item', 'update_campaign_item', 'delete_campaign_item',
+            'delete_native_item',
             'update_', 'delete_', 'post_', 'put_', 'patch_'
         ]
 
@@ -53,7 +53,7 @@ class TestProductionReadiness:
     
     def test_tool_categories_exist(self):
         """Test that all tool categories are properly defined for read-only operations."""
-        categories = ['authentication', 'accounts', 'campaigns', 'campaign_items', 'reports']
+        categories = ['authentication', 'accounts', 'campaigns', 'items', 'reports']
         
         for category in categories:
             tools = get_tools_by_category(category)

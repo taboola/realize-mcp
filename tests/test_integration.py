@@ -110,7 +110,7 @@ class TestReadOnlyIntegration:
     @patch('realize.tools.campaign_handlers.client.get')
     async def test_campaign_items_integration(self, mock_get):
         """Test campaign items tools integration with raw JSON."""
-        # Test list_campaign_items
+        # Test list_items
         mock_get.return_value = {
             "results": [
                 {
@@ -121,24 +121,24 @@ class TestReadOnlyIntegration:
                 }
             ]
         }
-        
-        result = await handle_call_tool("list_campaign_items", {
-            "account_id": "test_account", 
+
+        result = await handle_call_tool("list_items", {
+            "account_id": "test_account",
             "campaign_id": "123"
         })
         assert len(result) == 1
         assert "Test Campaign Item" in result[0].text
-        
-        # Test get_campaign_item - reset mock with new data
+
+        # Test get_item - reset mock with new data
         mock_get.return_value = {
             "id": "item_123",
             "title": "Single Campaign Item",
             "status": "APPROVED"
         }
-        
-        result = await handle_call_tool("get_campaign_item", {
+
+        result = await handle_call_tool("get_item", {
             "account_id": "test_account",
-            "campaign_id": "123", 
+            "campaign_id": "123",
             "item_id": "item_123"
         })
         assert len(result) == 1
@@ -199,7 +199,7 @@ class TestReadOnlyIntegration:
         error_tools = [
             ("list_campaigns", {"account_id": "test"}),
             ("get_campaign", {"account_id": "test", "campaign_id": "123"}),
-            ("list_campaign_items", {"account_id": "test", "campaign_id": "123"})
+            ("list_items", {"account_id": "test", "campaign_id": "123"})
         ]
 
         for tool_name, args in error_tools:
@@ -214,8 +214,8 @@ class TestReadOnlyIntegration:
         validation_tests = [
             ("list_campaigns", {}, "account_id is required"),
             ("get_campaign", {"account_id": "test"}, "campaign_id"),
-            ("list_campaign_items", {"account_id": "test"}, "campaign_id"),
-            ("get_campaign_item", {"account_id": "test", "campaign_id": "123"}, "item_id"),
+            ("list_items", {"account_id": "test"}, "campaign_id"),
+            ("get_item", {"account_id": "test", "campaign_id": "123"}, "item_id"),
             ("get_campaign_breakdown_report", {"account_id": "test"}, "start_date"),
             ("get_top_campaign_content_report", {"account_id": "test"}, "start_date"),
             ("get_campaign_history_report", {"account_id": "test"}, "start_date")
@@ -240,7 +240,7 @@ class TestReadOnlyIntegration:
                 category_counts[category] = category_counts.get(category, 0) + 1
         
         # Verify we have tools in all expected categories
-        expected_categories = ['authentication', 'accounts', 'campaigns', 'campaign_items', 'reports']
+        expected_categories = ['authentication', 'accounts', 'campaigns', 'items', 'reports']
         for category in expected_categories:
             assert category in category_counts, f"No tools found in category: {category}"
             assert category_counts[category] > 0, f"Category {category} has no tools"

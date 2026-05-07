@@ -1,4 +1,4 @@
-"""Tests for the update_campaign_item write tool."""
+"""Tests for the update_native_item write tool."""
 import pytest
 from unittest.mock import AsyncMock, patch
 
@@ -32,34 +32,34 @@ class TestUpdateCampaignItemBaseValidation:
     async def test_missing_account_id_raises(self):
         with pytest.raises(ToolInputError, match="account_id is required"):
             await handle_call_tool(
-                "update_campaign_item",
+                "update_native_item",
                 {"campaign_id": "49184816", "item_id": "987654321", "is_active": False},
             )
 
     @pytest.mark.asyncio
     async def test_numeric_account_id_rejected(self):
         with pytest.raises(ToolInputError, match="search_accounts"):
-            await handle_call_tool("update_campaign_item", _args(account_id="12345"))
+            await handle_call_tool("update_native_item", _args(account_id="12345"))
 
     @pytest.mark.asyncio
     async def test_missing_campaign_id_raises(self):
         args = _args()
         del args["campaign_id"]
         with pytest.raises(ToolInputError, match="campaign_id is required"):
-            await handle_call_tool("update_campaign_item", args)
+            await handle_call_tool("update_native_item", args)
 
     @pytest.mark.asyncio
     async def test_missing_item_id_raises(self):
         args = _args()
         del args["item_id"]
         with pytest.raises(ToolInputError, match="item_id is required"):
-            await handle_call_tool("update_campaign_item", args)
+            await handle_call_tool("update_native_item", args)
 
     @pytest.mark.asyncio
     async def test_no_updatable_fields_rejected(self):
         with pytest.raises(ToolInputError, match="at least one updatable field"):
             await handle_call_tool(
-                "update_campaign_item",
+                "update_native_item",
                 {"account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321"},
             )
 
@@ -67,7 +67,7 @@ class TestUpdateCampaignItemBaseValidation:
     async def test_only_none_values_rejected(self):
         with pytest.raises(ToolInputError, match="at least one updatable field"):
             await handle_call_tool(
-                "update_campaign_item",
+                "update_native_item",
                 {
                     "account_id": "acme-inc",
                     "campaign_id": "49184816",
@@ -83,14 +83,14 @@ class TestUpdateCampaignItemWireMapping:
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_posts_to_item_endpoint(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
-        await handle_call_tool("update_campaign_item", _args())
+        await handle_call_tool("update_native_item", _args())
         assert _post_endpoint(mock_post) == "/acme-inc/campaigns/49184816/items/987654321"
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_url_encodes_path_segments(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
-        await handle_call_tool("update_campaign_item", _args(
+        await handle_call_tool("update_native_item", _args(
             account_id="acme/evil",
             campaign_id="c/1",
             item_id="i/1",
@@ -101,7 +101,7 @@ class TestUpdateCampaignItemWireMapping:
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_path_ids_not_in_body(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
-        await handle_call_tool("update_campaign_item", _args())
+        await handle_call_tool("update_native_item", _args())
         body = _post_body(mock_post)
         assert "account_id" not in body
         assert "campaign_id" not in body
@@ -111,7 +111,7 @@ class TestUpdateCampaignItemWireMapping:
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_single_scalar_passes_through(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
-        await handle_call_tool("update_campaign_item", _args())
+        await handle_call_tool("update_native_item", _args())
         assert _post_body(mock_post) == {"is_active": False}
 
     @pytest.mark.parametrize("field,value", [
@@ -127,7 +127,7 @@ class TestUpdateCampaignItemWireMapping:
     async def test_scalar_field_pass_through(self, mock_post, field, value):
         mock_post.return_value = {"id": "987654321"}
         args = {"account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321", field: value}
-        await handle_call_tool("update_campaign_item", args)
+        await handle_call_tool("update_native_item", args)
         assert _post_body(mock_post) == {field: value}
 
 
@@ -137,7 +137,7 @@ class TestUpdateCampaignItemNested:
     async def test_cta_passes_through(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
         await handle_call_tool(
-            "update_campaign_item",
+            "update_native_item",
             _args(cta={"cta_type": "LEARN_MORE"}),
         )
         body = _post_body(mock_post)
@@ -146,13 +146,13 @@ class TestUpdateCampaignItemNested:
     @pytest.mark.asyncio
     async def test_cta_invalid_rejected(self):
         with pytest.raises(ToolInputError, match="cta"):
-            await handle_call_tool("update_campaign_item", _args(cta={"cta_type": ""}))
+            await handle_call_tool("update_native_item", _args(cta={"cta_type": ""}))
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_verification_pixel_full_replace(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
-        await handle_call_tool("update_campaign_item", _args(
+        await handle_call_tool("update_native_item", _args(
             verification_pixel={
                 "verification_pixel_items": [
                     {"url": "https://verify.example.com/c", "verification_pixel_type": "CLICK"},
@@ -172,7 +172,7 @@ class TestUpdateCampaignItemNested:
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_verification_pixel_empty_clears(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
-        await handle_call_tool("update_campaign_item", _args(
+        await handle_call_tool("update_native_item", _args(
             verification_pixel={"verification_pixel_items": []},
         ))
         body = _post_body(mock_post)
@@ -181,7 +181,7 @@ class TestUpdateCampaignItemNested:
     @pytest.mark.asyncio
     async def test_verification_pixel_invalid_type_rejected(self):
         with pytest.raises(ToolInputError, match="verification_pixel_type"):
-            await handle_call_tool("update_campaign_item", _args(
+            await handle_call_tool("update_native_item", _args(
                 verification_pixel={
                     "verification_pixel_items": [
                         {"url": "https://x.example/", "verification_pixel_type": "BOGUS"},
@@ -192,7 +192,7 @@ class TestUpdateCampaignItemNested:
     @pytest.mark.asyncio
     async def test_verification_pixel_missing_url_rejected(self):
         with pytest.raises(ToolInputError, match="verification_pixel.*url"):
-            await handle_call_tool("update_campaign_item", _args(
+            await handle_call_tool("update_native_item", _args(
                 verification_pixel={
                     "verification_pixel_items": [
                         {"verification_pixel_type": "CLICK"},
@@ -203,13 +203,13 @@ class TestUpdateCampaignItemNested:
     @pytest.mark.asyncio
     async def test_verification_pixel_not_object_rejected(self):
         with pytest.raises(ToolInputError, match="verification_pixel must be an object"):
-            await handle_call_tool("update_campaign_item", _args(verification_pixel=[]))
+            await handle_call_tool("update_native_item", _args(verification_pixel=[]))
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_viewability_tag_full_replace(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
-        await handle_call_tool("update_campaign_item", _args(
+        await handle_call_tool("update_native_item", _args(
             viewability_tag={
                 "values": [
                     {"tag": "<script>1</script>", "type": "IAS"},
@@ -229,7 +229,7 @@ class TestUpdateCampaignItemNested:
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_viewability_tag_empty_clears(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
-        await handle_call_tool("update_campaign_item", _args(
+        await handle_call_tool("update_native_item", _args(
             viewability_tag={"values": []},
         ))
         body = _post_body(mock_post)
@@ -238,14 +238,14 @@ class TestUpdateCampaignItemNested:
     @pytest.mark.asyncio
     async def test_viewability_tag_invalid_type_rejected(self):
         with pytest.raises(ToolInputError, match="viewability_tag.*type"):
-            await handle_call_tool("update_campaign_item", _args(
+            await handle_call_tool("update_native_item", _args(
                 viewability_tag={"values": [{"tag": "x", "type": "BOGUS"}]},
             ))
 
     @pytest.mark.asyncio
     async def test_viewability_tag_not_object_rejected(self):
         with pytest.raises(ToolInputError, match="viewability_tag must be an object"):
-            await handle_call_tool("update_campaign_item", _args(viewability_tag=[]))
+            await handle_call_tool("update_native_item", _args(viewability_tag=[]))
 
 
 class TestUpdateCampaignItemMultiField:
@@ -253,7 +253,7 @@ class TestUpdateCampaignItemMultiField:
     @patch('realize.tools.campaign_item_handlers.client.post', new_callable=AsyncMock)
     async def test_multi_field_update(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
-        await handle_call_tool("update_campaign_item", _args(
+        await handle_call_tool("update_native_item", _args(
             title="New title",
             cta={"cta_type": "READ_MORE"},
             verification_pixel={
@@ -279,7 +279,7 @@ class TestUpdateCampaignItemAnnotations:
         from realize.realize_server import handle_list_tools
 
         tools = await handle_list_tools()
-        update = next(t for t in tools if t.name == "update_campaign_item")
+        update = next(t for t in tools if t.name == "update_native_item")
 
         assert update.annotations is not None
         assert update.annotations.destructiveHint is True
@@ -291,6 +291,6 @@ class TestUpdateCampaignItemAnnotations:
         from realize.realize_server import handle_list_tools
 
         tools = await handle_list_tools()
-        update = next(t for t in tools if t.name == "update_campaign_item")
+        update = next(t for t in tools if t.name == "update_native_item")
 
         assert set(update.inputSchema["required"]) == {"account_id", "campaign_id", "item_id"}

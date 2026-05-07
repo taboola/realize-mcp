@@ -1,4 +1,4 @@
-"""Tests for the create_campaign_item write tool."""
+"""Tests for the create_native_item write tool."""
 import pytest
 from unittest.mock import AsyncMock, patch
 
@@ -37,7 +37,7 @@ class TestCreateCampaignItemHappyPath:
     async def test_minimal_url_only(self, mock_post):
         mock_post.return_value = {"results": [{"id": "987654321", "status": "CRAWLING"}]}
 
-        result = await handle_call_tool("create_campaign_item", _args())
+        result = await handle_call_tool("create_native_item", _args())
 
         assert _post_endpoint(mock_post) == "/acme-inc/campaigns/49184816/items/mass"
         body = _post_body(mock_post)
@@ -52,7 +52,7 @@ class TestCreateCampaignItemHappyPath:
     async def test_full_create_payload(self, mock_post):
         mock_post.return_value = {"results": [{"id": "987654321"}]}
 
-        await handle_call_tool("create_campaign_item", _args(
+        await handle_call_tool("create_native_item", _args(
             title="Save 20% This Spring",
             description="Limited-time offer.",
             thumbnail_url="https://cdn.example.com/spring.jpg",
@@ -74,7 +74,7 @@ class TestCreateCampaignItemHappyPath:
     async def test_unknown_args_dropped(self, mock_post):
         mock_post.return_value = {"results": [{"id": "987654321"}]}
 
-        await handle_call_tool("create_campaign_item", _args(extra_unknown="dropped"))
+        await handle_call_tool("create_native_item", _args(extra_unknown="dropped"))
 
         item = _post_item(mock_post)
         assert "extra_unknown" not in item
@@ -85,43 +85,43 @@ class TestCreateCampaignItemValidation:
     async def test_missing_account_id_raises(self):
         with pytest.raises(ToolInputError, match="account_id is required"):
             await handle_call_tool(
-                "create_campaign_item",
+                "create_native_item",
                 {"campaign_id": "49184816", "url": "https://example.com"},
             )
 
     @pytest.mark.asyncio
     async def test_numeric_account_id_rejected(self):
         with pytest.raises(ToolInputError, match="search_accounts"):
-            await handle_call_tool("create_campaign_item", _args(account_id="12345"))
+            await handle_call_tool("create_native_item", _args(account_id="12345"))
 
     @pytest.mark.asyncio
     async def test_missing_campaign_id_raises(self):
         args = _args()
         del args["campaign_id"]
         with pytest.raises(ToolInputError, match="campaign_id is required"):
-            await handle_call_tool("create_campaign_item", args)
+            await handle_call_tool("create_native_item", args)
 
     @pytest.mark.asyncio
     async def test_missing_url_raises(self):
         args = _args()
         del args["url"]
         with pytest.raises(ToolInputError, match="Missing required field.*url"):
-            await handle_call_tool("create_campaign_item", args)
+            await handle_call_tool("create_native_item", args)
 
     @pytest.mark.asyncio
     async def test_cta_not_object_raises(self):
         with pytest.raises(ToolInputError, match="cta must be an object"):
-            await handle_call_tool("create_campaign_item", _args(cta="SHOP_NOW"))
+            await handle_call_tool("create_native_item", _args(cta="SHOP_NOW"))
 
     @pytest.mark.asyncio
     async def test_cta_missing_cta_type_raises(self):
         with pytest.raises(ToolInputError, match="cta.cta_type"):
-            await handle_call_tool("create_campaign_item", _args(cta={}))
+            await handle_call_tool("create_native_item", _args(cta={}))
 
     @pytest.mark.asyncio
     async def test_cta_empty_cta_type_raises(self):
         with pytest.raises(ToolInputError, match="cta.cta_type"):
-            await handle_call_tool("create_campaign_item", _args(cta={"cta_type": ""}))
+            await handle_call_tool("create_native_item", _args(cta={"cta_type": ""}))
 
 
 class TestCreateCampaignItemEncoding:
@@ -130,7 +130,7 @@ class TestCreateCampaignItemEncoding:
     async def test_url_encodes_account_id_and_campaign_id(self, mock_post):
         mock_post.return_value = {"results": [{"id": "987654321"}]}
 
-        await handle_call_tool("create_campaign_item", _args(
+        await handle_call_tool("create_native_item", _args(
             account_id="acme/evil", campaign_id="c/1",
         ))
 
@@ -143,7 +143,7 @@ class TestCreateCampaignItemAnnotations:
         from realize.realize_server import handle_list_tools
 
         tools = await handle_list_tools()
-        create = next(t for t in tools if t.name == "create_campaign_item")
+        create = next(t for t in tools if t.name == "create_native_item")
 
         assert create.annotations is not None
         assert create.annotations.destructiveHint is True
@@ -155,7 +155,7 @@ class TestCreateCampaignItemAnnotations:
         from realize.realize_server import handle_list_tools
 
         tools = await handle_list_tools()
-        create = next(t for t in tools if t.name == "create_campaign_item")
+        create = next(t for t in tools if t.name == "create_native_item")
 
         assert set(create.inputSchema["required"]) == {"account_id", "campaign_id", "url"}
 
@@ -164,7 +164,7 @@ class TestCreateCampaignItemAnnotations:
         from realize.realize_server import handle_list_tools
 
         tools = await handle_list_tools()
-        create = next(t for t in tools if t.name == "create_campaign_item")
+        create = next(t for t in tools if t.name == "create_native_item")
 
         for f in ("title", "description", "thumbnail_url", "branding_text", "cta"):
             assert f in create.inputSchema["properties"]
@@ -177,11 +177,11 @@ class TestCreateCampaignItemAnnotations:
         from realize.realize_server import handle_list_tools
 
         tools = await handle_list_tools()
-        create = next(t for t in tools if t.name == "create_campaign_item")
+        create = next(t for t in tools if t.name == "create_native_item")
 
         for f in ("is_active", "start_date", "end_date", "activity_schedule", "verification_pixel", "viewability_tag"):
             assert f not in create.inputSchema["properties"], \
-                f"create_campaign_item must not expose {f} (update-only field)"
+                f"create_native_item must not expose {f} (update-only field)"
 
 
 class TestCreateCampaignItemUpdateOnlyFieldsStripped:
@@ -192,7 +192,7 @@ class TestCreateCampaignItemUpdateOnlyFieldsStripped:
     async def test_start_end_date_dropped_on_create(self, mock_post):
         mock_post.return_value = {"results": [{"id": "987654321"}]}
 
-        await handle_call_tool("create_campaign_item", _args(
+        await handle_call_tool("create_native_item", _args(
             start_date="2026-05-01 00:00:00",
             end_date="2026-06-30 23:59:59",
         ))
@@ -206,7 +206,7 @@ class TestCreateCampaignItemUpdateOnlyFieldsStripped:
     async def test_activity_schedule_dropped_on_create(self, mock_post):
         mock_post.return_value = {"results": [{"id": "987654321"}]}
 
-        await handle_call_tool("create_campaign_item", _args(
+        await handle_call_tool("create_native_item", _args(
             activity_schedule={"mode": "ALWAYS"},
         ))
 
@@ -218,7 +218,7 @@ class TestCreateCampaignItemUpdateOnlyFieldsStripped:
     async def test_verification_pixel_dropped_on_create(self, mock_post):
         mock_post.return_value = {"results": [{"id": "987654321"}]}
 
-        await handle_call_tool("create_campaign_item", _args(
+        await handle_call_tool("create_native_item", _args(
             verification_pixel=[{"type": "CLICK", "url": "https://x.example/c"}],
         ))
 
@@ -230,7 +230,7 @@ class TestCreateCampaignItemUpdateOnlyFieldsStripped:
     async def test_viewability_tag_dropped_on_create(self, mock_post):
         mock_post.return_value = {"results": [{"id": "987654321"}]}
 
-        await handle_call_tool("create_campaign_item", _args(
+        await handle_call_tool("create_native_item", _args(
             viewability_tag=[{"type": "MOAT", "value": "x"}],
         ))
 

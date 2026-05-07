@@ -1,9 +1,10 @@
-"""Campaign-item (creative) handlers for Realize MCP server.
+"""Item (creative) handlers for Realize MCP server.
 
-Read tools (`list_campaign_items`, `get_campaign_item`) plus two write tools
-(`create_campaign_item`, `update_campaign_item`) covering creatives directly
-attached to a campaign. Standard `ITEM` type only — RSS feed items, motion
-ads / performance video, display, and hierarchy carousel are out of scope.
+Generic read tools (`list_items`, `get_item`) plus native-creative write tools
+(`create_native_item`, `update_native_item`). Native (Backstage `STATIC_IMAGE`)
+covers the standard headline+image+landing-url creative. Display and
+performance-video creatives ship as separate `*_display_item` /
+`*_video_item` tool pairs.
 """
 from typing import Any, Dict, List
 from urllib.parse import quote
@@ -34,8 +35,8 @@ _CREATE_BODY_FIELDS = (
 _UPDATE_BODY_FIELDS = _CREATE_BODY_FIELDS + ("is_active",)
 
 
-async def list_campaign_items(arguments: dict = None) -> List[types.TextContent]:
-    """List all items for a campaign (read-only)."""
+async def list_items(arguments: dict = None) -> List[types.TextContent]:
+    """List all items for a campaign (read-only). Returns whichever creative type the campaign holds."""
     account_id = arguments.get("account_id") if arguments else None
     campaign_id = arguments.get("campaign_id") if arguments else None
 
@@ -56,8 +57,8 @@ async def list_campaign_items(arguments: dict = None) -> List[types.TextContent]
     )]
 
 
-async def get_campaign_item(arguments: dict = None) -> List[types.TextContent]:
-    """Get specific campaign item details (read-only)."""
+async def get_item(arguments: dict = None) -> List[types.TextContent]:
+    """Get one item's details (read-only). Response carries `creative_type` so callers know which write tool fits."""
     account_id = arguments.get("account_id") if arguments else None
     campaign_id = arguments.get("campaign_id") if arguments else None
     item_id = arguments.get("item_id") if arguments else None
@@ -84,7 +85,7 @@ def _build_item_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str, A
     """Validate and assemble the item-endpoint POST body.
 
     Skip-None for scalars; per-section validate-then-transform for nested
-    objects. Used by both create_campaign_item and update_campaign_item.
+    objects. Used by both create_native_item and update_native_item.
     The is_create flag gates update-only fields (is_active, verification_pixel,
     viewability_tag) so the create surface stays minimal even if a caller passes them.
     """
@@ -114,8 +115,8 @@ def _build_item_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str, A
     return body
 
 
-async def create_campaign_item(arguments: dict = None) -> List[types.TextContent]:
-    """Create a campaign item (creative) directly attached to a campaign."""
+async def create_native_item(arguments: dict = None) -> List[types.TextContent]:
+    """Create a native (Backstage `STATIC_IMAGE`) item directly attached to a campaign."""
     args = arguments or {}
     account_id = args.get("account_id")
     campaign_id = args.get("campaign_id")
@@ -149,8 +150,8 @@ async def create_campaign_item(arguments: dict = None) -> List[types.TextContent
     )]
 
 
-async def update_campaign_item(arguments: dict = None) -> List[types.TextContent]:
-    """Update an existing campaign item (partial-merge for scalars)."""
+async def update_native_item(arguments: dict = None) -> List[types.TextContent]:
+    """Update an existing native item (partial-merge for scalars)."""
     args = arguments or {}
     account_id = args.get("account_id")
     campaign_id = args.get("campaign_id")

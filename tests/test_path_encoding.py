@@ -71,10 +71,10 @@ class TestCampaignHandlersEncoding:
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_item_handlers.client.get', new_callable=AsyncMock)
-    async def test_list_campaign_items_encodes_both_ids(self, mock_get):
+    async def test_list_items_encodes_both_ids(self, mock_get):
         mock_get.return_value = {"results": []}
 
-        await handle_call_tool("list_campaign_items", {
+        await handle_call_tool("list_items", {
             "account_id": "a/b",
             "campaign_id": "c#d",
         })
@@ -83,10 +83,10 @@ class TestCampaignHandlersEncoding:
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_item_handlers.client.get', new_callable=AsyncMock)
-    async def test_get_campaign_item_encodes_all_three_ids(self, mock_get):
+    async def test_get_item_encodes_all_three_ids(self, mock_get):
         mock_get.return_value = {"id": "x"}
 
-        await handle_call_tool("get_campaign_item", {
+        await handle_call_tool("get_item", {
             "account_id": "a/b",
             "campaign_id": "c#d",
             "item_id": "e?f",

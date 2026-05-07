@@ -1,4 +1,4 @@
-"""CTA helpers for create_campaign_item / update_campaign_item.
+"""CTA helpers for create_native_item / update_native_item.
 
 Validator checks shape only (object with non-empty `cta_type` string). The
 cta_type enum itself is curated by the server and changes over time; do not
