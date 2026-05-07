@@ -125,7 +125,7 @@ lookalike_audience_targeting   Lookalike audiences (search_lookalike_audiences)
 
 ### Items
 
-An item is a creative (headline, image, URL) served under a campaign. Backstage enforces single-creative-type per campaign — once a campaign holds an item of one type, only items of that same type can be added. Reads (`list_items` / `get_item`) are generic and return whichever creative type the campaign holds; writes are split per type.
+An item is a creative (headline, image, URL) served under a campaign. A campaign holds a single creative type — once a campaign holds an item of one type, only items of that same type can be added. Reads (`list_items` / `get_item`) are generic and return whichever creative type the campaign holds; writes are split per type.
 
 Today only **native** creatives (`STATIC_IMAGE`) are supported via `create_native_item` / `update_native_item`. Display (banner / HTML / 3rd-party tag) and performance-video creatives ship in follow-up PRs as separate `*_display_item` / `*_video_item` tool pairs. RSS, hierarchy carousel, and the Creative Library are not supported.
 

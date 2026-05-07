@@ -22,7 +22,7 @@ Campaigns (write — fat tools, all targeting inline, single atomic POST):
 Items (creatives):
   - list_items                           (read — generic; returns whichever creative type the campaign holds)
   - get_item                             (read — generic; response carries `creative_type`)
-  - create_native_item                   (write — Backstage `STATIC_IMAGE`; auto-crawl when title/description/thumbnail omitted)
+  - create_native_item                   (write — `STATIC_IMAGE`; auto-crawl when title/description/thumbnail omitted)
   - update_native_item                   (write — partial-merge scalars; full-replace verification_pixel / viewability_tag arrays)
 
 Discovery (resources for resolving IDs/names used in campaign + item payloads):
@@ -768,13 +768,13 @@ _ITEM_NESTED_PROPERTIES_UPDATE = {
 
 
 _CREATE_CAMPAIGN_ITEM_PROSE = """\
-Create a native item (Backstage `STATIC_IMAGE`) directly attached to a campaign on Realize. "Item", "ad", and "creative" all refer to the same object — this tool creates one. Returns the created item with its server-assigned `id`, `status`, and `approval_state`.
+Create a native item (Realize `STATIC_IMAGE` creative type) directly attached to a campaign on Realize. "Item", "ad", and "creative" all refer to the same object — this tool creates one. Returns the created item with its server-assigned `id`, `status`, and `approval_state`.
 
 Prerequisites: call search_accounts to obtain `account_id`; call list_campaigns or get_campaign to obtain `campaign_id`. Numeric account IDs are rejected.
 
 Auto-crawl: omitting `title`, `description`, and/or `thumbnail_url` triggers a server-side crawl of `url`; the crawler populates the missing fields. New items typically transition CRAWLING → PENDING_APPROVAL → RUNNING. Override any crawled field by passing it explicitly.
 
-Scope: native creatives only (headline + image + landing url). Display creatives (banner / HTML / 3rd-party tag) and performance-video creatives have separate tools (`create_display_item`, `create_video_item` — coming in follow-up PRs). RSS feed items, hierarchy carousel items, and the Creative Library are not supported. Note: Backstage enforces single-creative-type per campaign — once a campaign holds an item of one type, only items of that same type can be added.
+Scope: native creatives only (headline + image + landing url). Display creatives (banner / HTML / 3rd-party tag) and performance-video creatives have separate tools (`create_display_item`, `create_video_item` — coming in follow-up PRs). RSS feed items, hierarchy carousel items, and the Creative Library are not supported. Note: a campaign holds a single creative type — once a campaign holds an item of one type, only items of that same type can be added.
 
 Discovery (call before constructing the payload to resolve IDs/names):
 - list_cta_types → `cta.cta_type` allowed values.
@@ -1046,7 +1046,7 @@ _CAMPAIGN_WRITE_TOOLS = {
 # 5.5 Items (read + write)
 _CAMPAIGN_ITEM_TOOLS = {
     "list_items": {
-        "description": "List all items on a campaign (read-only). \"Item\", \"ad\", and \"creative\" all refer to the same object. Returns whichever creative type the campaign holds (Backstage enforces single-creative-type per campaign); each result carries `creative_type` so callers know which write tool fits.",
+        "description": "List all items on a campaign (read-only). \"Item\", \"ad\", and \"creative\" all refer to the same object. A campaign holds a single creative type, so results are homogeneous; each result carries `creative_type` so callers know which write tool fits.",
         "schema": {
             "type": "object",
             "properties": {

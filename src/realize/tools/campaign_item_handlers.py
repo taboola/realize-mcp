@@ -1,10 +1,9 @@
 """Item (creative) handlers for Realize MCP server.
 
 Generic read tools (`list_items`, `get_item`) plus native-creative write tools
-(`create_native_item`, `update_native_item`). Native (Backstage `STATIC_IMAGE`)
-covers the standard headline+image+landing-url creative. Display and
-performance-video creatives ship as separate `*_display_item` /
-`*_video_item` tool pairs.
+(`create_native_item`, `update_native_item`). Native (`STATIC_IMAGE`) covers
+the standard headline+image+landing-url creative. Display and performance-video
+creatives ship as separate `*_display_item` / `*_video_item` tool pairs.
 """
 from typing import Any, Dict, List
 from urllib.parse import quote
@@ -116,7 +115,7 @@ def _build_item_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str, A
 
 
 async def create_native_item(arguments: dict = None) -> List[types.TextContent]:
-    """Create a native (Backstage `STATIC_IMAGE`) item directly attached to a campaign."""
+    """Create a native (`STATIC_IMAGE`) item directly attached to a campaign."""
     args = arguments or {}
     account_id = args.get("account_id")
     campaign_id = args.get("campaign_id")
