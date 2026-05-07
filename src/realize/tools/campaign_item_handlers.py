@@ -35,7 +35,7 @@ _UPDATE_BODY_FIELDS = _CREATE_BODY_FIELDS + ("is_active",)
 
 
 async def list_items(arguments: dict = None) -> List[types.TextContent]:
-    """List all items for a campaign (read-only). Returns whichever creative type the campaign holds."""
+    """List all items for a campaign (read-only)."""
     account_id = arguments.get("account_id") if arguments else None
     campaign_id = arguments.get("campaign_id") if arguments else None
 
@@ -57,7 +57,7 @@ async def list_items(arguments: dict = None) -> List[types.TextContent]:
 
 
 async def get_item(arguments: dict = None) -> List[types.TextContent]:
-    """Get one item's details (read-only). Response carries `creative_type` so callers know which write tool fits."""
+    """Get specific campaign item details (read-only)."""
     account_id = arguments.get("account_id") if arguments else None
     campaign_id = arguments.get("campaign_id") if arguments else None
     item_id = arguments.get("item_id") if arguments else None
