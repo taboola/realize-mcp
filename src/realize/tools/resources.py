@@ -4,7 +4,7 @@ Four handlers:
 - search_geos       — countries / regions / dma / cities / postal_codes (country-scoped)
 - search_techno     — operating_system_versions (per family) / browsers
 - list_time_zones   — IANA time-zone names for activity_schedule.time_zone
-- list_cta_types    — cta.cta_type values for create/update_native_item
+- list_cta_types    — cta.cta_type values for create_native_item / update_native_item
 
 All wrap publisher-console `/api/1.0/resources/...` endpoints. Small fixed enums
 (platforms, os_family, connection_type, marketing_objective, bid_strategy,
@@ -119,7 +119,7 @@ async def list_time_zones(arguments: dict = None) -> List[types.TextContent]:
 
 
 async def list_cta_types(arguments: dict = None) -> List[types.TextContent]:
-    """List allowed cta.cta_type values for create/update_native_item.
+    """List allowed cta.cta_type values for create_native_item / update_native_item.
 
     The Backstage resource emits {name, value} per entry where `name` is the API
     enum (e.g. "SHOP_NOW") and `value` is the i18n display label ("Shop Now").

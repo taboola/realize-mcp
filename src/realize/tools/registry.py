@@ -29,7 +29,7 @@ Discovery (resources for resolving IDs/names used in campaign + item payloads):
   - search_geos                          (countries / regions / dma / cities / postal_codes)
   - search_techno                        (browsers, operating_system_versions per family)
   - list_time_zones                      (IANA names for activity_schedule.time_zone)
-  - list_cta_types                       (cta.cta_type values for create/update_native_item)
+  - list_cta_types                       (cta.cta_type values for create_native_item / update_native_item)
   - search_audiences                     (first-party + custom audience IDs)
   - search_lookalike_audiences           (CRM/pixel/PBP rule_ids)
   - search_contextual_segments           (contextual segment IDs per account)
@@ -48,7 +48,7 @@ banner via your editor's outline / Cmd-F):
 
   1. Shared description fragments
   2. Targeting schema constants
-  3. Long-form tool descriptions (create/update_campaign)
+  3. Long-form tool descriptions (create_campaign / update_campaign)
   4. Composed property maps + annotations
   5. Tool entries (per-category dicts merged into TOOL_REGISTRY)
   6. Public accessors
@@ -70,7 +70,7 @@ scalars keep their prior value."""
 
 
 # ============================================================================
-# 2. Targeting schema constants — referenced by create/update_campaign property
+# 2. Targeting schema constants — referenced by create_campaign / update_campaign property
 #    maps. Each schema's `description` field is what the LLM sees per property.
 # ============================================================================
 
@@ -705,7 +705,7 @@ _DESTRUCTIVE_ANNOTATIONS_UPDATE = {
 }
 
 
-# Final property maps fed into the create/update_campaign tool schemas.
+# Final property maps fed into the create_campaign / update_campaign tool schemas.
 _CREATE_CAMPAIGN_PROPERTIES = {
     "account_id": {"type": "string", "description": "Value from search_accounts.account_id (NOT numeric)."},
     **_SCALAR_PROPERTIES,
