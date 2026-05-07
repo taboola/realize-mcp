@@ -298,6 +298,16 @@ Discover publisher names via search_publishers.""",
 }
 
 
+_PREDEFINED_PREMIUM_SITE_TARGETING_SCHEMA = {
+    "type": "string",
+    "enum": ["ALL", "PREMIUM", "REGULAR"],
+    "description": """\
+Premium vs regular site quality gate. ALL = no quality gate (both).
+PREMIUM = premium publishers only. REGULAR = regular publishers only.
+Account must have premium-site permission; server rejects with 4xx otherwise.""",
+}
+
+
 # 2.8 Contextual segments
 _CONTEXTUAL_SEGMENTS_SCHEMA = {
     "type": "object",
@@ -530,6 +540,7 @@ _TARGETING_PROPERTIES_COMMON = {
     "contextual_segments_targeting": _CONTEXTUAL_SEGMENTS_SCHEMA,
     "audiences_targeting": _MY_AUDIENCES_SCHEMA,
     "lookalike_audience_targeting": _LOOKALIKE_AUDIENCE_SCHEMA,
+    "predefined_premium_site_targeting": _PREDEFINED_PREMIUM_SITE_TARGETING_SCHEMA,
 }
 
 
@@ -574,7 +585,7 @@ All targeting (including audiences, lookalike, contextual segments) goes in one 
 
 Comprehensive example (every available field set; trim what you don't need — only the five required scalars are mandatory).
 
-Plain English: a Q2 lead-generation campaign for the Acme brand, $10,000 lifetime budget, running May 1 to Jun 30 2026 in TARGET_CPA bid mode aiming for $15 per acquisition. Targets US (California and New York), desktop and phone, iOS 17 and any Android, Chrome and Safari, Wi-Fi and cellular. Serves Mon–Fri 9 AM–9 PM Eastern (off weekends). Includes audiences 224820 and 25287 (excludes 19884), one CRM lookalike at 10% similarity, contextual segments for the topic, two conversion rules, allowlists publishers `pub_alpha` and `pub_beta` with +25% bid on `pub_alpha` and -20% on `pub_beta`. Ships paused (`is_active=false`).
+Plain English: a Q2 lead-generation campaign for the Acme brand, $10,000 lifetime budget, running May 1 to Jun 30 2026 in TARGET_CPA bid mode aiming for $15 per acquisition. Targets US (California and New York), desktop and phone, iOS 17 and any Android, Chrome and Safari, Wi-Fi and cellular. Serves on premium sites only. Serves Mon–Fri 9 AM–9 PM Eastern (off weekends). Includes audiences 224820 and 25287 (excludes 19884), one CRM lookalike at 10% similarity, contextual segments for the topic, two conversion rules, allowlists publishers `pub_alpha` and `pub_beta` with +25% bid on `pub_alpha` and -20% on `pub_beta`. Ships paused (`is_active=false`).
 
 """
 
@@ -596,6 +607,7 @@ _CREATE_CAMPAIGN_JSON_EXAMPLE = """\
   "daily_ad_delivery_model": "BALANCED",
   "traffic_allocation_mode": "OPTIMIZED",
   "is_active": false,
+  "predefined_premium_site_targeting": "PREMIUM",
   "country_targeting": {"type": "INCLUDE", "value": ["US"]},
   "region_country_targeting": {"type": "INCLUDE", "value": ["CA", "NY"]},
   "platform_targeting": {"type": "INCLUDE", "value": ["DESK", "PHON"]},
@@ -684,7 +696,11 @@ Example — clear audience targeting only (other targeting untouched, full-repla
 
 Example — edit one classic geo dimension:
 { "account_id": "acme-inc", "campaign_id": "49184816",
-  "region_country_targeting": {"type": "INCLUDE", "value": ["CA", "NY"]} }"""
+  "region_country_targeting": {"type": "INCLUDE", "value": ["CA", "NY"]} }
+
+Example — restrict to premium sites only:
+{ "account_id": "acme-inc", "campaign_id": "49184816",
+  "predefined_premium_site_targeting": "PREMIUM" }"""
 
 
 _UPDATE_CAMPAIGN_DESCRIPTION = _UPDATE_CAMPAIGN_PROSE + _UPDATE_CAMPAIGN_EXAMPLES

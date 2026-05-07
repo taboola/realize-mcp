@@ -169,6 +169,12 @@ def _build_main_payload(args: Dict[str, Any]) -> Dict[str, Any]:
         validate_contextual_segments(contextual_segments_targeting)
         body["contextual_segments_targeting"] = sanitize_contextual_segments(contextual_segments_targeting)
 
+    predefined_premium_site_targeting = args.get("predefined_premium_site_targeting")
+    if predefined_premium_site_targeting is not None:
+        body["predefined_targeting_options"] = {
+            "predefined_premium_site_targeting": predefined_premium_site_targeting,
+        }
+
     return body
 
 

@@ -102,25 +102,26 @@ traffic_allocation_mode  (string enum)        OPTIMIZED | EVEN
 is_active                (boolean)            true to launch, false to pause
 ```
 
-Targeting blocks (all `object`, optional, full-replace within block):
+Targeting blocks (optional; objects full-replace within block, `predefined_premium_site_targeting` is a scalar flag):
 
 ```
-country_targeting              Classic country (codes from search_geos dimension=countries)
-region_country_targeting       Classic region (codes from search_geos dimension=regions)
-dma_country_targeting          Classic DMA — US-only (codes from search_geos dimension=dma)
-city_targeting                 Classic city (codes from search_geos dimension=cities)
-postal_code_targeting          Classic postal code (codes from search_geos dimension=postal_codes)
-platform_targeting             DESK | PHON | TBLT | TV | OTHR
-os_targeting                   OS family + version (versions via search_techno)
-browser_targeting              Browser names from search_techno dimension=browsers
-connection_type_targeting      WIFI
-activity_schedule              Dayparting (time_zone via list_time_zones)
-conversion_rules               Conversion rule attachments (rules via search_conversion_rules)
-publisher_targeting            Publisher allow/block-list (search_publishers)
-publisher_bid_modifier         Per-publisher CPC bid modifier
-contextual_segments_targeting  Contextual segments (search_contextual_segments)
-audiences_targeting            First-party + custom audiences (search_audiences)
-lookalike_audience_targeting   Lookalike audiences (search_lookalike_audiences)
+country_targeting                  Classic country (codes from search_geos dimension=countries)
+region_country_targeting           Classic region (codes from search_geos dimension=regions)
+dma_country_targeting              Classic DMA — US-only (codes from search_geos dimension=dma)
+city_targeting                     Classic city (codes from search_geos dimension=cities)
+postal_code_targeting              Classic postal code (codes from search_geos dimension=postal_codes)
+platform_targeting                 DESK | PHON | TBLT | TV | OTHR
+os_targeting                       OS family + version (versions via search_techno)
+browser_targeting                  Browser names from search_techno dimension=browsers
+connection_type_targeting          WIFI
+activity_schedule                  Dayparting (time_zone via list_time_zones)
+conversion_rules                   Conversion rule attachments (rules via search_conversion_rules)
+publisher_targeting                Publisher allow/block-list (search_publishers)
+publisher_bid_modifier             Per-publisher CPC bid modifier
+contextual_segments_targeting      Contextual segments (search_contextual_segments)
+audiences_targeting                First-party + custom audiences (search_audiences)
+lookalike_audience_targeting       Lookalike audiences (search_lookalike_audiences)
+predefined_premium_site_targeting  ALL | PREMIUM | REGULAR — site-quality gate (account permission required)
 ```
 
 ### Items

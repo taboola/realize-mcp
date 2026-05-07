@@ -340,3 +340,37 @@ class TestFatToolSchemaShape:
         props = create.inputSchema["properties"]
         for f in ("country_targeting", "region_country_targeting", "dma_country_targeting", "city_targeting", "postal_code_targeting"):
             assert f in props, f"create_campaign missing classic geo property: {f}"
+
+
+class TestPredefinedPremiumSiteTargeting:
+    @pytest.mark.asyncio
+    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
+    async def test_premium_on_create_wraps_in_envelope(self, mock_post):
+        mock_post.return_value = {"id": "c-1"}
+        await handle_call_tool("create_campaign", _create_args(
+            predefined_premium_site_targeting="PREMIUM",
+        ))
+        body = _bodies_by_endpoint(mock_post)["/acme-inc/campaigns"]
+        assert body["predefined_targeting_options"] == {
+            "predefined_premium_site_targeting": "PREMIUM",
+        }
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
+    async def test_premium_on_update_wraps_in_envelope(self, mock_post):
+        mock_post.return_value = {"id": "c-123"}
+        await handle_call_tool("update_campaign", _update_args(
+            predefined_premium_site_targeting="REGULAR",
+        ))
+        body = _bodies_by_endpoint(mock_post)["/acme-inc/campaigns/c-123"]
+        assert body["predefined_targeting_options"] == {
+            "predefined_premium_site_targeting": "REGULAR",
+        }
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
+    async def test_omitted_when_not_provided(self, mock_post):
+        mock_post.return_value = {"id": "c-1"}
+        await handle_call_tool("create_campaign", _create_args())
+        body = _bodies_by_endpoint(mock_post)["/acme-inc/campaigns"]
+        assert "predefined_targeting_options" not in body
