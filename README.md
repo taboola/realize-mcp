@@ -126,7 +126,7 @@ predefined_premium_site_targeting  ALL | PREMIUM | REGULAR — site-quality gate
 
 ### Items
 
-An item is a creative (headline, image, URL) served under a campaign. Native `ITEM` type only — RSS, motion ads, performance video, display, hierarchy carousel, and the Creative Library are not supported.
+An item is a creative served under a campaign. Two flavors are supported: **native** (URL-crawled headline + image; use `create_native_item`) and **display** (third-party banner ad tag with a fixed dimension; use `create_display_item`).
 
 **`list_items`** — List items for a campaign.
 
@@ -173,7 +173,37 @@ verification_pixel  (object)                 Tracking pixels (full-replace withi
 viewability_tag     (object)                 Viewability tag (full-replace within block)
 ```
 
-Editability: items in CRAWLING / PENDING_APPROVAL accept full edits; RUNNING / PAUSED accept only `is_active` toggles plus minor metadata; REJECTED items cannot be edited (recreate).
+**`create_display_item`** — Create a third-party display item on a campaign. Pass an ad tag plus a single `{width, height}` dimension.
+
+```
+account_id     (string, required)
+campaign_id    (string, required)
+url            (string, required)            Landing URL
+ad_tag         (string, required)            Raw 3P HTML/JS ad tag
+dimensions     (array, required)             Single-entry [{width, height}] — one IAB size (e.g. 300x250)
+branding_text  (string)
+cta            (object)                      {cta_type} — values from list_cta_types
+```
+
+**`update_display_item`** — Update specific fields on a display item. `ad_tag` and `dimensions` are independent inside `display_data` — send either or both; the other is preserved server-side. Send `[]` for `verification_pixel` / `viewability_tag` to clear.
+
+```
+account_id          (string, required)
+campaign_id         (string, required)
+item_id             (string, required)
+url                 (string)
+ad_tag              (string)                 Raw 3P HTML/JS ad tag (replaces prior tag)
+dimensions          (array)                  Single-entry: [{width, height}] (replaces prior dimension)
+branding_text       (string)
+is_active           (boolean)                Pause/resume
+cta                 (object)                 {cta_type}
+verification_pixel  (object)                 Tracking pixels (full-replace within block)
+viewability_tag     (object)                 Viewability tag (full-replace within block)
+```
+
+Use `create_native_item` for native creatives (headline + body + thumbnail). Realize can auto-crawl those fields from `url` if omitted, or accept them explicitly. Use `create_display_item` for third-party banner ads — supply the ad tag plus the served `{width, height}`.
+
+Editability: items in CRAWLING / PENDING_APPROVAL accept full edits; RUNNING / PAUSED accept `is_active` toggles plus minor metadata; recreate REJECTED items.
 
 ### Discovery
 

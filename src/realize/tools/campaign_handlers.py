@@ -5,7 +5,8 @@ Read tools (`list_campaigns`, `get_campaign`) plus two write tools —
 (scalars + targeting). All targeting fields ride in a single atomic POST to the
 APICampaign endpoint; one tool call → one HTTP request.
 
-Item-level handlers live in `item_handlers`.
+Item-level handlers live in `item_read_handlers` (type-agnostic reads),
+`item_native_handlers`, and `item_display_handlers` (writes).
 """
 from typing import Any, Dict, List
 from urllib.parse import quote

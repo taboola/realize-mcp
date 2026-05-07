@@ -1,7 +1,7 @@
 """Centralized registry for all MCP tools.
 
 ================================================================================
-TOOL SURFACE — 23 tools across 6 categories
+TOOL SURFACE — 26 tools across 6 categories
 ================================================================================
 
 Authentication (stdio transport only; excluded in HTTP/OAuth mode):
@@ -22,14 +22,16 @@ Campaigns (write — fat tools, all targeting inline, single atomic POST):
 Items:
   - list_items                           (read)
   - get_item                             (read)
-  - create_native_item                   (write — native ITEM only; auto-crawl when title/description/thumbnail omitted)
+  - create_native_item                   (write — URL-crawled native ITEM; auto-crawl when title/description/thumbnail omitted)
   - update_native_item                   (write — partial-merge scalars; full-replace verification_pixel / viewability_tag arrays)
+  - create_display_item                  (write — third-party display ad tag with one or more {width,height} dimensions)
+  - update_display_item                  (write — partial-merge scalars + display_data; full-replace verification_pixel / viewability_tag arrays)
 
 Discovery (resources for resolving IDs/names used in campaign + item payloads):
   - search_geos                          (countries / regions / dma / cities / postal_codes)
   - search_techno                        (browsers, operating_system_versions per family)
   - list_time_zones                      (IANA names for activity_schedule.time_zone)
-  - list_cta_types                       (cta.cta_type values for create_native_item / update_native_item)
+  - list_cta_types                       (cta.cta_type values for create_native_item / update_native_item / create_display_item / update_display_item)
   - search_audiences                     (first-party + custom audience IDs)
   - search_lookalike_audiences           (CRM/pixel/PBP rule_ids)
   - search_contextual_segments           (contextual segment IDs per account)
@@ -793,7 +795,7 @@ Prerequisites: call search_accounts to obtain `account_id`; call list_campaigns 
 
 Auto-crawl: omitting `title`, `description`, and/or `thumbnail_url` triggers a server-side crawl of `url`; the crawler populates the missing fields. New items typically transition CRAWLING → PENDING_APPROVAL → RUNNING. Override any crawled field by passing it explicitly.
 
-Scope: this tool creates a native `ITEM` directly attached to the campaign. RSS feed items, motion ads, performance video items, display creatives, hierarchy carousel items, and the Creative Library are not supported.
+Scope: this tool creates a native `ITEM` directly attached to the campaign — Realize crawls `url` to populate the headline / body / image. For third-party display ads (banner ad tag with fixed dimensions), use create_display_item. RSS feed items, motion ads, performance video items, hierarchy carousel items, and the Creative Library are not supported.
 
 Discovery (call before constructing the payload to resolve IDs/names):
 - list_cta_types → `cta.cta_type` allowed values.
@@ -836,7 +838,7 @@ Array semantics — FULL-REPLACE within section: sending `verification_pixel` or
 
 Editability: items in CRAWLING / CRAWLING_ERROR / PENDING_APPROVAL accept full edits. Items in RUNNING / PAUSED practically only accept `is_active` toggles and minor metadata; the API surfaces 4xx for non-allowed transitions. REJECTED items cannot be edited — recreate.
 
-Scope: native `ITEM` only. RSS feed items, motion ads, performance video, display, hierarchy carousel, and the Creative Library are not supported.
+Scope: native `ITEM` only — for editing third-party display ads use update_display_item. RSS feed items, motion ads, performance video, hierarchy carousel, and the Creative Library are not supported.
 
 Discovery (call before constructing the payload to resolve IDs/names):
 - list_cta_types → `cta.cta_type` allowed values.
@@ -917,6 +919,192 @@ _UPDATE_CAMPAIGN_ITEM_PROPERTIES = {
         "description": "Value from list_items.id or get_item.id. Numeric ID as a string (e.g. \"987654321\").",
     },
     **_ITEM_SCALAR_PROPERTIES_CREATE,
+    **_ITEM_SCALAR_PROPERTIES_UPDATE_EXTRAS,
+    **_ITEM_NESTED_PROPERTIES_UPDATE,
+}
+
+
+# 4.5b Display-item — schemas, prose, and composed property maps for the
+# third-party display creative tools (`create_display_item` / `update_display_item`).
+
+_DISPLAY_AD_TAG_SCHEMA = {
+    "type": "string",
+    "description": """\
+Raw third-party HTML/JS ad tag (e.g. Google Ad Manager, Xandr, Equativ).
+Backstage validates structure server-side via DisplayAdTagValidator and
+performs ${CLICK_URL} macro replacement on submit. Soft 16 KiB cap.""",
+}
+
+
+_DISPLAY_DIMENSIONS_SCHEMA = {
+    "type": "array",
+    "description": """\
+Single ad size for the tag, wrapped in a one-entry array, e.g.
+[{"width": 300, "height": 250}]. Exactly one entry — Realize rejects multi-size
+arrays for 3P tags with a 400. Common IAB sizes: 300x250, 728x90, 160x600,
+300x600, 970x90, 970x250, 468x60. On update, sending this field replaces the
+prior dimension.""",
+    "items": {
+        "type": "object",
+        "properties": {
+            "width": {"type": "integer", "minimum": 1},
+            "height": {"type": "integer", "minimum": 1},
+        },
+        "required": ["width", "height"],
+    },
+    "minItems": 1,
+    "maxItems": 1,
+}
+
+
+_DISPLAY_ITEM_SCALAR_PROPERTIES = {
+    "url": {
+        "type": "string",
+        "description": "Landing page URL the ad clicks through to. Required on create.",
+    },
+    "branding_text": {
+        "type": "string",
+        "description": "Brand name shown with the ad. Inherits from campaign if omitted.",
+    },
+}
+
+
+_CREATE_DISPLAY_ITEM_PROSE = """\
+Create a third-party display item directly attached to a campaign on Realize. "Item", "ad", and "creative" all refer to the same object — this tool creates one. Returns the created item with its server-assigned `id`, `status`, and `approval_state`.
+
+Prerequisites: call search_accounts to obtain `account_id`; call list_campaigns or get_campaign to obtain `campaign_id`. Numeric account IDs are rejected.
+
+Scope: third-party (3P) ad tag only — `display_ad_type` is fixed at `THIRD_PARTY_TAG` and not user-settable. First-party Realize-hosted assets (HOSTED_IMAGE, HOSTED_HTML, HOSTED_VIDEO, HOSTED_SOCIAL) are not supported. For URL-crawled native items use create_native_item.
+
+Validation: `ad_tag` is a raw HTML/JS string sent to the campaign's item endpoint as-is; Realize runs DisplayAdTagValidator on submit (structural checks, ${CLICK_URL} macro replacement) and returns 4xx with the offending field on failure. Soft 16 KiB cap on the client side.
+
+Discovery (call before constructing the payload to resolve IDs/names):
+- list_cta_types → `cta.cta_type` allowed values.
+
+Read-only — NEVER send: id, campaign_id (set via path), creative_type (server enforces DISPLAY), display_data.display_ad_type (always THIRD_PARTY_TAG), status, approval_state, learning_state, policy_review.
+
+Item creation goes in one atomic call; either the item commits with all fields, or it doesn't.
+
+Comprehensive example (every available field set; trim what you don't need — only `account_id`, `campaign_id`, `url`, `ad_tag`, and `dimensions` are mandatory).
+
+Plain English: an Acme 300x250 banner, landing at example.com/landing, using a Google Ad Manager script tag and a Learn More CTA. New items are always created active; use update_display_item to pause if needed.
+
+"""
+
+
+_CREATE_DISPLAY_ITEM_JSON_EXAMPLE = """\
+{
+  "account_id": "acme-inc",
+  "campaign_id": "49184816",
+  "url": "https://example.com/landing",
+  "ad_tag": "<script src=\\"https://securepubads.g.doubleclick.net/tag/js/gpt.js\\"></script><div id=\\"div-gpt-ad\\"></div>",
+  "dimensions": [{"width": 300, "height": 250}],
+  "branding_text": "Acme",
+  "cta": {"cta_type": "LEARN_MORE"}
+}"""
+
+
+_CREATE_DISPLAY_ITEM_DESCRIPTION = _CREATE_DISPLAY_ITEM_PROSE + _CREATE_DISPLAY_ITEM_JSON_EXAMPLE
+
+
+_UPDATE_DISPLAY_ITEM_PROSE = """\
+Update an existing display item: top-level scalars, the `display_data` block (ad_tag and/or dimensions), and any nested block (cta, verification_pixel, viewability_tag) in one call. "Item", "ad", and "creative" all refer to the same object — this tool updates one.
+
+Prerequisites: call search_accounts (`account_id`), list_campaigns or get_campaign (`campaign_id`), list_items or get_item (`item_id`). Numeric account IDs are rejected.
+
+Partial-merge for scalars: fields omitted from the request keep their prior value. Inside `display_data`, `ad_tag` and `dimensions` are independent — send either or both, and the other is preserved server-side. `display_ad_type` is fixed at `THIRD_PARTY_TAG` and not editable; `dimensions` accepts exactly one `{width, height}` entry and replaces the prior dimension when sent.
+
+Array semantics — FULL-REPLACE within section: sending `verification_pixel` or `viewability_tag` overwrites the entire prior list for that field. Send [] to clear. To edit one entry, read with get_item, modify locally, send the merged result.
+
+Editability: items in CRAWLING / PENDING_APPROVAL accept full edits. Items in RUNNING / PAUSED practically only accept `is_active` toggles and minor metadata; the API surfaces 4xx for non-allowed transitions. REJECTED items cannot be edited — recreate.
+
+Scope: third-party display items only — for editing URL-crawled native items use update_native_item. First-party Realize-hosted assets, RSS feed items, motion ads, performance video, hierarchy carousel, and the Creative Library are not supported.
+
+Discovery (call before constructing the payload to resolve IDs/names):
+- list_cta_types → `cta.cta_type` allowed values.
+
+Read-only — NEVER send: id, campaign_id (set via path), creative_type, display_data.display_ad_type, status, approval_state, learning_state, policy_review.
+
+At least one updatable field besides account_id, campaign_id, and item_id must be sent.
+
+All updates (including verification_pixel and viewability_tag) go in one atomic call.
+
+Comprehensive example (every available field set; trim what you don't need — only `account_id`, `campaign_id`, and `item_id` are mandatory, plus at least one updatable field).
+
+Plain English: refresh an existing display creative — new landing URL, new ad tag, new 300x250 size, branding, Learn More CTA, CLICK + VIEWABLE_IMPRESSION verification pixels and an IAS viewability tag, shipped active.
+
+"""
+
+
+_UPDATE_DISPLAY_ITEM_JSON_EXAMPLE = """\
+{
+  "account_id": "acme-inc",
+  "campaign_id": "49184816",
+  "item_id": "987654321",
+  "url": "https://example.com/landing-v2",
+  "ad_tag": "<script src=\\"https://securepubads.g.doubleclick.net/tag/js/gpt.js\\"></script><div id=\\"div-gpt-ad-v2\\"></div>",
+  "dimensions": [{"width": 300, "height": 250}],
+  "branding_text": "Acme",
+  "cta": {"cta_type": "LEARN_MORE"},
+  "is_active": true,
+  "verification_pixel": {
+    "verification_pixel_items": [
+      {"url": "https://verifier.example.com/c?x=1", "verification_pixel_type": "CLICK"},
+      {"url": "https://verifier.example.com/v?x=1", "verification_pixel_type": "VIEWABLE_IMPRESSION"}
+    ]
+  },
+  "viewability_tag": {
+    "values": [
+      {"tag": "<noscript class=...></noscript><script src=...></script>", "type": "IAS"}
+    ]
+  }
+}
+
+Example — pause display item (partial-merge, scalars only):
+{ "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321", "is_active": false }
+
+Example — swap ad tag without touching dimensions (display_data partial-merge):
+{ "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321", "ad_tag": "<script>...new tag...</script>" }
+
+Example — clear all verification pixels (full-replace within section):
+{ "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321", "verification_pixel": {"verification_pixel_items": []} }"""
+
+
+_UPDATE_DISPLAY_ITEM_DESCRIPTION = _UPDATE_DISPLAY_ITEM_PROSE + _UPDATE_DISPLAY_ITEM_JSON_EXAMPLE
+
+
+_CREATE_DISPLAY_ITEM_PROPERTIES = {
+    "account_id": {
+        "type": "string",
+        "description": "Value from search_accounts.account_id (NOT numeric).",
+    },
+    "campaign_id": {
+        "type": "string",
+        "description": "Value from list_campaigns.id or get_campaign.id (returned by create_campaign as `id`). Numeric ID as a string (e.g. \"49184816\").",
+    },
+    **_DISPLAY_ITEM_SCALAR_PROPERTIES,
+    "ad_tag": _DISPLAY_AD_TAG_SCHEMA,
+    "dimensions": _DISPLAY_DIMENSIONS_SCHEMA,
+    "cta": _ITEM_CTA_SCHEMA,
+}
+
+
+_UPDATE_DISPLAY_ITEM_PROPERTIES = {
+    "account_id": {
+        "type": "string",
+        "description": "Value from search_accounts.account_id (NOT numeric).",
+    },
+    "campaign_id": {
+        "type": "string",
+        "description": "Value from list_campaigns.id or get_campaign.id. Numeric ID as a string (e.g. \"49184816\").",
+    },
+    "item_id": {
+        "type": "string",
+        "description": "Value from list_items.id or get_item.id. Numeric ID as a string (e.g. \"987654321\").",
+    },
+    **_DISPLAY_ITEM_SCALAR_PROPERTIES,
+    "ad_tag": _DISPLAY_AD_TAG_SCHEMA,
+    "dimensions": _DISPLAY_DIMENSIONS_SCHEMA,
     **_ITEM_SCALAR_PROPERTIES_UPDATE_EXTRAS,
     **_ITEM_NESTED_PROPERTIES_UPDATE,
 }
@@ -1080,7 +1268,7 @@ _CAMPAIGN_ITEM_TOOLS = {
             },
             "required": ["account_id", "campaign_id"]
         },
-        "handler": "item_handlers.list_items",
+        "handler": "item_read_handlers.list_items",
         "category": "items"
     },
 
@@ -1104,7 +1292,7 @@ _CAMPAIGN_ITEM_TOOLS = {
             },
             "required": ["account_id", "campaign_id", "item_id"]
         },
-        "handler": "item_handlers.get_item",
+        "handler": "item_read_handlers.get_item",
         "category": "items"
     },
 
@@ -1115,7 +1303,7 @@ _CAMPAIGN_ITEM_TOOLS = {
             "properties": _CREATE_CAMPAIGN_ITEM_PROPERTIES,
             "required": ["account_id", "campaign_id", "url"],
         },
-        "handler": "item_handlers.create_native_item",
+        "handler": "item_native_handlers.create_native_item",
         "category": "items",
         "annotations": _DESTRUCTIVE_ANNOTATIONS_CREATE,
     },
@@ -1127,7 +1315,31 @@ _CAMPAIGN_ITEM_TOOLS = {
             "properties": _UPDATE_CAMPAIGN_ITEM_PROPERTIES,
             "required": ["account_id", "campaign_id", "item_id"],
         },
-        "handler": "item_handlers.update_native_item",
+        "handler": "item_native_handlers.update_native_item",
+        "category": "items",
+        "annotations": _DESTRUCTIVE_ANNOTATIONS_UPDATE,
+    },
+
+    "create_display_item": {
+        "description": _CREATE_DISPLAY_ITEM_DESCRIPTION,
+        "schema": {
+            "type": "object",
+            "properties": _CREATE_DISPLAY_ITEM_PROPERTIES,
+            "required": ["account_id", "campaign_id", "url", "ad_tag", "dimensions"],
+        },
+        "handler": "item_display_handlers.create_display_item",
+        "category": "items",
+        "annotations": _DESTRUCTIVE_ANNOTATIONS_CREATE,
+    },
+
+    "update_display_item": {
+        "description": _UPDATE_DISPLAY_ITEM_DESCRIPTION,
+        "schema": {
+            "type": "object",
+            "properties": _UPDATE_DISPLAY_ITEM_PROPERTIES,
+            "required": ["account_id", "campaign_id", "item_id"],
+        },
+        "handler": "item_display_handlers.update_display_item",
         "category": "items",
         "annotations": _DESTRUCTIVE_ANNOTATIONS_UPDATE,
     },

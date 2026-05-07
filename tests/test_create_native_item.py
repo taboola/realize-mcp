@@ -33,7 +33,7 @@ def _args(**overrides):
 
 class TestCreateCampaignItemHappyPath:
     @pytest.mark.asyncio
-    @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
     async def test_minimal_url_only(self, mock_post):
         mock_post.return_value = {"results": [{"id": "987654321", "status": "CRAWLING"}]}
 
@@ -48,7 +48,7 @@ class TestCreateCampaignItemHappyPath:
         assert "987654321" in result[0].text
 
     @pytest.mark.asyncio
-    @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
     async def test_full_create_payload(self, mock_post):
         mock_post.return_value = {"results": [{"id": "987654321"}]}
 
@@ -70,7 +70,7 @@ class TestCreateCampaignItemHappyPath:
         assert "is_active" not in item
 
     @pytest.mark.asyncio
-    @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
     async def test_unknown_args_dropped(self, mock_post):
         mock_post.return_value = {"results": [{"id": "987654321"}]}
 
@@ -126,7 +126,7 @@ class TestCreateCampaignItemValidation:
 
 class TestCreateCampaignItemEncoding:
     @pytest.mark.asyncio
-    @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
     async def test_url_encodes_account_id_and_campaign_id(self, mock_post):
         mock_post.return_value = {"results": [{"id": "987654321"}]}
 
@@ -188,7 +188,7 @@ class TestCreateCampaignItemUpdateOnlyFieldsStripped:
     """Even if a caller passes update-only fields, the create handler must drop them."""
 
     @pytest.mark.asyncio
-    @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
     async def test_start_end_date_dropped_on_create(self, mock_post):
         mock_post.return_value = {"results": [{"id": "987654321"}]}
 
@@ -202,7 +202,7 @@ class TestCreateCampaignItemUpdateOnlyFieldsStripped:
         assert "end_date" not in item
 
     @pytest.mark.asyncio
-    @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
     async def test_activity_schedule_dropped_on_create(self, mock_post):
         mock_post.return_value = {"results": [{"id": "987654321"}]}
 
@@ -214,7 +214,7 @@ class TestCreateCampaignItemUpdateOnlyFieldsStripped:
         assert "activity_schedule" not in item
 
     @pytest.mark.asyncio
-    @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
     async def test_verification_pixel_dropped_on_create(self, mock_post):
         mock_post.return_value = {"results": [{"id": "987654321"}]}
 
@@ -226,7 +226,7 @@ class TestCreateCampaignItemUpdateOnlyFieldsStripped:
         assert "verification_pixel" not in item
 
     @pytest.mark.asyncio
-    @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
     async def test_viewability_tag_dropped_on_create(self, mock_post):
         mock_post.return_value = {"results": [{"id": "987654321"}]}
 

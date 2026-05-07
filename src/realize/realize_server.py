@@ -95,21 +95,29 @@ async def handle_call_tool(
             from realize.tools.campaign_handlers import update_campaign
             result = await update_campaign(arguments)
 
-        elif handler_path == "item_handlers.list_items":
-            from realize.tools.item_handlers import list_items
+        elif handler_path == "item_read_handlers.list_items":
+            from realize.tools.item_read_handlers import list_items
             result = await list_items(arguments)
 
-        elif handler_path == "item_handlers.get_item":
-            from realize.tools.item_handlers import get_item
+        elif handler_path == "item_read_handlers.get_item":
+            from realize.tools.item_read_handlers import get_item
             result = await get_item(arguments)
 
-        elif handler_path == "item_handlers.create_native_item":
-            from realize.tools.item_handlers import create_native_item
+        elif handler_path == "item_native_handlers.create_native_item":
+            from realize.tools.item_native_handlers import create_native_item
             result = await create_native_item(arguments)
 
-        elif handler_path == "item_handlers.update_native_item":
-            from realize.tools.item_handlers import update_native_item
+        elif handler_path == "item_native_handlers.update_native_item":
+            from realize.tools.item_native_handlers import update_native_item
             result = await update_native_item(arguments)
+
+        elif handler_path == "item_display_handlers.create_display_item":
+            from realize.tools.item_display_handlers import create_display_item
+            result = await create_display_item(arguments)
+
+        elif handler_path == "item_display_handlers.update_display_item":
+            from realize.tools.item_display_handlers import update_display_item
+            result = await update_display_item(arguments)
 
         # Resource discovery handlers
         elif handler_path == "resources.search_geos":
