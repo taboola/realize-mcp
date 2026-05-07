@@ -159,13 +159,15 @@ class TestPublishersOnFatTools:
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
     async def test_publisher_targeting_and_modifier(self, mock_post):
         mock_post.return_value = {"id": "c-123"}
+        # Wire format is the publisher's account_id (not the display name);
+        # see search_publishers result `account_id` field.
         await handle_call_tool("update_campaign", _update_args(
-            publisher_targeting={"type": "EXCLUDE", "value": ["pub_a"]},
-            publisher_bid_modifier={"values": [{"target": "pub_b", "cpc_modification": 1.25}]},
+            publisher_targeting={"type": "EXCLUDE", "value": ["yahoo-mail"]},
+            publisher_bid_modifier={"values": [{"target": "yahoo-news", "cpc_modification": 1.25}]},
         ))
         body = _bodies_by_endpoint(mock_post)["/acme-inc/campaigns/c-123"]
-        assert body["publisher_targeting"] == {"type": "EXCLUDE", "value": ["pub_a"]}
-        assert body["publisher_bid_modifier"]["values"][0]["target"] == "pub_b"
+        assert body["publisher_targeting"] == {"type": "EXCLUDE", "value": ["yahoo-mail"]}
+        assert body["publisher_bid_modifier"]["values"][0]["target"] == "yahoo-news"
         assert body["publisher_bid_modifier"]["values"][0]["cpc_modification"] == 1.25
 
 

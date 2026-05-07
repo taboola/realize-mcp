@@ -33,7 +33,7 @@ Discovery (resources for resolving IDs/names used in campaign + item payloads):
   - search_audiences                     (first-party + custom audience IDs)
   - search_lookalike_audiences           (CRM/pixel/PBP rule_ids)
   - search_contextual_segments           (contextual segment IDs per account)
-  - search_publishers                    (publisher names per account)
+  - search_publishers                    (publisher account_ids per account)
   - search_conversion_rules              (conversion rule IDs per account)
 
 Reports (CSV):
@@ -264,9 +264,11 @@ LEADS_GENERATION / ONLINE_PURCHASES typically require >=1 rule.""",
 _PUBLISHER_TARGETING_SCHEMA = {
     "type": "object",
     "description": """\
-Publisher targeting. {type: INCLUDE|EXCLUDE|ALL, value: [publisher_name]}.
-value=[] when type=ALL. Names (not IDs) — server resolves them.
-Discover names via search_publishers.""",
+Publisher targeting. {type: INCLUDE|EXCLUDE|ALL, value: [publisher_account_id]}.
+value=[] when type=ALL. Each entry is the publisher's `account_id`
+(e.g. "yahoo-mail"), NOT the display `name` ("Yahoo! Mail") — the server
+does not resolve names. Discover values via search_publishers and use the
+`account_id` field of each result.""",
     "properties": {
         "type": {"type": "string", "enum": ["INCLUDE", "EXCLUDE", "ALL"]},
         "value": {"type": "array", "items": {"type": "string"}},
@@ -278,9 +280,10 @@ Discover names via search_publishers.""",
 _PUBLISHER_BID_MODIFIER_SCHEMA = {
     "type": "object",
     "description": """\
-Per-publisher CPC bid modifier. {values: [{target: <publisher_name>, cpc_modification: <number>}]}.
+Per-publisher CPC bid modifier. {values: [{target: <publisher_account_id>, cpc_modification: <number>}]}.
+`target` is the publisher's `account_id` (e.g. "yahoo-mail"), NOT the display name.
 cpc_modification is a multiplier (1.25 = +25%). values=[] clears all modifiers.
-Discover publisher names via search_publishers.""",
+Discover values via search_publishers (use the `account_id` field of each result).""",
     "properties": {
         "values": {
             "type": "array",
@@ -575,7 +578,7 @@ Discovery (call before constructing the payload to resolve IDs/names):
 - search_audiences → `audiences_targeting` audience IDs.
 - search_lookalike_audiences → `lookalike_audience_targeting` rule_ids.
 - search_contextual_segments → `contextual_segments_targeting` segment IDs.
-- search_publishers → `publisher_targeting` and `publisher_bid_modifier.target` names.
+- search_publishers → `publisher_targeting.value` and `publisher_bid_modifier.target` `account_id` values.
 - search_conversion_rules → `conversion_rules.rules` IDs.
 - list_time_zones → `activity_schedule.time_zone` IANA names.
 
@@ -1257,13 +1260,15 @@ Optional country_code (ISO-2) narrows to audiences targeting one country.""",
     "search_publishers": {
         "description": """\
 Search publishers an account is allowed to target (read-only).
-Publisher names returned here populate `publisher_targeting.value` on
-create_campaign / update_campaign.
+The `account_id` returned here (NOT the display `name`) populates
+`publisher_targeting.value` and `publisher_bid_modifier.values[].target` on
+create_campaign / update_campaign — the upstream API does not resolve names.
 
 `query` is required: pass a name substring to filter, or '*' to list all.
 Use `publisher_ids` for direct lookup. Pagination via `page` / `page_size`
 (page_size capped at 50). Results are trimmed to {id, name, account_id,
-country, is_active}.""",
+country, is_active}. The response also includes a "Resolved publisher
+account_ids" hint listing the value to copy for each match.""",
         "schema": {
             "type": "object",
             "properties": {

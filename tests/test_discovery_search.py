@@ -163,6 +163,28 @@ class TestSearchPublishers:
         assert "P1" in text
 
     @pytest.mark.asyncio
+    @patch('realize.tools.discovery_handlers.client.get', new_callable=AsyncMock)
+    async def test_resolved_account_ids_hint(self, mock_get):
+        mock_get.return_value = {
+            "results": [
+                {"id": 1, "name": "Yahoo! Mail", "account_id": "yahoo-mail",
+                 "country": "US", "is_active": True},
+                {"id": 2, "name": "Yahoo! News", "account_id": "yahoo-news",
+                 "country": None, "is_active": False},
+            ],
+            "metadata": {"total": 2},
+        }
+        result = await handle_call_tool(
+            "search_publishers", {"account_id": "acme-inc", "query": "yahoo"}
+        )
+        text = result[0].text
+        assert text.startswith("Publisher search results — page 1, page_size 10, total 2")
+        assert "Resolved publisher account_ids" in text
+        assert "account_id='yahoo-mail' (Yahoo! Mail) [US · active]" in text
+        assert "account_id='yahoo-news' (Yahoo! News) [inactive]" in text
+        assert "Full response:" in text
+
+    @pytest.mark.asyncio
     async def test_missing_query_rejected(self):
         with pytest.raises(ToolInputError, match="query is required"):
             await handle_call_tool("search_publishers", {"account_id": "acme-inc"})

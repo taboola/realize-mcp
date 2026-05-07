@@ -4,11 +4,12 @@ Five tools surface IDs / names the LLM otherwise has to source from the Realize 
 - search_audiences           → my_audiences.collection[].collection
 - search_lookalike_audiences → lookalike_audience.collection[].collection[].rule_id
 - search_contextual_segments → contextual_segments.collection[].collection
-- search_publishers          → publisher_targeting.value
+- search_publishers          → publisher_targeting.value (publisher's `account_id`)
 - search_conversion_rules    → conversion_rules: [{id}]
 
 All wrap /api/1.0 endpoints. Read-only; no destructive annotations.
 """
+import json
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
@@ -100,7 +101,9 @@ async def search_publishers(arguments: dict = None) -> List[types.TextContent]:
     """List publishers an account is allowed to target.
 
     Endpoint: GET /api/1.0/{accountId}/allowed-publishers
-    Result names feed publisher_targeting.value on create_campaign / update_campaign.
+    The publisher's `account_id` feeds publisher_targeting.value and
+    publisher_bid_modifier.values[].target on create_campaign / update_campaign;
+    the upstream API does not resolve display names.
     """
     args = arguments or {}
     account_id = _require_account_id(args)
@@ -130,10 +133,54 @@ async def search_publishers(arguments: dict = None) -> List[types.TextContent]:
         f"/{quote(account_id, safe='')}/allowed-publishers",
         params=params,
     )
+    return _render_search_publishers(account_id, params["page"], page_size, response)
+
+
+def _render_search_publishers(
+    account_id: str,
+    page: int,
+    page_size: int,
+    response: Any,
+) -> List[types.TextContent]:
     flattened = flatten_results(response)
-    if isinstance(flattened, list):
-        flattened = [_trim_publisher(e) for e in flattened]
-    return _format_payload("account_id", account_id, flattened)
+    trimmed = [_trim_publisher(e) for e in flattened] if isinstance(flattened, list) else flattened
+
+    if not isinstance(trimmed, list) or not trimmed:
+        text = (
+            f"No publishers found on account {account_id!r}.\n\n"
+            f"Raw response:\n{json.dumps(response, indent=2, ensure_ascii=False)}"
+        )
+        return [types.TextContent(type="text", text=text)]
+
+    metadata = response.get("metadata", {}) if isinstance(response, dict) else {}
+    total = metadata.get("total", len(trimmed))
+
+    lines = [
+        f"Publisher search results — page {page}, page_size {page_size}, total {total}",
+        "",
+        "Resolved publisher account_ids (use these in publisher_targeting.value "
+        "and publisher_bid_modifier.values[].target):",
+    ]
+    for i, entry in enumerate(trimmed, 1):
+        if not isinstance(entry, dict):
+            lines.append(f"  {i}. {entry!r}")
+            continue
+        publisher_account_id = entry.get("account_id", "<missing>")
+        name = entry.get("name", "Unknown")
+        country = entry.get("country")
+        is_active = entry.get("is_active")
+        meta_parts = []
+        if country:
+            meta_parts.append(country)
+        if is_active is not None:
+            meta_parts.append("active" if is_active else "inactive")
+        meta = f" [{' · '.join(meta_parts)}]" if meta_parts else ""
+        lines.append(f"  {i}. account_id={publisher_account_id!r} ({name}){meta}")
+    lines.append("")
+    lines.append("Full response:")
+    lines.append(format_discovery_payload("account_id", account_id, trimmed))
+
+    return [types.TextContent(type="text", text="\n".join(lines))]
 
 
 _CONTEXTUAL_SEGMENT_FIELDS = ("id", "label", "provider", "taxonomy", "isActive", "isTargetable")
