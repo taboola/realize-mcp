@@ -1,9 +1,9 @@
 """Item (creative) handlers for Realize MCP server.
 
-Generic read tools (`list_items`, `get_item`) plus native-creative write tools
-(`create_native_item`, `update_native_item`). Native (`STATIC_IMAGE`) covers
-the standard headline+image+landing-url creative. Display and performance-video
-creatives ship as separate `*_display_item` / `*_video_item` tool pairs.
+Read tools (`list_items`, `get_item`) plus two write tools
+(`create_native_item`, `update_native_item`) covering creatives directly
+attached to a campaign. Native `ITEM` type only — RSS feed items, motion
+ads / performance video, display, and hierarchy carousel are out of scope.
 """
 from typing import Any, Dict, List
 from urllib.parse import quote

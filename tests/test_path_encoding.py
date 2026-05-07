@@ -70,7 +70,7 @@ class TestCampaignHandlersEncoding:
         assert _get_endpoint_arg(mock_get) == "/acct.1/campaigns/123%3Fx%3D1"
 
     @pytest.mark.asyncio
-    @patch('realize.tools.campaign_item_handlers.client.get', new_callable=AsyncMock)
+    @patch('realize.tools.item_handlers.client.get', new_callable=AsyncMock)
     async def test_list_items_encodes_both_ids(self, mock_get):
         mock_get.return_value = {"results": []}
 
@@ -82,7 +82,7 @@ class TestCampaignHandlersEncoding:
         assert _get_endpoint_arg(mock_get) == "/a%2Fb/campaigns/c%23d/items"
 
     @pytest.mark.asyncio
-    @patch('realize.tools.campaign_item_handlers.client.get', new_callable=AsyncMock)
+    @patch('realize.tools.item_handlers.client.get', new_callable=AsyncMock)
     async def test_get_item_encodes_all_three_ids(self, mock_get):
         mock_get.return_value = {"id": "x"}
 

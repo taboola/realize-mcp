@@ -77,7 +77,7 @@ class TestToolRegistryEdgeCases:
             'auth_handlers.',
             'account_handlers.',
             'campaign_handlers.',
-            'campaign_item_handlers.',
+            'item_handlers.',
             'report_handlers.',
             'resources.',
             'discovery_handlers.',
@@ -186,7 +186,7 @@ class TestToolHandlerImports:
             'realize.tools.auth_handlers',
             'realize.tools.account_handlers',
             'realize.tools.campaign_handlers',
-            'realize.tools.campaign_item_handlers',
+            'realize.tools.item_handlers',
             'realize.tools.report_handlers'
         ]
         
@@ -306,7 +306,7 @@ class TestItemAndDiscoveryAdditions:
         assert "create_native_item" in TOOL_REGISTRY
         entry = TOOL_REGISTRY["create_native_item"]
         assert entry["category"] == "items"
-        assert entry["handler"] == "campaign_item_handlers.create_native_item"
+        assert entry["handler"] == "item_handlers.create_native_item"
         assert entry["annotations"]["destructiveHint"] is True
         assert entry["annotations"]["idempotentHint"] is False
 
@@ -314,7 +314,7 @@ class TestItemAndDiscoveryAdditions:
         assert "update_native_item" in TOOL_REGISTRY
         entry = TOOL_REGISTRY["update_native_item"]
         assert entry["category"] == "items"
-        assert entry["handler"] == "campaign_item_handlers.update_native_item"
+        assert entry["handler"] == "item_handlers.update_native_item"
         assert entry["annotations"]["destructiveHint"] is True
         assert entry["annotations"]["idempotentHint"] is True
 
@@ -325,8 +325,8 @@ class TestItemAndDiscoveryAdditions:
         assert entry["handler"] == "resources.list_cta_types"
 
     def test_read_item_tools_repointed(self):
-        assert TOOL_REGISTRY["list_items"]["handler"] == "campaign_item_handlers.list_items"
-        assert TOOL_REGISTRY["get_item"]["handler"] == "campaign_item_handlers.get_item"
+        assert TOOL_REGISTRY["list_items"]["handler"] == "item_handlers.list_items"
+        assert TOOL_REGISTRY["get_item"]["handler"] == "item_handlers.get_item"
 
 
 if __name__ == "__main__":

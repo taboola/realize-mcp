@@ -94,20 +94,20 @@ async def handle_call_tool(
             from realize.tools.campaign_handlers import update_campaign
             result = await update_campaign(arguments)
 
-        elif handler_path == "campaign_item_handlers.list_items":
-            from realize.tools.campaign_item_handlers import list_items
+        elif handler_path == "item_handlers.list_items":
+            from realize.tools.item_handlers import list_items
             result = await list_items(arguments)
 
-        elif handler_path == "campaign_item_handlers.get_item":
-            from realize.tools.campaign_item_handlers import get_item
+        elif handler_path == "item_handlers.get_item":
+            from realize.tools.item_handlers import get_item
             result = await get_item(arguments)
 
-        elif handler_path == "campaign_item_handlers.create_native_item":
-            from realize.tools.campaign_item_handlers import create_native_item
+        elif handler_path == "item_handlers.create_native_item":
+            from realize.tools.item_handlers import create_native_item
             result = await create_native_item(arguments)
 
-        elif handler_path == "campaign_item_handlers.update_native_item":
-            from realize.tools.campaign_item_handlers import update_native_item
+        elif handler_path == "item_handlers.update_native_item":
+            from realize.tools.item_handlers import update_native_item
             result = await update_native_item(arguments)
 
         # Resource discovery handlers

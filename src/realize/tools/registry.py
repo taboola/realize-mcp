@@ -1061,7 +1061,7 @@ _CAMPAIGN_ITEM_TOOLS = {
             },
             "required": ["account_id", "campaign_id"]
         },
-        "handler": "campaign_item_handlers.list_items",
+        "handler": "item_handlers.list_items",
         "category": "items"
     },
 
@@ -1085,7 +1085,7 @@ _CAMPAIGN_ITEM_TOOLS = {
             },
             "required": ["account_id", "campaign_id", "item_id"]
         },
-        "handler": "campaign_item_handlers.get_item",
+        "handler": "item_handlers.get_item",
         "category": "items"
     },
 
@@ -1096,7 +1096,7 @@ _CAMPAIGN_ITEM_TOOLS = {
             "properties": _CREATE_CAMPAIGN_ITEM_PROPERTIES,
             "required": ["account_id", "campaign_id", "url"],
         },
-        "handler": "campaign_item_handlers.create_native_item",
+        "handler": "item_handlers.create_native_item",
         "category": "items",
         "annotations": _DESTRUCTIVE_ANNOTATIONS_CREATE,
     },
@@ -1108,7 +1108,7 @@ _CAMPAIGN_ITEM_TOOLS = {
             "properties": _UPDATE_CAMPAIGN_ITEM_PROPERTIES,
             "required": ["account_id", "campaign_id", "item_id"],
         },
-        "handler": "campaign_item_handlers.update_native_item",
+        "handler": "item_handlers.update_native_item",
         "category": "items",
         "annotations": _DESTRUCTIVE_ANNOTATIONS_UPDATE,
     },
