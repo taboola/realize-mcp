@@ -187,7 +187,6 @@ class TestUpdateDisplayItemDisplayDataPartialMerge:
 
     @pytest.mark.parametrize("field,value", [
         ("url", "https://example.com/new"),
-        ("branding_text", "Acme Pro"),
         ("is_active", True),
     ])
     @pytest.mark.asyncio
@@ -198,19 +197,48 @@ class TestUpdateDisplayItemDisplayDataPartialMerge:
         await handle_call_tool("update_display_item", args)
         assert _post_body(mock_post) == {field: value}
 
-
-class TestUpdateDisplayItemNested:
     @pytest.mark.asyncio
     @patch('realize.tools.item_display_handlers.client.post', new_callable=AsyncMock)
-    async def test_cta_passes_through(self, mock_post):
+    async def test_branding_and_cta_dropped_for_display(self, mock_post):
+        """Display creatives don't support branding_text or cta — args silently dropped."""
+        mock_post.return_value = {"id": "987654321"}
+        await handle_call_tool("update_display_item", _args(
+            branding_text="Acme",
+            cta={"cta_type": "LEARN_MORE"},
+        ))
+        body = _post_body(mock_post)
+        assert "branding_text" not in body
+        assert "cta" not in body
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.item_display_handlers.client.post', new_callable=AsyncMock)
+    async def test_creative_name_only(self, mock_post):
+        """Sending only creative_name emits a custom_data block, no display_data."""
         mock_post.return_value = {"id": "987654321"}
         await handle_call_tool(
             "update_display_item",
-            _args(cta={"cta_type": "LEARN_MORE"}),
+            {
+                "account_id": "acme-inc",
+                "campaign_id": "49184816",
+                "item_id": "987654321",
+                "creative_name": "Acme 300x250 — renamed",
+            },
         )
         body = _post_body(mock_post)
-        assert body["cta"] == {"cta_type": "LEARN_MORE"}
+        assert body == {"custom_data": {"creative_name": "Acme 300x250 — renamed"}}
 
+    @pytest.mark.asyncio
+    async def test_creative_name_blank_rejected(self):
+        with pytest.raises(ToolInputError, match="creative_name must be a non-empty string"):
+            await handle_call_tool("update_display_item", _args(creative_name=""))
+
+    @pytest.mark.asyncio
+    async def test_creative_name_invalid_type_rejected(self):
+        with pytest.raises(ToolInputError, match="creative_name must be a string"):
+            await handle_call_tool("update_display_item", _args(creative_name=42))
+
+
+class TestUpdateDisplayItemNested:
     @pytest.mark.asyncio
     @patch('realize.tools.item_display_handlers.client.post', new_callable=AsyncMock)
     async def test_verification_pixel_full_replace(self, mock_post):
@@ -275,7 +303,6 @@ class TestUpdateDisplayItemMultiField:
             url="https://example.com/landing-v2",
             ad_tag=_AD_TAG,
             dimensions=[{"width": 300, "height": 250}],
-            cta={"cta_type": "READ_MORE"},
             verification_pixel={
                 "verification_pixel_items": [
                     {"url": "https://x.example/c", "verification_pixel_type": "CLICK"},
@@ -289,7 +316,6 @@ class TestUpdateDisplayItemMultiField:
             "ad_tag": _AD_TAG,
             "dimensions": [{"width": 300, "height": 250}],
         }
-        assert body["cta"] == {"cta_type": "READ_MORE"}
         assert body["verification_pixel"] == {
             "verification_pixel_items": [
                 {"url": "https://x.example/c", "verification_pixel_type": "CLICK"},

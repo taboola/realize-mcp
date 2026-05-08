@@ -13,7 +13,6 @@ from urllib.parse import quote
 import mcp.types as types
 
 from realize.client import client
-from realize.tools.cta import sanitize_cta, validate_cta
 from realize.tools.errors import ToolInputError
 from realize.tools.utils import format_response, validate_account_id
 from realize.tools.verification_pixel import (
@@ -26,10 +25,12 @@ from realize.tools.viewability_tag import (
 )
 
 
-_CREATE_REQUIRED = ("url", "ad_tag", "dimensions")
+_CREATE_REQUIRED = ("url", "ad_tag", "dimensions", "creative_name")
 
 # Top-level scalars carried across both create and update.
-_CREATE_BODY_FIELDS = ("url", "branding_text")
+# Display items don't support branding_text or cta — the 3P ad tag handles
+# branding and click itself; the server silently drops both fields.
+_CREATE_BODY_FIELDS = ("url",)
 
 _UPDATE_BODY_FIELDS = _CREATE_BODY_FIELDS + ("is_active",)
 
@@ -47,6 +48,13 @@ def _validate_ad_tag(value: Any) -> None:
         raise ToolInputError(
             f"ad_tag exceeds {_AD_TAG_MAX_BYTES} bytes; trim or host externally"
         )
+
+
+def _validate_creative_name(value: Any) -> None:
+    if not isinstance(value, str):
+        raise ToolInputError("creative_name must be a string")
+    if not value.strip():
+        raise ToolInputError("creative_name must be a non-empty string")
 
 
 def _validate_dimensions(value: Any) -> None:
@@ -80,10 +88,11 @@ def _build_display_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str
     """Validate and assemble the display-item POST body.
 
     Skip-None for top-level scalars; per-section validate-then-sanitize for
-    nested blocks. The is_create flag (1) gates update-only top-level fields
-    (`is_active`, `verification_pixel`, `viewability_tag`), and (2) injects
-    `creative_type` + `display_data.display_ad_type` only on create — both are
-    fixed and not editable on update.
+    nested blocks. The is_create flag gates update-only top-level fields
+    (`is_active`, `verification_pixel`, `viewability_tag`).
+
+    Server infers `creative_type` and `display_data.display_ad_type` from
+    payload shape; both are read-only and rejected with 400 if sent.
     """
     body: Dict[str, Any] = {}
 
@@ -93,8 +102,6 @@ def _build_display_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str
             body[f] = args[f]
 
     display_data: Dict[str, Any] = {}
-    if is_create:
-        display_data["display_ad_type"] = "THIRD_PARTY_TAG"
 
     ad_tag = args.get("ad_tag")
     if ad_tag is not None:
@@ -106,16 +113,13 @@ def _build_display_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str
         _validate_dimensions(dimensions)
         display_data["dimensions"] = _sanitize_dimensions(dimensions)
 
-    if is_create or display_data:
+    if display_data:
         body["display_data"] = display_data
 
-    if is_create:
-        body["creative_type"] = "DISPLAY"
-
-    cta = args.get("cta")
-    if cta is not None:
-        validate_cta(cta)
-        body["cta"] = sanitize_cta(cta)
+    creative_name = args.get("creative_name")
+    if creative_name is not None:
+        _validate_creative_name(creative_name)
+        body["custom_data"] = {"creative_name": creative_name}
 
     if not is_create:
         verification_pixel = args.get("verification_pixel")

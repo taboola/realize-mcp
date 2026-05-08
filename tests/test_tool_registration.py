@@ -330,7 +330,7 @@ class TestItemAndDiscoveryAdditions:
         assert entry["annotations"]["destructiveHint"] is True
         assert entry["annotations"]["idempotentHint"] is False
         assert set(entry["schema"]["required"]) == {
-            "account_id", "campaign_id", "url", "ad_tag", "dimensions"
+            "account_id", "campaign_id", "url", "ad_tag", "dimensions", "creative_name"
         }
 
     def test_update_display_item_registered(self):

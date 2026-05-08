@@ -153,6 +153,7 @@ title          (string)                      Headline
 description    (string)                      Body
 thumbnail_url  (string)                      Image URL
 branding_text  (string)
+creative_name  (string)                      Human-readable creative label shown in the Realize UI
 cta            (object)                      {cta_type} — values from list_cta_types
 ```
 
@@ -167,6 +168,7 @@ title               (string)
 description         (string)
 thumbnail_url       (string)
 branding_text       (string)
+creative_name       (string)                 Human-readable creative label shown in the Realize UI
 is_active           (boolean)                Pause/resume
 cta                 (object)                 {cta_type}
 verification_pixel  (object)                 Tracking pixels (full-replace within block)
@@ -181,8 +183,7 @@ campaign_id    (string, required)
 url            (string, required)            Landing URL
 ad_tag         (string, required)            Raw 3P HTML/JS ad tag
 dimensions     (array, required)             Single-entry [{width, height}] — one IAB size (e.g. 300x250)
-branding_text  (string)
-cta            (object)                      {cta_type} — values from list_cta_types
+creative_name  (string, required)            Human-readable creative label shown in the Realize UI
 ```
 
 **`update_display_item`** — Update specific fields on a display item. `ad_tag` and `dimensions` are independent inside `display_data` — send either or both; the other is preserved server-side. Send `[]` for `verification_pixel` / `viewability_tag` to clear.
@@ -194,9 +195,8 @@ item_id             (string, required)
 url                 (string)
 ad_tag              (string)                 Raw 3P HTML/JS ad tag (replaces prior tag)
 dimensions          (array)                  Single-entry: [{width, height}] (replaces prior dimension)
-branding_text       (string)
+creative_name       (string)                 Human-readable creative label shown in the Realize UI
 is_active           (boolean)                Pause/resume
-cta                 (object)                 {cta_type}
 verification_pixel  (object)                 Tracking pixels (full-replace within block)
 viewability_tag     (object)                 Viewability tag (full-replace within block)
 ```

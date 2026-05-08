@@ -130,6 +130,26 @@ class TestUpdateCampaignItemWireMapping:
         await handle_call_tool("update_native_item", args)
         assert _post_body(mock_post) == {field: value}
 
+    @pytest.mark.asyncio
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
+    async def test_creative_name_only(self, mock_post):
+        mock_post.return_value = {"id": "987654321"}
+        await handle_call_tool(
+            "update_native_item",
+            {
+                "account_id": "acme-inc",
+                "campaign_id": "49184816",
+                "item_id": "987654321",
+                "creative_name": "Native renamed",
+            },
+        )
+        assert _post_body(mock_post) == {"custom_data": {"creative_name": "Native renamed"}}
+
+    @pytest.mark.asyncio
+    async def test_creative_name_blank_rejected(self):
+        with pytest.raises(ToolInputError, match="creative_name must be a non-empty string"):
+            await handle_call_tool("update_native_item", _args(creative_name=""))
+
 
 class TestUpdateCampaignItemNested:
     @pytest.mark.asyncio

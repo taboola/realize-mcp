@@ -35,6 +35,13 @@ _CREATE_BODY_FIELDS = (
 _UPDATE_BODY_FIELDS = _CREATE_BODY_FIELDS + ("is_active",)
 
 
+def _validate_creative_name(value: Any) -> None:
+    if not isinstance(value, str):
+        raise ToolInputError("creative_name must be a string")
+    if not value.strip():
+        raise ToolInputError("creative_name must be a non-empty string")
+
+
 def _build_item_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str, Any]:
     """Validate and assemble the item-endpoint POST body.
 
@@ -49,6 +56,11 @@ def _build_item_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str, A
     for f in scalar_fields:
         if args.get(f) is not None:
             body[f] = args[f]
+
+    creative_name = args.get("creative_name")
+    if creative_name is not None:
+        _validate_creative_name(creative_name)
+        body["custom_data"] = {"creative_name": creative_name}
 
     cta = args.get("cta")
     if cta is not None:

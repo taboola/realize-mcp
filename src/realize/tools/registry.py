@@ -765,6 +765,10 @@ _ITEM_SCALAR_PROPERTIES_CREATE = {
         "type": "string",
         "description": "Brand name shown with the ad. Inherits from campaign if omitted.",
     },
+    "creative_name": {
+        "type": "string",
+        "description": "Human-readable creative label shown in the Realize UI. Optional for native; passthrough — Realize does not validate length.",
+    },
 }
 
 
@@ -820,6 +824,7 @@ _CREATE_CAMPAIGN_ITEM_JSON_EXAMPLE = """\
   "description": "Limited-time offer on all spring collection items.",
   "thumbnail_url": "https://cdn.example.com/spring.jpg",
   "branding_text": "Acme",
+  "creative_name": "Acme Spring Sale Native",
   "cta": {"cta_type": "SHOP_NOW"}
 }"""
 
@@ -866,6 +871,7 @@ _UPDATE_CAMPAIGN_ITEM_JSON_EXAMPLE = """\
   "description": "Spring sale extended through end of June.",
   "thumbnail_url": "https://cdn.example.com/spring-v2.jpg",
   "branding_text": "Acme",
+  "creative_name": "Acme Spring Sale Native — v2",
   "cta": {"cta_type": "LEARN_MORE"},
   "is_active": true,
   "verification_pixel": {
@@ -962,9 +968,9 @@ _DISPLAY_ITEM_SCALAR_PROPERTIES = {
         "type": "string",
         "description": "Landing page URL the ad clicks through to. Required on create.",
     },
-    "branding_text": {
+    "creative_name": {
         "type": "string",
-        "description": "Brand name shown with the ad. Inherits from campaign if omitted.",
+        "description": "Human-readable creative label shown in the Realize UI. Required on create for display items; passthrough — Realize does not validate length.",
     },
 }
 
@@ -978,16 +984,15 @@ Scope: third-party (3P) ad tag only — `display_ad_type` is fixed at `THIRD_PAR
 
 Validation: `ad_tag` is a raw HTML/JS string sent to the campaign's item endpoint as-is; Realize runs DisplayAdTagValidator on submit (structural checks, ${CLICK_URL} macro replacement) and returns 4xx with the offending field on failure. Soft 16 KiB cap on the client side.
 
-Discovery (call before constructing the payload to resolve IDs/names):
-- list_cta_types → `cta.cta_type` allowed values.
+Not applicable to display creatives: `branding_text` and `cta` — the 3P ad tag handles its own branding and click; sending these has no effect.
 
 Read-only — NEVER send: id, campaign_id (set via path), creative_type (server enforces DISPLAY), display_data.display_ad_type (always THIRD_PARTY_TAG), status, approval_state, learning_state, policy_review.
 
 Item creation goes in one atomic call; either the item commits with all fields, or it doesn't.
 
-Comprehensive example (every available field set; trim what you don't need — only `account_id`, `campaign_id`, `url`, `ad_tag`, and `dimensions` are mandatory).
+Comprehensive example (every available field set; trim what you don't need — only `account_id`, `campaign_id`, `url`, `ad_tag`, `dimensions`, and `creative_name` are mandatory).
 
-Plain English: an Acme 300x250 banner, landing at example.com/landing, using a Google Ad Manager script tag and a Learn More CTA. New items are always created active; use update_display_item to pause if needed.
+Plain English: an Acme 300x250 banner, landing at example.com/landing, using a CM360 ad tag. New items are always created active; use update_display_item to pause if needed.
 
 """
 
@@ -997,10 +1002,9 @@ _CREATE_DISPLAY_ITEM_JSON_EXAMPLE = """\
   "account_id": "acme-inc",
   "campaign_id": "49184816",
   "url": "https://example.com/landing",
-  "ad_tag": "<script src=\\"https://securepubads.g.doubleclick.net/tag/js/gpt.js\\"></script><div id=\\"div-gpt-ad\\"></div>",
+  "ad_tag": "<ins class=\\"dcmads\\" style=\\"display:inline-block;width:300px;height:250px\\" data-dcm-placement=\\"N12345.1234567ACME/B12345678.123456789\\" data-dcm-rendering-mode=\\"script\\" data-dcm-https-only data-dcm-resettable-device-id=\\"\\" data-dcm-app-id=\\"\\" data-dcm-click-tracker=\\"${CLICK_URL}\\"><script src=\\"https://www.googletagservices.com/dcm/dcmads.js\\"></script></ins>",
   "dimensions": [{"width": 300, "height": 250}],
-  "branding_text": "Acme",
-  "cta": {"cta_type": "LEARN_MORE"}
+  "creative_name": "Acme Spring Sale 300x250"
 }"""
 
 
@@ -1020,8 +1024,7 @@ Editability: items in CRAWLING / PENDING_APPROVAL accept full edits. Items in RU
 
 Scope: third-party display items only — for editing URL-crawled native items use update_native_item. First-party Realize-hosted assets, RSS feed items, motion ads, performance video, hierarchy carousel, and the Creative Library are not supported.
 
-Discovery (call before constructing the payload to resolve IDs/names):
-- list_cta_types → `cta.cta_type` allowed values.
+Not applicable to display creatives: `branding_text` and `cta` — the 3P ad tag handles its own branding and click; sending these has no effect.
 
 Read-only — NEVER send: id, campaign_id (set via path), creative_type, display_data.display_ad_type, status, approval_state, learning_state, policy_review.
 
@@ -1031,7 +1034,7 @@ All updates (including verification_pixel and viewability_tag) go in one atomic 
 
 Comprehensive example (every available field set; trim what you don't need — only `account_id`, `campaign_id`, and `item_id` are mandatory, plus at least one updatable field).
 
-Plain English: refresh an existing display creative — new landing URL, new ad tag, new 300x250 size, branding, Learn More CTA, CLICK + VIEWABLE_IMPRESSION verification pixels and an IAS viewability tag, shipped active.
+Plain English: refresh an existing display creative — new landing URL, new ad tag, new 300x250 size, CLICK + VIEWABLE_IMPRESSION verification pixels and an IAS viewability tag, shipped active.
 
 """
 
@@ -1042,10 +1045,9 @@ _UPDATE_DISPLAY_ITEM_JSON_EXAMPLE = """\
   "campaign_id": "49184816",
   "item_id": "987654321",
   "url": "https://example.com/landing-v2",
-  "ad_tag": "<script src=\\"https://securepubads.g.doubleclick.net/tag/js/gpt.js\\"></script><div id=\\"div-gpt-ad-v2\\"></div>",
+  "ad_tag": "<ins class=\\"dcmads\\" style=\\"display:inline-block;width:300px;height:250px\\" data-dcm-placement=\\"N12345.1234567ACME/B12345678.123456789\\" data-dcm-rendering-mode=\\"script\\" data-dcm-https-only data-dcm-resettable-device-id=\\"\\" data-dcm-app-id=\\"\\" data-dcm-click-tracker=\\"${CLICK_URL}\\"><script src=\\"https://www.googletagservices.com/dcm/dcmads.js\\"></script></ins>",
   "dimensions": [{"width": 300, "height": 250}],
-  "branding_text": "Acme",
-  "cta": {"cta_type": "LEARN_MORE"},
+  "creative_name": "Acme Spring Sale 300x250 — v2",
   "is_active": true,
   "verification_pixel": {
     "verification_pixel_items": [
@@ -1085,7 +1087,6 @@ _CREATE_DISPLAY_ITEM_PROPERTIES = {
     **_DISPLAY_ITEM_SCALAR_PROPERTIES,
     "ad_tag": _DISPLAY_AD_TAG_SCHEMA,
     "dimensions": _DISPLAY_DIMENSIONS_SCHEMA,
-    "cta": _ITEM_CTA_SCHEMA,
 }
 
 
@@ -1106,7 +1107,8 @@ _UPDATE_DISPLAY_ITEM_PROPERTIES = {
     "ad_tag": _DISPLAY_AD_TAG_SCHEMA,
     "dimensions": _DISPLAY_DIMENSIONS_SCHEMA,
     **_ITEM_SCALAR_PROPERTIES_UPDATE_EXTRAS,
-    **_ITEM_NESTED_PROPERTIES_UPDATE,
+    "verification_pixel": _ITEM_VERIFICATION_PIXEL_SCHEMA,
+    "viewability_tag": _ITEM_VIEWABILITY_TAG_SCHEMA,
 }
 
 
@@ -1325,7 +1327,7 @@ _CAMPAIGN_ITEM_TOOLS = {
         "schema": {
             "type": "object",
             "properties": _CREATE_DISPLAY_ITEM_PROPERTIES,
-            "required": ["account_id", "campaign_id", "url", "ad_tag", "dimensions"],
+            "required": ["account_id", "campaign_id", "url", "ad_tag", "dimensions", "creative_name"],
         },
         "handler": "item_display_handlers.create_display_item",
         "category": "items",

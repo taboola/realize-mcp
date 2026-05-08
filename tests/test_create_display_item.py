@@ -31,6 +31,7 @@ def _args(**overrides):
         "url": "https://example.com/landing",
         "ad_tag": _AD_TAG,
         "dimensions": [{"width": 300, "height": 250}],
+        "creative_name": "Acme 300x250",
     }
     base.update(overrides)
     return base
@@ -47,31 +48,43 @@ class TestCreateDisplayItemHappyPath:
         assert _post_endpoint(mock_post) == "/acme-inc/campaigns/49184816/items/mass"
         item = _post_item(mock_post)
         assert item["url"] == "https://example.com/landing"
-        assert item["creative_type"] == "DISPLAY"
+        assert "creative_type" not in item
         assert item["display_data"] == {
-            "display_ad_type": "THIRD_PARTY_TAG",
             "ad_tag": _AD_TAG,
             "dimensions": [{"width": 300, "height": 250}],
         }
+        assert "display_ad_type" not in item["display_data"]
+        assert item["custom_data"] == {"creative_name": "Acme 300x250"}
         assert "account_id" not in item
         assert "campaign_id" not in item
         assert "987654321" in result[0].text
 
     @pytest.mark.asyncio
     @patch('realize.tools.item_display_handlers.client.post', new_callable=AsyncMock)
-    async def test_with_branding_and_cta(self, mock_post):
+    async def test_alternate_dimension(self, mock_post):
         mock_post.return_value = {"results": [{"id": "987654321"}]}
 
         await handle_call_tool("create_display_item", _args(
             dimensions=[{"width": 728, "height": 90}],
+        ))
+
+        item = _post_item(mock_post)
+        assert item["display_data"]["dimensions"] == [{"width": 728, "height": 90}]
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.item_display_handlers.client.post', new_callable=AsyncMock)
+    async def test_branding_and_cta_dropped_for_display(self, mock_post):
+        """Display creatives don't support branding_text or cta — args silently dropped."""
+        mock_post.return_value = {"results": [{"id": "987654321"}]}
+
+        await handle_call_tool("create_display_item", _args(
             branding_text="Acme",
             cta={"cta_type": "LEARN_MORE"},
         ))
 
         item = _post_item(mock_post)
-        assert item["branding_text"] == "Acme"
-        assert item["cta"] == {"cta_type": "LEARN_MORE"}
-        assert item["display_data"]["dimensions"] == [{"width": 728, "height": 90}]
+        assert "branding_text" not in item
+        assert "cta" not in item
 
     @pytest.mark.asyncio
     @patch('realize.tools.item_display_handlers.client.post', new_callable=AsyncMock)
@@ -203,9 +216,26 @@ class TestCreateDisplayItemValidation:
             ))
 
     @pytest.mark.asyncio
-    async def test_cta_invalid_rejected(self):
-        with pytest.raises(ToolInputError, match="cta"):
-            await handle_call_tool("create_display_item", _args(cta={"cta_type": ""}))
+    async def test_missing_creative_name_raises(self):
+        args = _args()
+        del args["creative_name"]
+        with pytest.raises(ToolInputError, match="Missing required field.*creative_name"):
+            await handle_call_tool("create_display_item", args)
+
+    @pytest.mark.asyncio
+    async def test_creative_name_blank_rejected(self):
+        with pytest.raises(ToolInputError, match="Missing required field.*creative_name"):
+            await handle_call_tool("create_display_item", _args(creative_name=""))
+
+    @pytest.mark.asyncio
+    async def test_creative_name_must_be_string(self):
+        with pytest.raises(ToolInputError, match="creative_name must be a string"):
+            await handle_call_tool("create_display_item", _args(creative_name=12345))
+
+    @pytest.mark.asyncio
+    async def test_creative_name_whitespace_rejected(self):
+        with pytest.raises(ToolInputError, match="creative_name must be a non-empty string"):
+            await handle_call_tool("create_display_item", _args(creative_name="   "))
 
 
 class TestCreateDisplayItemEncoding:
@@ -242,7 +272,7 @@ class TestCreateDisplayItemAnnotations:
         create = next(t for t in tools if t.name == "create_display_item")
 
         assert set(create.inputSchema["required"]) == {
-            "account_id", "campaign_id", "url", "ad_tag", "dimensions",
+            "account_id", "campaign_id", "url", "ad_tag", "dimensions", "creative_name",
         }
 
     @pytest.mark.asyncio

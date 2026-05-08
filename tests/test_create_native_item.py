@@ -123,6 +123,37 @@ class TestCreateCampaignItemValidation:
         with pytest.raises(ToolInputError, match="cta.cta_type"):
             await handle_call_tool("create_native_item", _args(cta={"cta_type": ""}))
 
+    @pytest.mark.asyncio
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
+    async def test_creative_name_passthrough(self, mock_post):
+        mock_post.return_value = {"results": [{"id": "987654321"}]}
+
+        await handle_call_tool("create_native_item", _args(creative_name="Spring Sale Native"))
+
+        item = _post_item(mock_post)
+        assert item["custom_data"] == {"creative_name": "Spring Sale Native"}
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
+    async def test_creative_name_omitted_no_custom_data(self, mock_post):
+        """Native is optional — no custom_data block when caller omits creative_name."""
+        mock_post.return_value = {"results": [{"id": "987654321"}]}
+
+        await handle_call_tool("create_native_item", _args())
+
+        item = _post_item(mock_post)
+        assert "custom_data" not in item
+
+    @pytest.mark.asyncio
+    async def test_creative_name_blank_rejected(self):
+        with pytest.raises(ToolInputError, match="creative_name must be a non-empty string"):
+            await handle_call_tool("create_native_item", _args(creative_name=""))
+
+    @pytest.mark.asyncio
+    async def test_creative_name_invalid_type_rejected(self):
+        with pytest.raises(ToolInputError, match="creative_name must be a string"):
+            await handle_call_tool("create_native_item", _args(creative_name=123))
+
 
 class TestCreateCampaignItemEncoding:
     @pytest.mark.asyncio
