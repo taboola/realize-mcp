@@ -72,7 +72,6 @@ class TestEnvironmentVariables:
     
     def test_missing_env_vars_handled_gracefully(self):
         """Test that missing environment variables raise validation error for stdio transport."""
-        # Remove all realize-related env vars temporarily
         original_env = {}
         realize_vars = [key for key in os.environ.keys() if key.startswith('REALIZE_')]
 
@@ -81,24 +80,18 @@ class TestEnvironmentVariables:
             del os.environ[key]
 
         try:
-            # Should raise validation error without credentials for stdio transport
-            import importlib
-            import realize.config
+            from realize.config import Config
             from pydantic_core import ValidationError
 
+            # _env_file=None disables .env loading so the project's real .env can't satisfy validation
             with pytest.raises(ValidationError) as exc_info:
-                importlib.reload(realize.config)
+                Config(_env_file=None)
 
-            # Error should mention missing credentials
             assert "REALIZE_CLIENT_ID" in str(exc_info.value) or "REALIZE_CLIENT_SECRET" in str(exc_info.value)
 
         finally:
-            # Restore environment
             for key, value in original_env.items():
                 os.environ[key] = value
-
-            # Reload config
-            importlib.reload(realize.config)
     
     def test_boolean_env_vars_parsed_correctly(self):
         """Test that boolean environment variables are parsed correctly."""
