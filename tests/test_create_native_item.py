@@ -26,6 +26,9 @@ def _args(**overrides):
         "account_id": "acme-inc",
         "campaign_id": "49184816",
         "url": "https://example.com/landing",
+        "title": "Save 20% This Spring",
+        "description": "Limited-time offer.",
+        "thumbnail_url": "https://cdn.example.com/spring.jpg",
     }
     base.update(overrides)
     return base
@@ -34,14 +37,19 @@ def _args(**overrides):
 class TestCreateCampaignItemHappyPath:
     @pytest.mark.asyncio
     @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
-    async def test_minimal_url_only(self, mock_post):
-        mock_post.return_value = {"results": [{"id": "987654321", "status": "CRAWLING"}]}
+    async def test_minimal_required_fields(self, mock_post):
+        mock_post.return_value = {"results": [{"id": "987654321", "status": "PENDING_APPROVAL"}]}
 
         result = await handle_call_tool("create_native_item", _args())
 
         assert _post_endpoint(mock_post) == "/acme-inc/campaigns/49184816/items/mass"
         body = _post_body(mock_post)
-        assert body == {"collection": [{"url": "https://example.com/landing"}]}
+        assert body == {"collection": [{
+            "url": "https://example.com/landing",
+            "title": "Save 20% This Spring",
+            "description": "Limited-time offer.",
+            "thumbnail_url": "https://cdn.example.com/spring.jpg",
+        }]}
         item = _post_item(mock_post)
         assert "account_id" not in item
         assert "campaign_id" not in item
@@ -109,6 +117,27 @@ class TestCreateCampaignItemValidation:
             await handle_call_tool("create_native_item", args)
 
     @pytest.mark.asyncio
+    async def test_missing_title_raises(self):
+        args = _args()
+        del args["title"]
+        with pytest.raises(ToolInputError, match="Missing required field.*title"):
+            await handle_call_tool("create_native_item", args)
+
+    @pytest.mark.asyncio
+    async def test_missing_description_raises(self):
+        args = _args()
+        del args["description"]
+        with pytest.raises(ToolInputError, match="Missing required field.*description"):
+            await handle_call_tool("create_native_item", args)
+
+    @pytest.mark.asyncio
+    async def test_missing_thumbnail_url_raises(self):
+        args = _args()
+        del args["thumbnail_url"]
+        with pytest.raises(ToolInputError, match="Missing required field.*thumbnail_url"):
+            await handle_call_tool("create_native_item", args)
+
+    @pytest.mark.asyncio
     async def test_cta_not_object_raises(self):
         with pytest.raises(ToolInputError, match="cta must be an object"):
             await handle_call_tool("create_native_item", _args(cta="SHOP_NOW"))
@@ -157,7 +186,9 @@ class TestCreateCampaignItemAnnotations:
         tools = await handle_list_tools()
         create = next(t for t in tools if t.name == "create_native_item")
 
-        assert set(create.inputSchema["required"]) == {"account_id", "campaign_id", "url"}
+        assert set(create.inputSchema["required"]) == {
+            "account_id", "campaign_id", "url", "title", "description", "thumbnail_url",
+        }
 
     @pytest.mark.asyncio
     async def test_optional_scalars_not_required(self):
@@ -166,7 +197,7 @@ class TestCreateCampaignItemAnnotations:
         tools = await handle_list_tools()
         create = next(t for t in tools if t.name == "create_native_item")
 
-        for f in ("title", "description", "thumbnail_url", "branding_text", "cta"):
+        for f in ("branding_text", "cta"):
             assert f in create.inputSchema["properties"]
             assert f not in create.inputSchema["required"]
         assert "is_active" not in create.inputSchema["properties"]

@@ -22,7 +22,7 @@ Campaigns (write — fat tools, all targeting inline, single atomic POST):
 Items:
   - list_items                           (read)
   - get_item                             (read)
-  - create_native_item                   (write — native ITEM only; auto-crawl when title/description/thumbnail omitted)
+  - create_native_item                   (write — native ITEM only)
   - update_native_item                   (write — partial-merge scalars; full-replace verification_pixel / viewability_tag arrays)
 
 Discovery (resources for resolving IDs/names used in campaign + item payloads):
@@ -726,19 +726,19 @@ _UPDATE_CAMPAIGN_PROPERTIES = {
 _ITEM_SCALAR_PROPERTIES_CREATE = {
     "url": {
         "type": "string",
-        "description": "Landing/crawl URL for the creative. Required on create.",
+        "description": "Landing URL for the creative. Required on create.",
     },
     "title": {
         "type": "string",
-        "description": "Headline shown with the ad. Auto-crawled from `url` if omitted.",
+        "description": "Headline shown with the ad. Required on create.",
     },
     "description": {
         "type": "string",
-        "description": "Body copy shown with the ad. Auto-crawled from `url` if omitted.",
+        "description": "Body copy shown with the ad. Required on create.",
     },
     "thumbnail_url": {
         "type": "string",
-        "description": "Image URL shown with the ad. Auto-crawled from `url` if omitted.",
+        "description": "Image URL shown with the ad. Required on create.",
     },
     "branding_text": {
         "type": "string",
@@ -772,8 +772,6 @@ Create a native item directly attached to a campaign on Realize. "Item", "ad", a
 
 Prerequisites: call search_accounts to obtain `account_id`; call list_campaigns or get_campaign to obtain `campaign_id`. Numeric account IDs are rejected.
 
-Auto-crawl: omitting `title`, `description`, and/or `thumbnail_url` triggers a server-side crawl of `url`; the crawler populates the missing fields. New items typically transition CRAWLING → PENDING_APPROVAL → RUNNING. Override any crawled field by passing it explicitly.
-
 Scope: this tool creates a native `ITEM` directly attached to the campaign. RSS feed items, motion ads, performance video items, display creatives, hierarchy carousel items, and the Creative Library are not supported.
 
 Discovery (call before constructing the payload to resolve IDs/names):
@@ -783,9 +781,9 @@ Read-only — NEVER send: id, campaign_id (set via path), type, status, approval
 
 Item creation goes in one atomic call; either the item commits with all fields, or it doesn't.
 
-Comprehensive example (every available field set; trim what you don't need — only `account_id`, `campaign_id`, and `url` are mandatory).
+Required fields: `account_id`, `campaign_id`, `url`, `title`, `description`, `thumbnail_url`. Optional: `branding_text`, `cta`. New items typically transition PENDING_APPROVAL → RUNNING.
 
-Plain English: a "Spring Sale" creative for the Acme brand, landing at example.com/landing, with explicit headline / body / thumbnail (overriding auto-crawl) and Shop Now CTA. New items are always created active; use update_native_item to pause if needed.
+Plain English: a "Spring Sale" creative for the Acme brand, landing at example.com/landing, with explicit headline / body / thumbnail and Shop Now CTA. New items are always created active; use update_native_item to pause if needed.
 
 """
 
@@ -815,7 +813,7 @@ Partial-merge for scalars: fields omitted from the request keep their prior valu
 
 Array semantics — FULL-REPLACE within section: sending `verification_pixel` or `viewability_tag` overwrites the entire prior list for that field. Send [] to clear. To edit one entry, read with get_item, modify locally, send the merged result.
 
-Editability: items in CRAWLING / CRAWLING_ERROR / PENDING_APPROVAL accept full edits. Items in RUNNING / PAUSED practically only accept `is_active` toggles and minor metadata; the API surfaces 4xx for non-allowed transitions. REJECTED items cannot be edited — recreate.
+Editability: items in PENDING_APPROVAL accept full edits. Items in RUNNING / PAUSED practically only accept `is_active` toggles and minor metadata; the API surfaces 4xx for non-allowed transitions. REJECTED items cannot be edited — recreate.
 
 Scope: native `ITEM` only. RSS feed items, motion ads, performance video, display, hierarchy carousel, and the Creative Library are not supported.
 
@@ -1094,7 +1092,7 @@ _CAMPAIGN_ITEM_TOOLS = {
         "schema": {
             "type": "object",
             "properties": _CREATE_CAMPAIGN_ITEM_PROPERTIES,
-            "required": ["account_id", "campaign_id", "url"],
+            "required": ["account_id", "campaign_id", "url", "title", "description", "thumbnail_url"],
         },
         "handler": "item_handlers.create_native_item",
         "category": "items",
