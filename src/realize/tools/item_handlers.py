@@ -24,7 +24,7 @@ from realize.tools.viewability_tag import (
 )
 
 
-_CREATE_REQUIRED = ("url",)
+_CREATE_REQUIRED = ("url", "title", "description", "thumbnail_url")
 
 _CREATE_BODY_FIELDS = (
     "url", "title", "description", "thumbnail_url",

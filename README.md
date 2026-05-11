@@ -142,15 +142,15 @@ campaign_id  (string, required)
 item_id      (string, required)
 ```
 
-**`create_native_item`** — Create a native item on a campaign. Omit `title` / `description` / `thumbnail_url` to trigger a server-side crawl of `url`.
+**`create_native_item`** — Create a native item on a campaign.
 
 ```
 account_id     (string, required)
 campaign_id    (string, required)
 url            (string, required)            Landing URL
-title          (string)                      Headline
-description    (string)                      Body
-thumbnail_url  (string)                      Image URL
+title          (string, required)            Headline
+description    (string, required)            Body
+thumbnail_url  (string, required)            Image URL
 branding_text  (string)
 cta            (object)                      {cta_type} — values from list_cta_types
 ```
@@ -172,7 +172,7 @@ verification_pixel  (object)                 Tracking pixels (full-replace withi
 viewability_tag     (object)                 Viewability tag (full-replace within block)
 ```
 
-Editability: items in CRAWLING / PENDING_APPROVAL accept full edits; RUNNING / PAUSED accept only `is_active` toggles plus minor metadata; REJECTED items cannot be edited (recreate).
+Editability: items in PENDING_APPROVAL accept full edits; RUNNING / PAUSED accept only `is_active` toggles plus minor metadata; REJECTED items cannot be edited (recreate).
 
 ### Discovery
 
@@ -349,7 +349,7 @@ AI Process:
 ### Create a Native Item
 
 ```
-User: "Add a new ad to campaign 12345678 pointing at example.com/landing with a Shop Now CTA"
+User: "Add a new ad to campaign 12345678 pointing at example.com/landing — headline 'Save 20% This Spring', body 'Limited-time offer on all spring collection items.', thumbnail https://cdn.example.com/spring.jpg, Shop Now CTA"
 AI Process:
   Step 1: search_accounts(...) → account_id: "mktg_corp_001"
   Step 2: list_cta_types() → confirm "SHOP_NOW" is a valid cta_type
@@ -357,9 +357,12 @@ AI Process:
     account_id="mktg_corp_001",
     campaign_id="12345678",
     url="https://example.com/landing",
+    title="Save 20% This Spring",
+    description="Limited-time offer on all spring collection items.",
+    thumbnail_url="https://cdn.example.com/spring.jpg",
     cta={"cta_type": "SHOP_NOW"}
   )
-  Result: Native item created; title/description/thumbnail server-crawled from url
+  Result: Native item created
 ```
 
 ### Report Features
