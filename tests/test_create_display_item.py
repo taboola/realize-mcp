@@ -271,9 +271,21 @@ class TestCreateDisplayItemAnnotations:
         tools = await handle_list_tools()
         create = next(t for t in tools if t.name == "create_display_item")
 
+        # ad_tag and asset_url are mutually-exclusive discriminators; the
+        # "exactly one of" rule is enforced by the handler, not the JSON Schema.
         assert set(create.inputSchema["required"]) == {
-            "account_id", "campaign_id", "url", "ad_tag", "dimensions", "creative_name",
+            "account_id", "campaign_id", "url", "creative_name",
         }
+
+    @pytest.mark.asyncio
+    async def test_asset_url_in_create_schema(self):
+        from realize.realize_server import handle_list_tools
+
+        tools = await handle_list_tools()
+        create = next(t for t in tools if t.name == "create_display_item")
+
+        assert "asset_url" in create.inputSchema["properties"]
+        assert "ad_tag" in create.inputSchema["properties"]
 
     @pytest.mark.asyncio
     async def test_update_only_fields_not_in_create_schema(self):
@@ -298,6 +310,137 @@ class TestCreateDisplayItemAnnotations:
         for f in ("title", "description", "thumbnail_url"):
             assert f not in create.inputSchema["properties"], \
                 f"create_display_item must not expose {f} (native-only field)"
+
+
+class TestCreateDisplayItemHostedAssetUrl:
+    """1P mode: asset_url posts display_data.hosted_display_data.asset_url; Realize ingests."""
+
+    def _hosted_args(self, **overrides):
+        base = {
+            "account_id": "acme-inc",
+            "campaign_id": "49184816",
+            "url": "https://example.com/landing",
+            "asset_url": "https://cdn.example.com/creatives/banner-300x250.png",
+            "creative_name": "Acme 300x250 — hosted image",
+        }
+        base.update(overrides)
+        return base
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.item_display_handlers.client.post', new_callable=AsyncMock)
+    async def test_hosted_image_minimal(self, mock_post):
+        mock_post.return_value = {"results": [{"id": "987654321", "display_data": {"display_ad_type": "HOSTED_IMAGE"}}]}
+
+        await handle_call_tool("create_display_item", self._hosted_args())
+
+        item = _post_item(mock_post)
+        assert item["url"] == "https://example.com/landing"
+        assert item["display_data"] == {
+            "hosted_display_data": {
+                "asset_url": "https://cdn.example.com/creatives/banner-300x250.png",
+            },
+        }
+        assert "ad_tag" not in item["display_data"]
+        assert "dimensions" not in item["display_data"]
+        # Subtype is detected by Realize from the URL's file extension (Content-Type fallback); never set client-side.
+        assert "display_ad_type" not in item["display_data"]
+        assert "display_ad_type" not in item["display_data"]["hosted_display_data"]
+        assert item["custom_data"] == {"creative_name": "Acme 300x250 — hosted image"}
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.item_display_handlers.client.post', new_callable=AsyncMock)
+    async def test_hosted_video_url_same_field(self, mock_post):
+        """HOSTED_VIDEO uses the same asset_url field — subtype detected server-side from the URL's file extension (Content-Type fallback)."""
+        mock_post.return_value = {"results": [{"id": "987654321"}]}
+
+        await handle_call_tool("create_display_item", self._hosted_args(
+            asset_url="https://cdn.example.com/creatives/clip.mp4",
+        ))
+
+        item = _post_item(mock_post)
+        assert item["display_data"]["hosted_display_data"]["asset_url"] == \
+            "https://cdn.example.com/creatives/clip.mp4"
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.item_display_handlers.client.post', new_callable=AsyncMock)
+    async def test_hosted_html_zip_url_same_field(self, mock_post):
+        mock_post.return_value = {"results": [{"id": "987654321"}]}
+
+        await handle_call_tool("create_display_item", self._hosted_args(
+            asset_url="https://cdn.example.com/creatives/bundle.zip",
+        ))
+
+        item = _post_item(mock_post)
+        assert item["display_data"]["hosted_display_data"]["asset_url"] == \
+            "https://cdn.example.com/creatives/bundle.zip"
+
+
+class TestCreateDisplayItemModeMutex:
+    """Discriminator mutex: exactly one of ad_tag or asset_url is required on create."""
+
+    @pytest.mark.asyncio
+    async def test_neither_discriminator_provided_rejected(self):
+        with pytest.raises(ToolInputError, match="Missing required field.*ad_tag or asset_url"):
+            await handle_call_tool("create_display_item", {
+                "account_id": "acme-inc",
+                "campaign_id": "49184816",
+                "url": "https://example.com/landing",
+                "creative_name": "Acme 300x250",
+            })
+
+    @pytest.mark.asyncio
+    async def test_both_discriminators_provided_rejected(self):
+        with pytest.raises(ToolInputError, match="mutually exclusive"):
+            await handle_call_tool("create_display_item", _args(
+                asset_url="https://cdn.example.com/banner.png",
+            ))
+
+    @pytest.mark.asyncio
+    async def test_asset_url_with_dimensions_rejected(self):
+        """Server populates dimensions from the asset; sending them is rejected."""
+        with pytest.raises(ToolInputError, match="dimensions is not accepted with asset_url"):
+            await handle_call_tool("create_display_item", {
+                "account_id": "acme-inc",
+                "campaign_id": "49184816",
+                "url": "https://example.com/landing",
+                "asset_url": "https://cdn.example.com/banner.png",
+                "dimensions": [{"width": 300, "height": 250}],
+                "creative_name": "Acme",
+            })
+
+    @pytest.mark.asyncio
+    async def test_asset_url_http_rejected(self):
+        with pytest.raises(ToolInputError, match="asset_url must be an https URL"):
+            await handle_call_tool("create_display_item", {
+                "account_id": "acme-inc",
+                "campaign_id": "49184816",
+                "url": "https://example.com/landing",
+                "asset_url": "http://cdn.example.com/banner.png",
+                "creative_name": "Acme",
+            })
+
+    @pytest.mark.asyncio
+    async def test_asset_url_not_string_rejected(self):
+        with pytest.raises(ToolInputError, match="asset_url must be a string"):
+            await handle_call_tool("create_display_item", {
+                "account_id": "acme-inc",
+                "campaign_id": "49184816",
+                "url": "https://example.com/landing",
+                "asset_url": 12345,
+                "creative_name": "Acme",
+            })
+
+    @pytest.mark.asyncio
+    async def test_asset_url_blank_rejected(self):
+        # bool("") is False → falls through to the create-time missing check.
+        with pytest.raises(ToolInputError, match="Missing required field.*ad_tag or asset_url"):
+            await handle_call_tool("create_display_item", {
+                "account_id": "acme-inc",
+                "campaign_id": "49184816",
+                "url": "https://example.com/landing",
+                "asset_url": "",
+                "creative_name": "Acme",
+            })
 
 
 class TestCreateDisplayItemUpdateOnlyFieldsStripped:

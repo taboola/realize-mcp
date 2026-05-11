@@ -329,8 +329,11 @@ class TestItemAndDiscoveryAdditions:
         assert entry["handler"] == "item_display_handlers.create_display_item"
         assert entry["annotations"]["destructiveHint"] is True
         assert entry["annotations"]["idempotentHint"] is False
+        # ad_tag and asset_url are mutually-exclusive discriminators enforced
+        # by the handler, not the JSON Schema. dimensions is required only
+        # when ad_tag is sent.
         assert set(entry["schema"]["required"]) == {
-            "account_id", "campaign_id", "url", "ad_tag", "dimensions", "creative_name"
+            "account_id", "campaign_id", "url", "creative_name"
         }
 
     def test_update_display_item_registered(self):

@@ -238,6 +238,55 @@ class TestUpdateDisplayItemDisplayDataPartialMerge:
             await handle_call_tool("update_display_item", _args(creative_name=42))
 
 
+class TestUpdateDisplayItemHostedAssetUrl:
+    """1P mode on update: asset_url replaces the hosted asset; subtype is re-detected."""
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.item_display_handlers.client.post', new_callable=AsyncMock)
+    async def test_asset_url_only(self, mock_post):
+        mock_post.return_value = {"id": "987654321"}
+        await handle_call_tool(
+            "update_display_item",
+            {
+                "account_id": "acme-inc",
+                "campaign_id": "49184816",
+                "item_id": "987654321",
+                "asset_url": "https://cdn.example.com/creatives/banner-v2.png",
+            },
+        )
+        body = _post_body(mock_post)
+        assert body == {
+            "display_data": {
+                "hosted_display_data": {
+                    "asset_url": "https://cdn.example.com/creatives/banner-v2.png",
+                },
+            },
+        }
+
+    @pytest.mark.asyncio
+    async def test_asset_url_with_ad_tag_rejected(self):
+        with pytest.raises(ToolInputError, match="mutually exclusive"):
+            await handle_call_tool("update_display_item", _args(
+                ad_tag=_AD_TAG,
+                asset_url="https://cdn.example.com/banner.png",
+            ))
+
+    @pytest.mark.asyncio
+    async def test_asset_url_with_dimensions_rejected(self):
+        with pytest.raises(ToolInputError, match="dimensions is not accepted with asset_url"):
+            await handle_call_tool("update_display_item", _args(
+                asset_url="https://cdn.example.com/banner.png",
+                dimensions=[{"width": 300, "height": 250}],
+            ))
+
+    @pytest.mark.asyncio
+    async def test_asset_url_http_rejected(self):
+        with pytest.raises(ToolInputError, match="asset_url must be an https URL"):
+            await handle_call_tool("update_display_item", _args(
+                asset_url="http://cdn.example.com/banner.png",
+            ))
+
+
 class TestUpdateDisplayItemNested:
     @pytest.mark.asyncio
     @patch('realize.tools.item_display_handlers.client.post', new_callable=AsyncMock)
@@ -344,6 +393,16 @@ class TestUpdateDisplayItemAnnotations:
         update = next(t for t in tools if t.name == "update_display_item")
 
         assert set(update.inputSchema["required"]) == {"account_id", "campaign_id", "item_id"}
+
+    @pytest.mark.asyncio
+    async def test_asset_url_in_update_schema(self):
+        from realize.realize_server import handle_list_tools
+
+        tools = await handle_list_tools()
+        update = next(t for t in tools if t.name == "update_display_item")
+
+        assert "asset_url" in update.inputSchema["properties"]
+        assert "ad_tag" in update.inputSchema["properties"]
 
     @pytest.mark.asyncio
     async def test_native_only_fields_absent(self):

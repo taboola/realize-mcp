@@ -931,25 +931,29 @@ _UPDATE_CAMPAIGN_ITEM_PROPERTIES = {
 
 
 # 4.5b Display-item — schemas, prose, and composed property maps for the
-# third-party display creative tools (`create_display_item` / `update_display_item`).
+# display creative tools (`create_display_item` / `update_display_item`).
+# Supports two creative modes: 3P (ad_tag + dimensions) and 1P (asset_url).
 
 _DISPLAY_AD_TAG_SCHEMA = {
     "type": "string",
     "description": """\
-Raw third-party HTML/JS ad tag (e.g. Google Ad Manager, Xandr, Equativ).
-Backstage validates structure server-side via DisplayAdTagValidator and
-performs ${CLICK_URL} macro replacement on submit. Soft 16 KiB cap.""",
+Third-party (3P) mode. Raw HTML/JS ad tag (e.g. Google Ad Manager, Xandr,
+Equativ). Realize validates structure server-side and performs ${CLICK_URL}
+macro replacement on submit. Soft 16 KiB cap. Mutually exclusive with
+asset_url — pass exactly one.""",
 }
 
 
 _DISPLAY_DIMENSIONS_SCHEMA = {
     "type": "array",
     "description": """\
-Single ad size for the tag, wrapped in a one-entry array, e.g.
-[{"width": 300, "height": 250}]. Exactly one entry — Realize rejects multi-size
-arrays for 3P tags with a 400. Common IAB sizes: 300x250, 728x90, 160x600,
-300x600, 970x90, 970x250, 468x60. On update, sending this field replaces the
-prior dimension.""",
+Single ad size for a 3P tag, wrapped in a one-entry array, e.g.
+[{"width": 300, "height": 250}]. Required when ad_tag is provided; forbidden
+when asset_url is provided (Realize auto-populates dimensions from the
+hosted asset). Exactly one entry — Realize rejects multi-size arrays for 3P
+tags with a 400. Common IAB sizes: 300x250, 728x90, 160x600, 300x600,
+970x90, 970x250, 468x60. On update, sending this field replaces the prior
+dimension.""",
     "items": {
         "type": "object",
         "properties": {
@@ -960,6 +964,20 @@ prior dimension.""",
     },
     "minItems": 1,
     "maxItems": 1,
+}
+
+
+_DISPLAY_ASSET_URL_SCHEMA = {
+    "type": "string",
+    "description": """\
+First-party (1P) mode. Public https URL of a creative asset for Realize to
+ingest. Supported types (chosen by URL file extension):
+  - Image: .jpg, .jpeg, .png, .gif, .bmp, .webp
+  - Video: .mp4, .mpg, .mpeg, .flv, .webm
+  - HTML5 bundle: .zip (origin must serve `Content-Type: application/zip`)
+Must be https. Max 200 MB. Mutually exclusive with ad_tag — pass exactly
+one. Do not send dimensions with asset_url; Realize populates them from
+the asset.""",
 }
 
 
@@ -976,28 +994,29 @@ _DISPLAY_ITEM_SCALAR_PROPERTIES = {
 
 
 _CREATE_DISPLAY_ITEM_PROSE = """\
-Create a third-party display item directly attached to a campaign on Realize. "Item", "ad", and "creative" all refer to the same object — this tool creates one. Returns the created item with its server-assigned `id`, `status`, and `approval_state`.
+Create a display item directly attached to a campaign on Realize. "Item", "ad", and "creative" all refer to the same object — this tool creates one. Returns the created item with its server-assigned `id`, `status`, and `approval_state`.
 
 Prerequisites: call search_accounts to obtain `account_id`; call list_campaigns or get_campaign to obtain `campaign_id`. Numeric account IDs are rejected.
 
-Scope: third-party (3P) ad tag only — `display_ad_type` is fixed at `THIRD_PARTY_TAG` and not user-settable. First-party Realize-hosted assets (HOSTED_IMAGE, HOSTED_HTML, HOSTED_VIDEO, HOSTED_SOCIAL) are not supported. For URL-crawled native items use create_native_item.
+Two creative modes — pass exactly one discriminator:
+  - Third-party (3P) tag: send `ad_tag` (raw HTML/JS) + `dimensions`. Realize validates structure server-side and performs ${CLICK_URL} macro replacement on submit. Soft 16 KiB cap client-side.
+  - First-party (1P) Realize-hosted asset: send `asset_url` (public https URL). Realize ingests by URL file extension — image (jpg/jpeg/png/gif/bmp/webp), video (mp4/mpg/mpeg/flv/webm), or HTML5 bundle (zip; origin must serve `Content-Type: application/zip`). Do NOT send `dimensions` with `asset_url`; Realize populates them from the asset. Max 200 MB.
 
-Validation: `ad_tag` is a raw HTML/JS string sent to the campaign's item endpoint as-is; Realize runs DisplayAdTagValidator on submit (structural checks, ${CLICK_URL} macro replacement) and returns 4xx with the offending field on failure. Soft 16 KiB cap on the client side.
+For URL-crawled native items use create_native_item instead. HOSTED_SOCIAL is not currently supported.
 
-Not applicable to display creatives: `branding_text` and `cta` — the 3P ad tag handles its own branding and click; sending these has no effect.
+Not applicable to display creatives: `branding_text` and `cta` — the ad tag or hosted asset handles its own branding and click; sending these has no effect.
 
-Read-only — NEVER send: id, campaign_id (set via path), creative_type (server enforces DISPLAY), display_data.display_ad_type (always THIRD_PARTY_TAG), status, approval_state, learning_state, policy_review.
+Read-only — NEVER send: id, campaign_id (set via path), creative_type (server enforces DISPLAY), display_data.display_ad_type (server-detected), status, approval_state, learning_state, policy_review.
 
 Item creation goes in one atomic call; either the item commits with all fields, or it doesn't.
 
-Comprehensive example (every available field set; trim what you don't need — only `account_id`, `campaign_id`, `url`, `ad_tag`, `dimensions`, and `creative_name` are mandatory).
-
-Plain English: an Acme 300x250 banner, landing at example.com/landing, using a CM360 ad tag. New items are always created active; use update_display_item to pause if needed.
+Comprehensive examples (only `account_id`, `campaign_id`, `url`, `creative_name`, and exactly one of `ad_tag` or `asset_url` are mandatory). New items are always created active; use update_display_item to pause if needed.
 
 """
 
 
 _CREATE_DISPLAY_ITEM_JSON_EXAMPLE = """\
+Example — 3P tag (300x250 CM360 banner):
 {
   "account_id": "acme-inc",
   "campaign_id": "49184816",
@@ -1005,6 +1024,24 @@ _CREATE_DISPLAY_ITEM_JSON_EXAMPLE = """\
   "ad_tag": "<ins class=\\"dcmads\\" style=\\"display:inline-block;width:300px;height:250px\\" data-dcm-placement=\\"N12345.1234567ACME/B12345678.123456789\\" data-dcm-rendering-mode=\\"script\\" data-dcm-https-only data-dcm-resettable-device-id=\\"\\" data-dcm-app-id=\\"\\" data-dcm-click-tracker=\\"${CLICK_URL}\\"><script src=\\"https://www.googletagservices.com/dcm/dcmads.js\\"></script></ins>",
   "dimensions": [{"width": 300, "height": 250}],
   "creative_name": "Acme Spring Sale 300x250"
+}
+
+Example — 1P hosted image (image type chosen from .png extension):
+{
+  "account_id": "acme-inc",
+  "campaign_id": "49184816",
+  "url": "https://example.com/landing",
+  "asset_url": "https://cdn.example.com/creatives/acme-spring-300x250.png",
+  "creative_name": "Acme Spring Sale 300x250 — hosted image"
+}
+
+Example — 1P HTML5 bundle (.zip URL; origin must serve `Content-Type: application/zip`):
+{
+  "account_id": "acme-inc",
+  "campaign_id": "49184816",
+  "url": "https://example.com/landing",
+  "asset_url": "https://cdn.example.com/creatives/acme-spring-300x250.zip",
+  "creative_name": "Acme Spring Sale 300x250 — html5"
 }"""
 
 
@@ -1012,19 +1049,22 @@ _CREATE_DISPLAY_ITEM_DESCRIPTION = _CREATE_DISPLAY_ITEM_PROSE + _CREATE_DISPLAY_
 
 
 _UPDATE_DISPLAY_ITEM_PROSE = """\
-Update an existing display item: top-level scalars, the `display_data` block (ad_tag and/or dimensions), and any nested block (cta, verification_pixel, viewability_tag) in one call. "Item", "ad", and "creative" all refer to the same object — this tool updates one.
+Update an existing display item: top-level scalars, the `display_data` block, and any nested block (verification_pixel, viewability_tag) in one call. "Item", "ad", and "creative" all refer to the same object — this tool updates one.
 
 Prerequisites: call search_accounts (`account_id`), list_campaigns or get_campaign (`campaign_id`), list_items or get_item (`item_id`). Numeric account IDs are rejected.
 
-Partial-merge for scalars: fields omitted from the request keep their prior value. Inside `display_data`, `ad_tag` and `dimensions` are independent — send either or both, and the other is preserved server-side. `display_ad_type` is fixed at `THIRD_PARTY_TAG` and not editable; `dimensions` accepts exactly one `{width, height}` entry and replaces the prior dimension when sent.
+Partial-merge for scalars: fields omitted from the request keep their prior value. The creative discriminator on update follows the same mutex as create — send at most one of `ad_tag` or `asset_url`:
+  - `ad_tag` (3P) swaps the tag. `dimensions` is required when ad_tag is sent and replaces the prior dimension.
+  - `asset_url` (1P) replaces the hosted asset; Realize re-ingests by URL file extension. Do NOT send `dimensions` with `asset_url`.
+Items created in one mode generally cannot be flipped to the other; the server rejects mode-switch attempts with a 4xx.
 
 Array semantics — FULL-REPLACE within section: sending `verification_pixel` or `viewability_tag` overwrites the entire prior list for that field. Send [] to clear. To edit one entry, read with get_item, modify locally, send the merged result.
 
 Editability: items in CRAWLING / PENDING_APPROVAL accept full edits. Items in RUNNING / PAUSED practically only accept `is_active` toggles and minor metadata; the API surfaces 4xx for non-allowed transitions. REJECTED items cannot be edited — recreate.
 
-Scope: third-party display items only — for editing URL-crawled native items use update_native_item. First-party Realize-hosted assets, RSS feed items, motion ads, performance video, hierarchy carousel, and the Creative Library are not supported.
+Scope: display items only — for editing URL-crawled native items use update_native_item. HOSTED_SOCIAL, RSS feed items, motion ads, performance video, hierarchy carousel, and the Creative Library are not supported.
 
-Not applicable to display creatives: `branding_text` and `cta` — the 3P ad tag handles its own branding and click; sending these has no effect.
+Not applicable to display creatives: `branding_text` and `cta` — the ad tag or hosted asset handles its own branding and click; sending these has no effect.
 
 Read-only — NEVER send: id, campaign_id (set via path), creative_type, display_data.display_ad_type, status, approval_state, learning_state, policy_review.
 
@@ -1032,9 +1072,7 @@ At least one updatable field besides account_id, campaign_id, and item_id must b
 
 All updates (including verification_pixel and viewability_tag) go in one atomic call.
 
-Comprehensive example (every available field set; trim what you don't need — only `account_id`, `campaign_id`, and `item_id` are mandatory, plus at least one updatable field).
-
-Plain English: refresh an existing display creative — new landing URL, new ad tag, new 300x250 size, CLICK + VIEWABLE_IMPRESSION verification pixels and an IAS viewability tag, shipped active.
+Comprehensive examples (only `account_id`, `campaign_id`, and `item_id` are mandatory, plus at least one updatable field).
 
 """
 
@@ -1068,6 +1106,9 @@ Example — pause display item (partial-merge, scalars only):
 Example — swap ad tag without touching dimensions (display_data partial-merge):
 { "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321", "ad_tag": "<script>...new tag...</script>" }
 
+Example — swap the hosted asset on a 1P item (re-ingest from new URL):
+{ "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321", "asset_url": "https://cdn.example.com/creatives/acme-spring-300x250-v2.png" }
+
 Example — clear all verification pixels (full-replace within section):
 { "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321", "verification_pixel": {"verification_pixel_items": []} }"""
 
@@ -1087,6 +1128,7 @@ _CREATE_DISPLAY_ITEM_PROPERTIES = {
     **_DISPLAY_ITEM_SCALAR_PROPERTIES,
     "ad_tag": _DISPLAY_AD_TAG_SCHEMA,
     "dimensions": _DISPLAY_DIMENSIONS_SCHEMA,
+    "asset_url": _DISPLAY_ASSET_URL_SCHEMA,
 }
 
 
@@ -1106,6 +1148,7 @@ _UPDATE_DISPLAY_ITEM_PROPERTIES = {
     **_DISPLAY_ITEM_SCALAR_PROPERTIES,
     "ad_tag": _DISPLAY_AD_TAG_SCHEMA,
     "dimensions": _DISPLAY_DIMENSIONS_SCHEMA,
+    "asset_url": _DISPLAY_ASSET_URL_SCHEMA,
     **_ITEM_SCALAR_PROPERTIES_UPDATE_EXTRAS,
     "verification_pixel": _ITEM_VERIFICATION_PIXEL_SCHEMA,
     "viewability_tag": _ITEM_VIEWABILITY_TAG_SCHEMA,
@@ -1327,7 +1370,7 @@ _CAMPAIGN_ITEM_TOOLS = {
         "schema": {
             "type": "object",
             "properties": _CREATE_DISPLAY_ITEM_PROPERTIES,
-            "required": ["account_id", "campaign_id", "url", "ad_tag", "dimensions", "creative_name"],
+            "required": ["account_id", "campaign_id", "url", "creative_name"],
         },
         "handler": "item_display_handlers.create_display_item",
         "category": "items",

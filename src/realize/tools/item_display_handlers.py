@@ -1,9 +1,19 @@
 """Display item (creative) write handlers for Realize MCP server.
 
 Two write tools (`create_display_item`, `update_display_item`) covering
-third-party display ads attached to a campaign. 3P only — `display_ad_type`
-is fixed at `THIRD_PARTY_TAG`. First-party Realize-hosted assets
-(HOSTED_IMAGE / HOSTED_HTML / HOSTED_VIDEO / HOSTED_SOCIAL) are out of scope.
+display ads attached to a campaign. Two creative modes are supported:
+
+- **Third-party tag** (3P, `display_ad_type=THIRD_PARTY_TAG`): caller supplies
+  raw HTML/JS via `ad_tag` plus a single `dimensions` entry.
+- **Realize-hosted asset by URL** (1P): caller supplies a public https
+  `asset_url` pointing at an image, video, or HTML5 zip. Realize ingests
+  by URL file extension; `dimensions` must be omitted (server populates
+  them from the asset).
+
+`ad_tag` and `asset_url` are mutually exclusive. On update, either field is
+optional (partial-merge); `dimensions` may also be sent alone to update only
+the size of an existing 3P item.
+
 URL-crawled native items live in `item_native_handlers`. Type-agnostic
 read tools (`list_items`, `get_item`) live in `item_read_handlers`.
 """
@@ -25,11 +35,12 @@ from realize.tools.viewability_tag import (
 )
 
 
-_CREATE_REQUIRED = ("url", "ad_tag", "dimensions", "creative_name")
+_CREATE_REQUIRED_SCALARS = ("url", "creative_name")
 
 # Top-level scalars carried across both create and update.
 # Display items don't support branding_text or cta — the 3P ad tag handles
-# branding and click itself; the server silently drops both fields.
+# branding and click itself; for 1P the hosted asset has no separate
+# branding/CTA.
 _CREATE_BODY_FIELDS = ("url",)
 
 _UPDATE_BODY_FIELDS = _CREATE_BODY_FIELDS + ("is_active",)
@@ -58,7 +69,7 @@ def _validate_creative_name(value: Any) -> None:
 
 
 def _validate_dimensions(value: Any) -> None:
-    # Backstage rejects size>1 with 400 ("Only one dimension is allowed for 3rd
+    # Realize rejects size>1 with 400 ("Only one dimension is allowed for 3rd
     # party tags"); enforce here for fast feedback.
     if not isinstance(value, list) or not value:
         raise ToolInputError(
@@ -80,6 +91,17 @@ def _validate_dimensions(value: Any) -> None:
                 )
 
 
+def _validate_asset_url(value: Any) -> None:
+    if not isinstance(value, str):
+        raise ToolInputError("asset_url must be a string")
+    if not value.strip():
+        raise ToolInputError("asset_url must be a non-empty string")
+    if not value.startswith("https://"):
+        raise ToolInputError(
+            "asset_url must be an https URL — Realize only accepts https sources"
+        )
+
+
 def _sanitize_dimensions(value: List[Dict[str, Any]]) -> List[Dict[str, int]]:
     return [{"width": d["width"], "height": d["height"]} for d in value]
 
@@ -87,12 +109,18 @@ def _sanitize_dimensions(value: List[Dict[str, Any]]) -> List[Dict[str, int]]:
 def _build_display_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str, Any]:
     """Validate and assemble the display-item POST body.
 
-    Skip-None for top-level scalars; per-section validate-then-sanitize for
-    nested blocks. The is_create flag gates update-only top-level fields
-    (`is_active`, `verification_pixel`, `viewability_tag`).
+    `ad_tag` and `asset_url` are mutually exclusive. When `asset_url` is set,
+    the payload uses `display_data.hosted_display_data.asset_url` and Realize
+    ingests the asset server-side; `dimensions` must be absent. Otherwise the
+    payload uses `display_data.{ad_tag,dimensions}` per the existing 3P flow.
 
-    Server infers `creative_type` and `display_data.display_ad_type` from
-    payload shape; both are read-only and rejected with 400 if sent.
+    On update either branch's fields are individually optional (partial-merge);
+    on create the caller must supply exactly one discriminator and the
+    matching companion fields.
+
+    Server infers `creative_type` (always DISPLAY) and
+    `display_data.display_ad_type` from payload shape; both are read-only and
+    rejected with 400 if sent.
     """
     body: Dict[str, Any] = {}
 
@@ -101,17 +129,41 @@ def _build_display_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str
         if args.get(f) is not None:
             body[f] = args[f]
 
-    display_data: Dict[str, Any] = {}
-
+    # Normalize blank strings to None so the mutex and required checks agree:
+    # _check_create_required treats "" as missing (via truthy), while the rest
+    # of this function would otherwise treat "" as set (via is-not-None).
     ad_tag = args.get("ad_tag")
-    if ad_tag is not None:
-        _validate_ad_tag(ad_tag)
-        display_data["ad_tag"] = ad_tag
+    if isinstance(ad_tag, str) and not ad_tag.strip():
+        ad_tag = None
+
+    asset_url = args.get("asset_url")
+    if isinstance(asset_url, str) and not asset_url.strip():
+        asset_url = None
 
     dimensions = args.get("dimensions")
-    if dimensions is not None:
-        _validate_dimensions(dimensions)
-        display_data["dimensions"] = _sanitize_dimensions(dimensions)
+
+    if asset_url is not None and ad_tag is not None:
+        raise ToolInputError(
+            "ad_tag and asset_url are mutually exclusive — provide only one"
+        )
+
+    display_data: Dict[str, Any] = {}
+
+    if asset_url is not None:
+        _validate_asset_url(asset_url)
+        if dimensions is not None:
+            raise ToolInputError(
+                "dimensions is not accepted with asset_url — Realize populates "
+                "dimensions from the hosted asset"
+            )
+        display_data["hosted_display_data"] = {"asset_url": asset_url}
+    else:
+        if ad_tag is not None:
+            _validate_ad_tag(ad_tag)
+            display_data["ad_tag"] = ad_tag
+        if dimensions is not None:
+            _validate_dimensions(dimensions)
+            display_data["dimensions"] = _sanitize_dimensions(dimensions)
 
     if display_data:
         body["display_data"] = display_data
@@ -135,8 +187,34 @@ def _build_display_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str
     return body
 
 
+def _check_create_required(args: Dict[str, Any]) -> None:
+    """Build the create-time missing-field error.
+
+    Always-required scalars (url, creative_name) plus the discriminator
+    requirement (exactly one of ad_tag or asset_url; if ad_tag, also
+    dimensions). Pooling these into one ``Missing required field(s)`` error
+    matches the prior 3P-only behavior and keeps client-side feedback
+    compact when multiple fields are missing at once.
+    """
+    missing: List[str] = []
+    for field in _CREATE_REQUIRED_SCALARS:
+        if not args.get(field):
+            missing.append(field)
+
+    has_ad_tag = bool(args.get("ad_tag"))
+    has_asset_url = bool(args.get("asset_url"))
+
+    if not has_ad_tag and not has_asset_url:
+        missing.append("ad_tag or asset_url")
+    elif has_ad_tag and not args.get("dimensions"):
+        missing.append("dimensions")
+
+    if missing:
+        raise ToolInputError(f"Missing required field(s): {', '.join(missing)}")
+
+
 async def create_display_item(arguments: dict = None) -> List[types.TextContent]:
-    """Create a 3P display item directly attached to a campaign."""
+    """Create a display item directly attached to a campaign (3P tag or 1P hosted URL)."""
     args = arguments or {}
     account_id = args.get("account_id")
     campaign_id = args.get("campaign_id")
@@ -148,9 +226,7 @@ async def create_display_item(arguments: dict = None) -> List[types.TextContent]
     if not campaign_id:
         raise ToolInputError("campaign_id is required")
 
-    missing = [f for f in _CREATE_REQUIRED if not args.get(f)]
-    if missing:
-        raise ToolInputError(f"Missing required field(s): {', '.join(missing)}")
+    _check_create_required(args)
 
     payload = _build_display_payload(args, is_create=True)
 

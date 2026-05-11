@@ -126,7 +126,7 @@ predefined_premium_site_targeting  ALL | PREMIUM | REGULAR — site-quality gate
 
 ### Items
 
-An item is a creative served under a campaign. Two flavors are supported: **native** (URL-crawled headline + image; use `create_native_item`) and **display** (third-party banner ad tag with a fixed dimension; use `create_display_item`).
+An item is a creative served under a campaign. Two flavors are supported: **native** (URL-crawled headline + image; use `create_native_item`) and **display** (banner ad; use `create_display_item`). Display items accept either a third-party ad tag (`ad_tag` + `dimensions`) or a first-party hosted asset URL (`asset_url`).
 
 **`list_items`** — List items for a campaign.
 
@@ -175,33 +175,35 @@ verification_pixel  (object)                 Tracking pixels (full-replace withi
 viewability_tag     (object)                 Viewability tag (full-replace within block)
 ```
 
-**`create_display_item`** — Create a third-party display item on a campaign. Pass an ad tag plus a single `{width, height}` dimension.
+**`create_display_item`** — Create a display item on a campaign. Pass exactly one creative discriminator: a third-party `ad_tag` (with `dimensions`) or a first-party hosted `asset_url`. Realize picks image / video / HTML5 from the URL's file extension; for `.zip` bundles the origin must serve `Content-Type: application/zip`.
 
 ```
 account_id     (string, required)
 campaign_id    (string, required)
 url            (string, required)            Landing URL
-ad_tag         (string, required)            Raw 3P HTML/JS ad tag
-dimensions     (array, required)             Single-entry [{width, height}] — one IAB size (e.g. 300x250)
+ad_tag         (string, exclusive with asset_url) Raw 3P HTML/JS ad tag
+dimensions     (array, required with ad_tag) Single-entry [{width, height}] — one IAB size (e.g. 300x250)
+asset_url      (string, exclusive with ad_tag)   https URL of image (jpg/png/gif/bmp/webp), video (mp4/mpg/mpeg/flv/webm), or HTML5 zip. Max 200 MB
 creative_name  (string, required)            Human-readable creative label shown in the Realize UI
 ```
 
-**`update_display_item`** — Update specific fields on a display item. `ad_tag` and `dimensions` are independent inside `display_data` — send either or both; the other is preserved server-side. Send `[]` for `verification_pixel` / `viewability_tag` to clear.
+**`update_display_item`** — Update specific fields on a display item. `ad_tag` and `dimensions` are independent inside `display_data` — send either or both; the other is preserved server-side. Send `asset_url` to swap the hosted asset on a 1P item (Realize re-ingests; subtype re-detected). `ad_tag` and `asset_url` remain mutually exclusive on update. Send `[]` for `verification_pixel` / `viewability_tag` to clear.
 
 ```
 account_id          (string, required)
 campaign_id         (string, required)
 item_id             (string, required)
 url                 (string)
-ad_tag              (string)                 Raw 3P HTML/JS ad tag (replaces prior tag)
-dimensions          (array)                  Single-entry: [{width, height}] (replaces prior dimension)
+ad_tag              (string, exclusive with asset_url) Raw 3P HTML/JS ad tag (replaces prior tag)
+dimensions          (array)                  Single-entry: [{width, height}] (replaces prior dimension; 3P only)
+asset_url           (string, exclusive with ad_tag) https URL of new hosted asset; Realize re-ingests
 creative_name       (string)                 Human-readable creative label shown in the Realize UI
 is_active           (boolean)                Pause/resume
 verification_pixel  (object)                 Tracking pixels (full-replace within block)
 viewability_tag     (object)                 Viewability tag (full-replace within block)
 ```
 
-Use `create_native_item` for native creatives (headline + body + thumbnail). Realize can auto-crawl those fields from `url` if omitted, or accept them explicitly. Use `create_display_item` for third-party banner ads — supply the ad tag plus the served `{width, height}`.
+Use `create_native_item` for native creatives (headline + body + thumbnail). Realize can auto-crawl those fields from `url` if omitted, or accept them explicitly. Use `create_display_item` for banner ads — supply an `ad_tag` plus `{width, height}` for a third-party tag, or an `asset_url` to have Realize fetch and host an image / video / HTML5 zip.
 
 Editability: items in CRAWLING / PENDING_APPROVAL accept full edits; RUNNING / PAUSED accept `is_active` toggles plus minor metadata; recreate REJECTED items.
 
