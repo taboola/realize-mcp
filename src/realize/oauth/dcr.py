@@ -135,7 +135,10 @@ def _validate_request(request_data: dict[str, Any]) -> None:
     if "token_endpoint_auth_method" in request_data:
         if request_data["token_endpoint_auth_method"] != "none":
             raise DCRError(
-                "token_endpoint_auth_method must be \"none\" for public PKCE clients",
+                "Confidential client registration is not supported via DCR. "
+                "realize-mcp's /register issues public PKCE clients only "
+                "(token_endpoint_auth_method=none). Confidential client "
+                "credentials are provisioned directly by Taboola.",
             )
 
     # jwks_uri / jwks: not applicable for public clients
