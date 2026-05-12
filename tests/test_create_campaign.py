@@ -185,7 +185,6 @@ class TestCreateCampaignTopLevelFields:
             end_date="2026-06-01",
             tracking_code="utm_source=foo",
             cpc_cap=1.5,
-            comments="internal note",
         ))
 
         body = _post_body(mock_post)
@@ -194,7 +193,6 @@ class TestCreateCampaignTopLevelFields:
         assert body["end_date"] == "2026-06-01"
         assert body["tracking_code"] == "utm_source=foo"
         assert body["cpc_cap"] == 1.5
-        assert body["comments"] == "internal note"
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)

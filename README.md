@@ -96,7 +96,6 @@ cpc_cap                  (number)             Upper bound on bids
 start_date               (string)             YYYY-MM-DD
 end_date                 (string)             YYYY-MM-DD
 tracking_code            (string)             Query string appended to item URLs
-comments                 (string)             Internal notes
 daily_ad_delivery_model  (string enum)        BALANCED | STRICT
 traffic_allocation_mode  (string enum)        OPTIMIZED | EVEN
 is_active                (boolean)            true to launch, false to pause
