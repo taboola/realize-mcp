@@ -490,7 +490,6 @@ _SCALAR_PROPERTIES = {
     "end_date": {"type": "string", "description": "YYYY-MM-DD. Optional; omit for ongoing."},
     "tracking_code": {"type": "string", "description": "Query string appended to item URLs."},
     "cpc_cap": {"type": "number", "description": "Upper bound on bids in account's default currency. Only valid when bid_strategy=MAX_CONVERSIONS."},
-    "comments": {"type": "string", "description": "Internal notes."},
     "daily_ad_delivery_model": {
         "type": "string",
         "enum": ["BALANCED", "STRICT"],
@@ -592,7 +591,6 @@ _CREATE_CAMPAIGN_JSON_EXAMPLE = """\
   "start_date": "2026-05-01",
   "end_date": "2026-06-30",
   "tracking_code": "utm_source=taboola",
-  "comments": "Q2 lead gen — primary",
   "daily_ad_delivery_model": "BALANCED",
   "traffic_allocation_mode": "OPTIMIZED",
   "is_active": false,

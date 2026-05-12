@@ -51,7 +51,7 @@ _CREATE_CAMPAIGN_REQUIRED = ("name", "marketing_objective", "branding_text", "sp
 _SCALAR_BODY_FIELDS = (
     "name", "marketing_objective", "branding_text", "spending_limit_model",
     "spending_limit", "daily_cap", "cpc", "bid_strategy", "cpa_goal",
-    "start_date", "end_date", "tracking_code", "cpc_cap", "comments",
+    "start_date", "end_date", "tracking_code", "cpc_cap",
     "daily_ad_delivery_model", "traffic_allocation_mode", "is_active",
 )
 

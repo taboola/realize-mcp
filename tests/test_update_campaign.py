@@ -57,7 +57,7 @@ class TestUpdateCampaignBaseValidation:
         with pytest.raises(ToolInputError, match="at least one updatable field"):
             await handle_call_tool(
                 "update_campaign",
-                {"account_id": "acme-inc", "campaign_id": "c-123", "name": None, "comments": None},
+                {"account_id": "acme-inc", "campaign_id": "c-123", "name": None},
             )
 
 
@@ -109,7 +109,6 @@ class TestUpdateCampaignWireMapping:
         ("end_date", "2026-06-01", {}),
         ("tracking_code", "utm_source=foo", {}),
         ("cpc_cap", 1.5, {}),
-        ("comments", "internal", {}),
         ("daily_ad_delivery_model", "BALANCED", {}),
         ("traffic_allocation_mode", "OPTIMIZED", {}),
         ("is_active", True, {}),
@@ -133,14 +132,13 @@ class TestUpdateCampaignWireMapping:
         mock_post.return_value = {"id": "c-123"}
         await handle_call_tool(
             "update_campaign",
-            _args(end_date="2026-09-30", cpc_cap=1.5, comments="bumped"),
+            _args(end_date="2026-09-30", cpc_cap=1.5),
         )
         body = _post_body(mock_post)
         assert body == {
             "name": "Renamed",
             "end_date": "2026-09-30",
             "cpc_cap": 1.5,
-            "comments": "bumped",
         }
 
     @pytest.mark.asyncio
@@ -242,7 +240,7 @@ class TestUpdateCampaignSchema:
         assert update.inputSchema["required"] == ["account_id", "campaign_id"]
 
     @pytest.mark.asyncio
-    async def test_all_17_fields_present_as_optional_properties(self):
+    async def test_all_16_fields_present_as_optional_properties(self):
         from realize.realize_server import handle_list_tools
 
         tools = await handle_list_tools()
@@ -253,7 +251,7 @@ class TestUpdateCampaignSchema:
         expected_fields = {
             "name", "marketing_objective", "branding_text", "spending_limit_model",
             "spending_limit", "daily_cap", "cpc", "bid_strategy", "cpa_goal",
-            "start_date", "end_date", "tracking_code", "cpc_cap", "comments",
+            "start_date", "end_date", "tracking_code", "cpc_cap",
             "daily_ad_delivery_model", "traffic_allocation_mode", "is_active",
         }
         for f in expected_fields:
