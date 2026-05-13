@@ -19,7 +19,8 @@ Connect to the hosted Realize MCP server using [Streamable HTTP](https://modelco
 {
   "mcpServers": {
     "realize-mcp": {
-      "url": "https://mcp.realize.com/mcp"
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.realize.com/mcp"]
     }
   }
 }
