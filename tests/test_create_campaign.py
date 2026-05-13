@@ -60,6 +60,22 @@ class TestCreateCampaignHappyPath:
 
     @pytest.mark.asyncio
     @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
+    async def test_includes_optional_pricing_model(self, mock_post):
+        mock_post.return_value = {"id": "c-1"}
+
+        await handle_call_tool("create_campaign", _minimal_args(
+            pricing_model="CPM",
+            bid_strategy="FIXED",
+            cpc=2.50,
+        ))
+
+        body = _post_body(mock_post)
+        assert body["pricing_model"] == "CPM"
+        assert body["bid_strategy"] == "FIXED"
+        assert body["cpc"] == 2.50
+
+    @pytest.mark.asyncio
+    @patch('realize.tools.campaign_handlers.client.post', new_callable=AsyncMock)
     async def test_includes_optional_cpa_goal(self, mock_post):
         mock_post.return_value = {"id": "c-1"}
 
@@ -160,6 +176,17 @@ class TestCreateCampaignAnnotations:
         bs = create.inputSchema["properties"]["bid_strategy"]
 
         assert set(bs["enum"]) == {"SMART", "FIXED", "TARGET_CPA", "MAX_CONVERSIONS", "MAX_VALUE"}
+
+    @pytest.mark.asyncio
+    async def test_pricing_model_enum_in_schema(self):
+        from realize.realize_server import handle_list_tools
+
+        tools = await handle_list_tools()
+        create = next(t for t in tools if t.name == "create_campaign")
+        pm = create.inputSchema["properties"]["pricing_model"]
+
+        assert set(pm["enum"]) == {"CPC", "CPM", "VCPM"}
+        assert "pricing_model" not in create.inputSchema["required"]
 
     @pytest.mark.asyncio
     async def test_spending_limit_model_enum_in_schema(self):

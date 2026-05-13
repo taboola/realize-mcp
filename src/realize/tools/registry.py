@@ -494,7 +494,12 @@ _SCALAR_PROPERTIES = {
     },
     "spending_limit": {"type": "number", "description": "Budget amount in account's default currency."},
     "daily_cap": {"type": "number", "description": "Daily spend cap in account's default currency. Only valid when daily_ad_delivery_model=STRICT; rejected with BALANCED."},
-    "cpc": {"type": "number", "description": "Fixed cost per click in account's default currency."},
+    "cpc": {"type": "number", "description": "Bid amount in account's default currency. With pricing_model=CPC, charged per click. With pricing_model=CPM or VCPM, this value is the per-1000-impression bid."},
+    "pricing_model": {
+        "type": "string",
+        "enum": ["CPC", "CPM", "VCPM"],
+        "description": "Pricing model. CPC charges per click (default; supported on all accounts). CPM charges per 1000 impressions. VCPM charges per 1000 viewable impressions. CPM and VCPM are supported only on accounts configured for impression-based buying; non-applicable accounts will return an error. For CPM/VCPM the bid rate is carried by the cpc field (acts as the CPM/VCPM amount).",
+    },
     "bid_strategy": {
         "type": "string",
         "enum": ["SMART", "FIXED", "TARGET_CPA", "MAX_CONVERSIONS", "MAX_VALUE"],
@@ -572,6 +577,8 @@ Conditional rules:
 - bid_strategy = MAX_CONVERSIONS → cpc_cap allowed. Other strategies → omit cpc_cap.
 - marketing_objective = BRAND_AWARENESS|DRIVE_WEBSITE_TRAFFIC → send cpc; bid_strategy SMART (default) or FIXED; omit cpa_goal.
 - marketing_objective = LEADS_GENERATION|ONLINE_PURCHASES|MOBILE_APP_INSTALL → bid_strategy = TARGET_CPA|MAX_CONVERSIONS|MAX_VALUE; if TARGET_CPA also send cpa_goal; omit cpc.
+- pricing_model = CPM|VCPM → supported only on accounts configured for impression-based buying; non-applicable accounts will return an error. bid_strategy must be SMART or FIXED (TARGET_CPA/MAX_CONVERSIONS/MAX_VALUE are CPC-only). Frequency capping (if used) must be impression-based. The cpc field carries the CPM/VCPM rate.
+- pricing_model omitted → server defaults to CPC.
 - If both start_date and end_date sent: end_date >= start_date.
 
 Discovery (call before constructing the payload to resolve IDs/names):
@@ -584,7 +591,7 @@ Discovery (call before constructing the payload to resolve IDs/names):
 - search_conversion_rules → `conversion_rules.rules` IDs.
 - list_time_zones → `activity_schedule.time_zone` IANA names.
 
-Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, target_cpa, target_cpa_learning_status. (`target_cpa` is server-recommended; user goal is `cpa_goal`.)
+Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, target_cpa, target_cpa_learning_status. (`target_cpa` is server-recommended; user goal is `cpa_goal`.)
 
 All targeting (including audiences, lookalike, contextual segments) goes in one atomic call; either the whole campaign with all targeting commits, or none of it does.
 
@@ -669,6 +676,7 @@ Conditional rules (apply only when the gating field is in this request):
 - daily_ad_delivery_model = STRICT → also send daily_cap. BALANCED → omit daily_cap.
 - bid_strategy = MAX_CONVERSIONS → cpc_cap allowed. Other strategies → omit cpc_cap.
 - bid_strategy = TARGET_CPA → also send cpa_goal.
+- pricing_model = CPM|VCPM → supported only on accounts configured for impression-based buying; non-applicable accounts will return an error. bid_strategy must be SMART or FIXED (TARGET_CPA/MAX_CONVERSIONS/MAX_VALUE are CPC-only). Frequency capping (if used) must be impression-based. The cpc field carries the CPM/VCPM rate.
 - If both start_date and end_date sent: end_date >= start_date.
 - Solo updates of a partner field (e.g. only spending_limit, or only cpa_goal) are allowed — stored gating field is reused.
 
@@ -684,7 +692,7 @@ Discovery: same as create_campaign — search_geos, search_techno, search_audien
 
 Field shapes are identical to create_campaign — see its comprehensive example for every targeting block. Examples below focus on update-only patterns (partial-merge, classic-geo, full-replace within a section).
 
-Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, target_cpa, target_cpa_learning_status.
+Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, target_cpa, target_cpa_learning_status.
 
 All updates (including audiences, lookalike, contextual segments) go in one atomic call.
 
@@ -705,7 +713,11 @@ Example — edit one classic geo dimension:
 
 Example — restrict to premium sites only:
 { "account_id": "acme-inc", "campaign_id": "49184816",
-  "predefined_premium_site_targeting": "PREMIUM" }"""
+  "predefined_premium_site_targeting": "PREMIUM" }
+
+Example — switch a campaign to CPM bidding (account must be configured for impression-based buying):
+{ "account_id": "acme-exchange", "campaign_id": "49184816",
+  "pricing_model": "CPM", "bid_strategy": "FIXED", "cpc": 2.50 }"""
 
 
 _UPDATE_CAMPAIGN_DESCRIPTION = _UPDATE_CAMPAIGN_PROSE + _UPDATE_CAMPAIGN_EXAMPLES

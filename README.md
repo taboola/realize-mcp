@@ -89,8 +89,9 @@ branding_text            (string)             Brand name shown with ads
 spending_limit_model     (string enum)        NONE | MONTHLY | ENTIRE
 spending_limit           (number)             Budget amount in account's default currency
 daily_cap                (number)             Daily spend cap
+pricing_model            (string enum)        CPC | CPM | VCPM   (default CPC; CPM/VCPM require an account configured for impression-based buying)
 bid_strategy             (string enum)        SMART | FIXED | TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE
-cpc                      (number)             Fixed cost per click (FIXED only)
+cpc                      (number)             Bid amount in account's default currency (per-click for CPC; per-1000-impressions for CPM/VCPM)
 cpa_goal                 (number)             Target cost per acquisition (TARGET_CPA only)
 cpc_cap                  (number)             Upper bound on bids
 start_date               (string)             YYYY-MM-DD
