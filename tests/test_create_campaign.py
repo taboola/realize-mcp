@@ -64,13 +64,13 @@ class TestCreateCampaignHappyPath:
         mock_post.return_value = {"id": "c-1"}
 
         await handle_call_tool("create_campaign", _minimal_args(
-            pricing_model="CPM",
+            pricing_model="VCPM",
             bid_strategy="FIXED",
             cpc=2.50,
         ))
 
         body = _post_body(mock_post)
-        assert body["pricing_model"] == "CPM"
+        assert body["pricing_model"] == "VCPM"
         assert body["bid_strategy"] == "FIXED"
         assert body["cpc"] == 2.50
 
@@ -185,7 +185,7 @@ class TestCreateCampaignAnnotations:
         create = next(t for t in tools if t.name == "create_campaign")
         pm = create.inputSchema["properties"]["pricing_model"]
 
-        assert set(pm["enum"]) == {"CPC", "CPM", "VCPM"}
+        assert set(pm["enum"]) == {"CPC", "VCPM"}
         assert "pricing_model" not in create.inputSchema["required"]
 
     @pytest.mark.asyncio

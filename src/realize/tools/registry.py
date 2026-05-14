@@ -494,11 +494,11 @@ _SCALAR_PROPERTIES = {
     },
     "spending_limit": {"type": "number", "description": "Budget amount in account's default currency."},
     "daily_cap": {"type": "number", "description": "Daily spend cap in account's default currency. Only valid when daily_ad_delivery_model=STRICT; rejected with BALANCED."},
-    "cpc": {"type": "number", "description": "Bid amount in account's default currency. With pricing_model=CPC, charged per click. With pricing_model=CPM or VCPM, this value is the per-1000-impression bid."},
+    "cpc": {"type": "number", "description": "Bid amount in account's default currency. With pricing_model=CPC, charged per click. With pricing_model=VCPM, this value is the per-1000-viewable-impression bid (server-enforced range applies)."},
     "pricing_model": {
         "type": "string",
-        "enum": ["CPC", "CPM", "VCPM"],
-        "description": "Pricing model. CPC charges per click (default; supported on all accounts). CPM charges per 1000 impressions. VCPM charges per 1000 viewable impressions. CPM and VCPM are supported only on accounts configured for impression-based buying; non-applicable accounts will return an error. For CPM/VCPM the bid rate is carried by the cpc field (acts as the CPM/VCPM amount).",
+        "enum": ["CPC", "VCPM"],
+        "description": "Pricing model. CPC (default) charges per click. VCPM charges per 1000 viewable impressions; the `cpc` field carries the vCPM rate. VCPM requires bid_strategy=FIXED.",
     },
     "bid_strategy": {
         "type": "string",
@@ -577,7 +577,7 @@ Conditional rules:
 - bid_strategy = MAX_CONVERSIONS → cpc_cap allowed. Other strategies → omit cpc_cap.
 - marketing_objective = BRAND_AWARENESS|DRIVE_WEBSITE_TRAFFIC → send cpc; bid_strategy SMART (default) or FIXED; omit cpa_goal.
 - marketing_objective = LEADS_GENERATION|ONLINE_PURCHASES|MOBILE_APP_INSTALL → bid_strategy = TARGET_CPA|MAX_CONVERSIONS|MAX_VALUE; if TARGET_CPA also send cpa_goal; omit cpc.
-- pricing_model = CPM|VCPM → supported only on accounts configured for impression-based buying; non-applicable accounts will return an error. bid_strategy must be SMART or FIXED (TARGET_CPA/MAX_CONVERSIONS/MAX_VALUE are CPC-only). Frequency capping (if used) must be impression-based. The cpc field carries the CPM/VCPM rate.
+- pricing_model = VCPM → bid_strategy MUST be FIXED; cpc carries the vCPM rate; omit cpc_cap and cpa_goal; traffic_allocation_mode is forced to OPTIMIZED server-side.
 - pricing_model omitted → server defaults to CPC.
 - If both start_date and end_date sent: end_date >= start_date.
 
@@ -676,7 +676,7 @@ Conditional rules (apply only when the gating field is in this request):
 - daily_ad_delivery_model = STRICT → also send daily_cap. BALANCED → omit daily_cap.
 - bid_strategy = MAX_CONVERSIONS → cpc_cap allowed. Other strategies → omit cpc_cap.
 - bid_strategy = TARGET_CPA → also send cpa_goal.
-- pricing_model = CPM|VCPM → supported only on accounts configured for impression-based buying; non-applicable accounts will return an error. bid_strategy must be SMART or FIXED (TARGET_CPA/MAX_CONVERSIONS/MAX_VALUE are CPC-only). Frequency capping (if used) must be impression-based. The cpc field carries the CPM/VCPM rate.
+- pricing_model = VCPM → bid_strategy MUST be FIXED; cpc carries the vCPM rate; omit cpc_cap and cpa_goal; traffic_allocation_mode is forced to OPTIMIZED server-side.
 - If both start_date and end_date sent: end_date >= start_date.
 - Solo updates of a partner field (e.g. only spending_limit, or only cpa_goal) are allowed — stored gating field is reused.
 
@@ -713,11 +713,7 @@ Example — edit one classic geo dimension:
 
 Example — restrict to premium sites only:
 { "account_id": "acme-inc", "campaign_id": "49184816",
-  "predefined_premium_site_targeting": "PREMIUM" }
-
-Example — switch a campaign to CPM bidding (account must be configured for impression-based buying):
-{ "account_id": "acme-exchange", "campaign_id": "49184816",
-  "pricing_model": "CPM", "bid_strategy": "FIXED", "cpc": 2.50 }"""
+  "predefined_premium_site_targeting": "PREMIUM" }"""
 
 
 _UPDATE_CAMPAIGN_DESCRIPTION = _UPDATE_CAMPAIGN_PROSE + _UPDATE_CAMPAIGN_EXAMPLES

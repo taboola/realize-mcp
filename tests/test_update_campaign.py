@@ -103,7 +103,7 @@ class TestUpdateCampaignWireMapping:
         ("spending_limit", 5000, {}),
         ("daily_cap", 50, {}),
         ("cpc", 0.25, {}),
-        ("pricing_model", "CPM", {}),
+        ("pricing_model", "VCPM", {}),
         ("bid_strategy", "MAX_CONVERSIONS", {}),
         ("cpa_goal", 15, {}),
         ("start_date", "2026-05-01", {}),
@@ -241,7 +241,7 @@ class TestUpdateCampaignSchema:
         tools = await handle_list_tools()
         update = next(t for t in tools if t.name == "update_campaign")
         pm = update.inputSchema["properties"]["pricing_model"]
-        assert set(pm["enum"]) == {"CPC", "CPM", "VCPM"}
+        assert set(pm["enum"]) == {"CPC", "VCPM"}
 
     @pytest.mark.asyncio
     async def test_only_account_and_campaign_required(self):
