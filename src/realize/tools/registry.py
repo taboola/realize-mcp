@@ -1,7 +1,7 @@
 """Centralized registry for all MCP tools.
 
 ================================================================================
-TOOL SURFACE — 23 tools across 6 categories
+TOOL SURFACE — 25 tools across 6 categories
 ================================================================================
 
 Authentication (stdio transport only; excluded in HTTP/OAuth mode):
@@ -22,8 +22,10 @@ Campaigns (write — fat tools, all targeting inline, single atomic POST):
 Items:
   - list_items                           (read)
   - get_item                             (read)
-  - create_native_item                   (write — native ITEM only)
+  - create_native_item                   (write — URL-crawled native ITEM)
   - update_native_item                   (write — partial-merge scalars; full-replace verification_pixel / viewability_tag arrays)
+  - create_display_item                  (write — 3P third-party ad tag or 1P Realize-hosted asset URL)
+  - update_display_item                  (write — partial-merge scalars + display_data; full-replace verification_pixel / viewability_tag arrays)
 
 Discovery (resources for resolving IDs/names used in campaign + item payloads):
   - search_geos                          (countries / regions / dma / cities / postal_codes)
@@ -479,7 +481,12 @@ _SCALAR_PROPERTIES = {
     },
     "spending_limit": {"type": "number", "description": "Budget amount in account's default currency."},
     "daily_cap": {"type": "number", "description": "Daily spend cap in account's default currency. Only valid when daily_ad_delivery_model=STRICT; rejected with BALANCED."},
-    "cpc": {"type": "number", "description": "Fixed cost per click in account's default currency."},
+    "cpc": {"type": "number", "description": "Bid amount in account's default currency. With pricing_model=CPC, charged per click. With pricing_model=VCPM, this value is the per-1000-viewable-impression bid (server-enforced range applies)."},
+    "pricing_model": {
+        "type": "string",
+        "enum": ["CPC", "VCPM"],
+        "description": "Pricing model. CPC (default) charges per click. VCPM charges per 1000 viewable impressions; the `cpc` field carries the vCPM rate. VCPM requires bid_strategy=FIXED.",
+    },
     "bid_strategy": {
         "type": "string",
         "enum": ["SMART", "FIXED", "TARGET_CPA", "MAX_CONVERSIONS", "MAX_VALUE"],
@@ -555,6 +562,8 @@ Conditional rules:
 - bid_strategy = MAX_CONVERSIONS → cpc_cap allowed. Other strategies → omit cpc_cap.
 - marketing_objective = BRAND_AWARENESS|DRIVE_WEBSITE_TRAFFIC → send cpc; bid_strategy SMART (default) or FIXED; omit cpa_goal.
 - marketing_objective = LEADS_GENERATION|ONLINE_PURCHASES|MOBILE_APP_INSTALL → bid_strategy = TARGET_CPA|MAX_CONVERSIONS|MAX_VALUE; if TARGET_CPA also send cpa_goal; omit cpc.
+- pricing_model = VCPM → bid_strategy MUST be FIXED; cpc carries the vCPM rate; omit cpc_cap and cpa_goal; traffic_allocation_mode is forced to OPTIMIZED server-side.
+- pricing_model omitted → server defaults to CPC.
 - If both start_date and end_date sent: end_date >= start_date.
 
 Discovery (call before constructing the payload to resolve IDs/names):
@@ -567,7 +576,7 @@ Discovery (call before constructing the payload to resolve IDs/names):
 - search_conversion_rules → `conversion_rules.rules` IDs.
 - list_time_zones → `activity_schedule.time_zone` IANA names.
 
-Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, target_cpa, target_cpa_learning_status. (`target_cpa` is server-recommended; user goal is `cpa_goal`.)
+Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, target_cpa, target_cpa_learning_status. (`target_cpa` is server-recommended; user goal is `cpa_goal`.)
 
 All targeting (including audiences, lookalike, contextual segments) goes in one atomic call; either the whole campaign with all targeting commits, or none of it does.
 
@@ -650,6 +659,7 @@ Conditional rules (apply only when the gating field is in this request):
 - daily_ad_delivery_model = STRICT → also send daily_cap. BALANCED → omit daily_cap.
 - bid_strategy = MAX_CONVERSIONS → cpc_cap allowed. Other strategies → omit cpc_cap.
 - bid_strategy = TARGET_CPA → also send cpa_goal.
+- pricing_model = VCPM → bid_strategy MUST be FIXED; cpc carries the vCPM rate; omit cpc_cap and cpa_goal; traffic_allocation_mode is forced to OPTIMIZED server-side.
 - If both start_date and end_date sent: end_date >= start_date.
 - Solo updates of a partner field (e.g. only spending_limit, or only cpa_goal) are allowed — stored gating field is reused.
 
@@ -665,7 +675,7 @@ Discovery: same as create_campaign — search_geos, search_techno, search_audien
 
 Field shapes are identical to create_campaign — see its comprehensive example for every targeting block. Examples below focus on update-only patterns (partial-merge, classic-geo, full-replace within a section).
 
-Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, pricing_model, target_cpa, target_cpa_learning_status.
+Read-only — NEVER send: id, advertiser_id, status, approval_state, spent, policy_review, target_cpa, target_cpa_learning_status.
 
 All updates (including audiences, lookalike, contextual segments) go in one atomic call.
 
@@ -742,6 +752,10 @@ _ITEM_SCALAR_PROPERTIES_CREATE = {
         "type": "string",
         "description": "Brand name shown with the ad. Inherits from campaign if omitted.",
     },
+    "creative_name": {
+        "type": "string",
+        "description": "Human-readable creative label shown in the Realize UI. Optional passthrough — Realize does not validate length.",
+    },
 }
 
 
@@ -770,7 +784,7 @@ Create a native item directly attached to a campaign on Realize. "Item", "ad", a
 
 Prerequisites: call search_accounts to obtain `account_id`; call list_campaigns or get_campaign to obtain `campaign_id`. Numeric account IDs are rejected.
 
-Scope: this tool creates a native `ITEM` directly attached to the campaign. RSS feed items, motion ads, performance video items, display creatives, hierarchy carousel items, and the Creative Library are not supported.
+Scope: this tool creates a native `ITEM` directly attached to the campaign. For third-party display ads (banner ad tag with fixed dimensions) or first-party Realize-hosted assets (image/video/HTML5 zip URL), use create_display_item. RSS feed items, motion ads, performance video items, hierarchy carousel items, and the Creative Library are not supported.
 
 Discovery (call before constructing the payload to resolve IDs/names):
 - list_cta_types → `cta.cta_type` allowed values.
@@ -779,7 +793,7 @@ Read-only — NEVER send: id, campaign_id (set via path), type, status, approval
 
 Item creation goes in one atomic call; either the item commits with all fields, or it doesn't.
 
-Required fields: `account_id`, `campaign_id`, `url`, `title`, `description`, `thumbnail_url`. Optional: `branding_text`, `cta`. New items typically transition PENDING_APPROVAL → RUNNING.
+Required fields: `account_id`, `campaign_id`, `url`, `title`, `description`, `thumbnail_url`. Optional: `branding_text`, `creative_name`, `cta`. New items typically transition PENDING_APPROVAL → RUNNING.
 
 Plain English: a "Spring Sale" creative for the Acme brand, landing at example.com/landing, with explicit headline / body / thumbnail and Shop Now CTA. New items are always created active; use update_native_item to pause if needed.
 
@@ -795,6 +809,7 @@ _CREATE_CAMPAIGN_ITEM_JSON_EXAMPLE = """\
   "description": "Limited-time offer on all spring collection items.",
   "thumbnail_url": "https://cdn.example.com/spring.jpg",
   "branding_text": "Acme",
+  "creative_name": "Acme Spring Sale Native",
   "cta": {"cta_type": "SHOP_NOW"}
 }"""
 
@@ -813,7 +828,7 @@ Array semantics — FULL-REPLACE within section: sending `verification_pixel` or
 
 Editability: items in PENDING_APPROVAL accept full edits. Items in RUNNING / PAUSED practically only accept `is_active` toggles and minor metadata; the API surfaces 4xx for non-allowed transitions. REJECTED items cannot be edited — recreate.
 
-Scope: native `ITEM` only. RSS feed items, motion ads, performance video, display, hierarchy carousel, and the Creative Library are not supported.
+Scope: native `ITEM` only — for editing third-party display ads or 1P hosted assets use update_display_item. RSS feed items, motion ads, performance video, hierarchy carousel, and the Creative Library are not supported.
 
 Discovery (call before constructing the payload to resolve IDs/names):
 - list_cta_types → `cta.cta_type` allowed values.
@@ -841,6 +856,7 @@ _UPDATE_CAMPAIGN_ITEM_JSON_EXAMPLE = """\
   "description": "Spring sale extended through end of June.",
   "thumbnail_url": "https://cdn.example.com/spring-v2.jpg",
   "branding_text": "Acme",
+  "creative_name": "Acme Spring Sale Native — v2",
   "cta": {"cta_type": "LEARN_MORE"},
   "is_active": true,
   "verification_pixel": {
@@ -896,6 +912,231 @@ _UPDATE_CAMPAIGN_ITEM_PROPERTIES = {
     **_ITEM_SCALAR_PROPERTIES_CREATE,
     **_ITEM_SCALAR_PROPERTIES_UPDATE_EXTRAS,
     **_ITEM_NESTED_PROPERTIES_UPDATE,
+}
+
+
+# 4.5b Display-item — schemas, prose, and composed property maps for the
+# display creative tools (`create_display_item` / `update_display_item`).
+# Supports two creative modes: 3P (ad_tag + dimensions) and 1P (asset_url).
+
+_DISPLAY_AD_TAG_SCHEMA = {
+    "type": "string",
+    "description": """\
+Third-party (3P) mode. Raw HTML/JS ad tag (e.g. Google Ad Manager, Xandr,
+Equativ). Realize validates structure server-side and performs ${CLICK_URL}
+macro replacement on submit. Soft 16 KiB cap. Mutually exclusive with
+asset_url — pass exactly one.""",
+}
+
+
+_DISPLAY_DIMENSIONS_SCHEMA = {
+    "type": "array",
+    "description": """\
+Single ad size for a 3P tag, wrapped in a one-entry array, e.g.
+[{"width": 300, "height": 250}]. Required when ad_tag is provided; forbidden
+when asset_url is provided (Realize auto-populates dimensions from the
+hosted asset). Exactly one entry — Realize rejects multi-size arrays for 3P
+tags with a 400. Common IAB sizes: 300x250, 728x90, 160x600, 300x600,
+970x90, 970x250, 468x60. On update, sending this field replaces the prior
+dimension.""",
+    "items": {
+        "type": "object",
+        "properties": {
+            "width": {"type": "integer", "minimum": 1},
+            "height": {"type": "integer", "minimum": 1},
+        },
+        "required": ["width", "height"],
+    },
+    "minItems": 1,
+    "maxItems": 1,
+}
+
+
+_DISPLAY_ASSET_URL_SCHEMA = {
+    "type": "string",
+    "description": """\
+First-party (1P) mode. Public https URL of a creative asset for Realize to
+ingest. Supported types (chosen by URL file extension):
+  - Image: .jpg, .jpeg, .png, .gif, .bmp, .webp
+  - Video: .mp4, .mpg, .mpeg, .flv, .webm
+  - HTML5 bundle: .zip (origin must serve `Content-Type: application/zip`)
+Must be https. Max 200 MB. Mutually exclusive with ad_tag — pass exactly
+one. Do not send dimensions with asset_url; Realize populates them from
+the asset.""",
+}
+
+
+_DISPLAY_ITEM_SCALAR_PROPERTIES = {
+    "url": {
+        "type": "string",
+        "description": "Landing page URL the ad clicks through to. Required on create.",
+    },
+    "creative_name": {
+        "type": "string",
+        "description": "Human-readable creative label shown in the Realize UI. Required on create for display items; passthrough — Realize does not validate length.",
+    },
+}
+
+
+_CREATE_DISPLAY_ITEM_PROSE = """\
+Create a display item directly attached to a campaign on Realize. "Item", "ad", and "creative" all refer to the same object — this tool creates one. Returns the created item with its server-assigned `id`, `status`, and `approval_state`.
+
+Prerequisites: call search_accounts to obtain `account_id`; call list_campaigns or get_campaign to obtain `campaign_id`. Numeric account IDs are rejected.
+
+Two creative modes — pass exactly one discriminator:
+  - Third-party (3P) tag: send `ad_tag` (raw HTML/JS) + `dimensions`. Realize validates structure server-side and performs ${CLICK_URL} macro replacement on submit. Soft 16 KiB cap client-side.
+  - First-party (1P) Realize-hosted asset: send `asset_url` (public https URL). Realize ingests by URL file extension — image (jpg/jpeg/png/gif/bmp/webp), video (mp4/mpg/mpeg/flv/webm), or HTML5 bundle (zip; origin must serve `Content-Type: application/zip`). Do NOT send `dimensions` with `asset_url`; Realize populates them from the asset. Max 200 MB.
+
+For URL-crawled native items use create_native_item instead. HOSTED_SOCIAL is not currently supported.
+
+Not applicable to display creatives: `branding_text` and `cta` — the ad tag or hosted asset handles its own branding and click; sending these has no effect.
+
+Read-only — NEVER send: id, campaign_id (set via path), creative_type (server enforces DISPLAY), display_data.display_ad_type (server-detected), status, approval_state, learning_state, policy_review.
+
+Item creation goes in one atomic call; either the item commits with all fields, or it doesn't.
+
+Comprehensive examples (only `account_id`, `campaign_id`, `url`, `creative_name`, and exactly one of `ad_tag` or `asset_url` are mandatory). New items are always created active; use update_display_item to pause if needed.
+
+"""
+
+
+_CREATE_DISPLAY_ITEM_JSON_EXAMPLE = """\
+Example — 3P tag (300x250 CM360 banner):
+{
+  "account_id": "acme-inc",
+  "campaign_id": "49184816",
+  "url": "https://example.com/landing",
+  "ad_tag": "<ins class=\\"dcmads\\" style=\\"display:inline-block;width:300px;height:250px\\" data-dcm-placement=\\"N12345.1234567ACME/B12345678.123456789\\" data-dcm-rendering-mode=\\"script\\" data-dcm-https-only data-dcm-resettable-device-id=\\"\\" data-dcm-app-id=\\"\\" data-dcm-click-tracker=\\"${CLICK_URL}\\"><script src=\\"https://www.googletagservices.com/dcm/dcmads.js\\"></script></ins>",
+  "dimensions": [{"width": 300, "height": 250}],
+  "creative_name": "Acme Spring Sale 300x250"
+}
+
+Example — 1P hosted image (image type chosen from .png extension):
+{
+  "account_id": "acme-inc",
+  "campaign_id": "49184816",
+  "url": "https://example.com/landing",
+  "asset_url": "https://cdn.example.com/creatives/acme-spring-300x250.png",
+  "creative_name": "Acme Spring Sale 300x250 — hosted image"
+}
+
+Example — 1P HTML5 bundle (.zip URL; origin must serve `Content-Type: application/zip`):
+{
+  "account_id": "acme-inc",
+  "campaign_id": "49184816",
+  "url": "https://example.com/landing",
+  "asset_url": "https://cdn.example.com/creatives/acme-spring-300x250.zip",
+  "creative_name": "Acme Spring Sale 300x250 — html5"
+}"""
+
+
+_CREATE_DISPLAY_ITEM_DESCRIPTION = _CREATE_DISPLAY_ITEM_PROSE + _CREATE_DISPLAY_ITEM_JSON_EXAMPLE
+
+
+_UPDATE_DISPLAY_ITEM_PROSE = """\
+Update an existing display item: top-level scalars, the `display_data` block, and any nested block (verification_pixel, viewability_tag) in one call. "Item", "ad", and "creative" all refer to the same object — this tool updates one.
+
+Prerequisites: call search_accounts (`account_id`), list_campaigns or get_campaign (`campaign_id`), list_items or get_item (`item_id`). Numeric account IDs are rejected.
+
+Partial-merge for scalars: fields omitted from the request keep their prior value. The creative discriminator on update follows the same mutex as create — send at most one of `ad_tag` or `asset_url`:
+  - `ad_tag` (3P) swaps the tag. `dimensions` is required when ad_tag is sent and replaces the prior dimension.
+  - `asset_url` (1P) replaces the hosted asset; Realize re-ingests by URL file extension. Do NOT send `dimensions` with `asset_url`.
+Items created in one mode generally cannot be flipped to the other; the server rejects mode-switch attempts with a 4xx.
+
+Array semantics — FULL-REPLACE within section: sending `verification_pixel` or `viewability_tag` overwrites the entire prior list for that field. Send [] to clear. To edit one entry, read with get_item, modify locally, send the merged result.
+
+Editability: items in CRAWLING / PENDING_APPROVAL accept full edits. Items in RUNNING / PAUSED practically only accept `is_active` toggles and minor metadata; the API surfaces 4xx for non-allowed transitions. REJECTED items cannot be edited — recreate.
+
+Scope: display items only — for editing URL-crawled native items use update_native_item. HOSTED_SOCIAL, RSS feed items, motion ads, performance video, hierarchy carousel, and the Creative Library are not supported.
+
+Not applicable to display creatives: `branding_text` and `cta` — the ad tag or hosted asset handles its own branding and click; sending these has no effect.
+
+Read-only — NEVER send: id, campaign_id (set via path), creative_type, display_data.display_ad_type, status, approval_state, learning_state, policy_review.
+
+At least one updatable field besides account_id, campaign_id, and item_id must be sent.
+
+All updates (including verification_pixel and viewability_tag) go in one atomic call.
+
+Comprehensive examples (only `account_id`, `campaign_id`, and `item_id` are mandatory, plus at least one updatable field).
+
+"""
+
+
+_UPDATE_DISPLAY_ITEM_JSON_EXAMPLE = """\
+{
+  "account_id": "acme-inc",
+  "campaign_id": "49184816",
+  "item_id": "987654321",
+  "url": "https://example.com/landing-v2",
+  "ad_tag": "<ins class=\\"dcmads\\" style=\\"display:inline-block;width:300px;height:250px\\" data-dcm-placement=\\"N12345.1234567ACME/B12345678.123456789\\" data-dcm-rendering-mode=\\"script\\" data-dcm-https-only data-dcm-resettable-device-id=\\"\\" data-dcm-app-id=\\"\\" data-dcm-click-tracker=\\"${CLICK_URL}\\"><script src=\\"https://www.googletagservices.com/dcm/dcmads.js\\"></script></ins>",
+  "dimensions": [{"width": 300, "height": 250}],
+  "creative_name": "Acme Spring Sale 300x250 — v2",
+  "is_active": true,
+  "verification_pixel": {
+    "verification_pixel_items": [
+      {"url": "https://verifier.example.com/c?x=1", "verification_pixel_type": "CLICK"},
+      {"url": "https://verifier.example.com/v?x=1", "verification_pixel_type": "VIEWABLE_IMPRESSION"}
+    ]
+  },
+  "viewability_tag": {
+    "values": [
+      {"tag": "<noscript class=...></noscript><script src=...></script>", "type": "IAS"}
+    ]
+  }
+}
+
+Example — pause display item (partial-merge, scalars only):
+{ "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321", "is_active": false }
+
+Example — swap ad tag without touching dimensions (display_data partial-merge):
+{ "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321", "ad_tag": "<script>...new tag...</script>" }
+
+Example — swap the hosted asset on a 1P item (re-ingest from new URL):
+{ "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321", "asset_url": "https://cdn.example.com/creatives/acme-spring-300x250-v2.png" }
+
+Example — clear all verification pixels (full-replace within section):
+{ "account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321", "verification_pixel": {"verification_pixel_items": []} }"""
+
+
+_UPDATE_DISPLAY_ITEM_DESCRIPTION = _UPDATE_DISPLAY_ITEM_PROSE + _UPDATE_DISPLAY_ITEM_JSON_EXAMPLE
+
+
+_CREATE_DISPLAY_ITEM_PROPERTIES = {
+    "account_id": {
+        "type": "string",
+        "description": "Value from search_accounts.account_id (NOT numeric).",
+    },
+    "campaign_id": {
+        "type": "string",
+        "description": "Value from list_campaigns.id or get_campaign.id (returned by create_campaign as `id`). Numeric ID as a string (e.g. \"49184816\").",
+    },
+    **_DISPLAY_ITEM_SCALAR_PROPERTIES,
+    "ad_tag": _DISPLAY_AD_TAG_SCHEMA,
+    "dimensions": _DISPLAY_DIMENSIONS_SCHEMA,
+    "asset_url": _DISPLAY_ASSET_URL_SCHEMA,
+}
+
+
+_UPDATE_DISPLAY_ITEM_PROPERTIES = {
+    "account_id": {
+        "type": "string",
+        "description": "Value from search_accounts.account_id (NOT numeric).",
+    },
+    "campaign_id": {
+        "type": "string",
+        "description": "Value from list_campaigns.id or get_campaign.id. Numeric ID as a string (e.g. \"49184816\").",
+    },
+    "item_id": {
+        "type": "string",
+        "description": "Value from list_items.id or get_item.id. Numeric ID as a string (e.g. \"987654321\").",
+    },
+    **_DISPLAY_ITEM_SCALAR_PROPERTIES,
+    "ad_tag": _DISPLAY_AD_TAG_SCHEMA,
+    "dimensions": _DISPLAY_DIMENSIONS_SCHEMA,
+    "asset_url": _DISPLAY_ASSET_URL_SCHEMA,
+    **_ITEM_SCALAR_PROPERTIES_UPDATE_EXTRAS,
+    "verification_pixel": _ITEM_VERIFICATION_PIXEL_SCHEMA,
+    "viewability_tag": _ITEM_VIEWABILITY_TAG_SCHEMA,
 }
 
 
@@ -1057,7 +1298,7 @@ _CAMPAIGN_ITEM_TOOLS = {
             },
             "required": ["account_id", "campaign_id"]
         },
-        "handler": "item_handlers.list_items",
+        "handler": "item_read_handlers.list_items",
         "category": "items"
     },
 
@@ -1081,7 +1322,7 @@ _CAMPAIGN_ITEM_TOOLS = {
             },
             "required": ["account_id", "campaign_id", "item_id"]
         },
-        "handler": "item_handlers.get_item",
+        "handler": "item_read_handlers.get_item",
         "category": "items"
     },
 
@@ -1092,7 +1333,7 @@ _CAMPAIGN_ITEM_TOOLS = {
             "properties": _CREATE_CAMPAIGN_ITEM_PROPERTIES,
             "required": ["account_id", "campaign_id", "url", "title", "description", "thumbnail_url"],
         },
-        "handler": "item_handlers.create_native_item",
+        "handler": "item_native_handlers.create_native_item",
         "category": "items",
         "annotations": _DESTRUCTIVE_ANNOTATIONS_CREATE,
     },
@@ -1104,7 +1345,31 @@ _CAMPAIGN_ITEM_TOOLS = {
             "properties": _UPDATE_CAMPAIGN_ITEM_PROPERTIES,
             "required": ["account_id", "campaign_id", "item_id"],
         },
-        "handler": "item_handlers.update_native_item",
+        "handler": "item_native_handlers.update_native_item",
+        "category": "items",
+        "annotations": _DESTRUCTIVE_ANNOTATIONS_UPDATE,
+    },
+
+    "create_display_item": {
+        "description": _CREATE_DISPLAY_ITEM_DESCRIPTION,
+        "schema": {
+            "type": "object",
+            "properties": _CREATE_DISPLAY_ITEM_PROPERTIES,
+            "required": ["account_id", "campaign_id", "url", "creative_name"],
+        },
+        "handler": "item_display_handlers.create_display_item",
+        "category": "items",
+        "annotations": _DESTRUCTIVE_ANNOTATIONS_CREATE,
+    },
+
+    "update_display_item": {
+        "description": _UPDATE_DISPLAY_ITEM_DESCRIPTION,
+        "schema": {
+            "type": "object",
+            "properties": _UPDATE_DISPLAY_ITEM_PROPERTIES,
+            "required": ["account_id", "campaign_id", "item_id"],
+        },
+        "handler": "item_display_handlers.update_display_item",
         "category": "items",
         "annotations": _DESTRUCTIVE_ANNOTATIONS_UPDATE,
     },
@@ -1582,14 +1847,20 @@ TOOL_REGISTRY = {
 # 6. Public accessors
 # ============================================================================
 
+_DISPLAY_ITEM_TOOL_NAMES = frozenset({"create_display_item", "update_display_item"})
+
+
 def get_all_tools():
-    """Get all registered tools, filtered by transport mode."""
+    """Get all registered tools, filtered by transport mode and feature flags."""
     from realize.config import config
 
     tools = TOOL_REGISTRY
     if config.mcp_transport != "stdio":
         tools = {name: tool for name, tool in tools.items()
                  if tool.get("category") != "authentication"}
+    if not config.enable_display_item_tools:
+        tools = {name: tool for name, tool in tools.items()
+                 if name not in _DISPLAY_ITEM_TOOL_NAMES}
     return copy.deepcopy(tools)
 
 

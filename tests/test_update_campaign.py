@@ -103,6 +103,7 @@ class TestUpdateCampaignWireMapping:
         ("spending_limit", 5000, {}),
         ("daily_cap", 50, {}),
         ("cpc", 0.25, {}),
+        ("pricing_model", "VCPM", {}),
         ("bid_strategy", "MAX_CONVERSIONS", {}),
         ("cpa_goal", 15, {}),
         ("start_date", "2026-05-01", {}),
@@ -240,7 +241,16 @@ class TestUpdateCampaignSchema:
         assert update.inputSchema["required"] == ["account_id", "campaign_id"]
 
     @pytest.mark.asyncio
-    async def test_all_16_fields_present_as_optional_properties(self):
+    async def test_pricing_model_enum(self):
+        from realize.realize_server import handle_list_tools
+
+        tools = await handle_list_tools()
+        update = next(t for t in tools if t.name == "update_campaign")
+        pm = update.inputSchema["properties"]["pricing_model"]
+        assert set(pm["enum"]) == {"CPC", "VCPM"}
+
+    @pytest.mark.asyncio
+    async def test_all_17_fields_present_as_optional_properties(self):
         from realize.realize_server import handle_list_tools
 
         tools = await handle_list_tools()
@@ -250,7 +260,7 @@ class TestUpdateCampaignSchema:
 
         expected_fields = {
             "name", "marketing_objective", "branding_text", "spending_limit_model",
-            "spending_limit", "daily_cap", "cpc", "bid_strategy", "cpa_goal",
+            "spending_limit", "daily_cap", "cpc", "pricing_model", "bid_strategy", "cpa_goal",
             "start_date", "end_date", "tracking_code", "cpc_cap",
             "daily_ad_delivery_model", "traffic_allocation_mode", "is_active",
         }

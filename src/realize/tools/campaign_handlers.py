@@ -5,7 +5,7 @@ Read tools (`list_campaigns`, `get_campaign`) plus two write tools —
 (scalars + targeting). All targeting fields ride in a single atomic POST to the
 APICampaign endpoint; one tool call → one HTTP request.
 
-Item-level handlers live in `item_handlers`.
+Item-level handlers live in `item_read_handlers`, `item_native_handlers`, and `item_display_handlers`.
 """
 from typing import Any, Dict, List
 from urllib.parse import quote
@@ -50,7 +50,7 @@ _CREATE_CAMPAIGN_REQUIRED = ("name", "marketing_objective", "branding_text", "sp
 
 _SCALAR_BODY_FIELDS = (
     "name", "marketing_objective", "branding_text", "spending_limit_model",
-    "spending_limit", "daily_cap", "cpc", "bid_strategy", "cpa_goal",
+    "spending_limit", "daily_cap", "cpc", "pricing_model", "bid_strategy", "cpa_goal",
     "start_date", "end_date", "tracking_code", "cpc_cap",
     "daily_ad_delivery_model", "traffic_allocation_mode", "is_active",
 )

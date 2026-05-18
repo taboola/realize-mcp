@@ -100,8 +100,9 @@ branding_text            (string)             Brand name shown with ads
 spending_limit_model     (string enum)        NONE | MONTHLY | ENTIRE
 spending_limit           (number)             Budget amount in account's default currency
 daily_cap                (number)             Daily spend cap
+pricing_model            (string enum)        CPC | VCPM   (default CPC; VCPM requires bid_strategy=FIXED)
 bid_strategy             (string enum)        SMART | FIXED | TARGET_CPA | MAX_CONVERSIONS | MAX_VALUE
-cpc                      (number)             Fixed cost per click (FIXED only)
+cpc                      (number)             Bid amount in account's default currency (per-click for CPC; per-1000-viewable-impressions for VCPM)
 cpa_goal                 (number)             Target cost per acquisition (TARGET_CPA only)
 cpc_cap                  (number)             Upper bound on bids
 start_date               (string)             YYYY-MM-DD
@@ -162,6 +163,7 @@ title          (string, required)            Headline
 description    (string, required)            Body
 thumbnail_url  (string, required)            Image URL
 branding_text  (string)
+creative_name  (string)                      Human-readable creative label shown in the Realize UI
 cta            (object)                      {cta_type} — values from list_cta_types
 ```
 
@@ -176,6 +178,7 @@ title               (string)
 description         (string)
 thumbnail_url       (string)
 branding_text       (string)
+creative_name       (string)                 Human-readable creative label shown in the Realize UI
 is_active           (boolean)                Pause/resume
 cta                 (object)                 {cta_type}
 verification_pixel  (object)                 Tracking pixels (full-replace within block)

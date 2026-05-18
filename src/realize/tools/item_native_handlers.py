@@ -1,9 +1,10 @@
-"""Item (creative) handlers for Realize MCP server.
+"""Native item (creative) write handlers for Realize MCP server.
 
-Read tools (`list_items`, `get_item`) plus two write tools
-(`create_native_item`, `update_native_item`) covering creatives directly
-attached to a campaign. Native `ITEM` type only — RSS feed items, motion
-ads / performance video, display, and hierarchy carousel are out of scope.
+Two native write tools (`create_native_item`, `update_native_item`) covering
+URL-crawled creatives directly attached to a campaign. Native `ITEM` type
+only — RSS feed items, motion ads / performance video, and hierarchy carousel
+are out of scope. Third-party display ads live in `item_display_handlers`.
+Type-agnostic read tools (`list_items`, `get_item`) live in `item_read_handlers`.
 """
 from typing import Any, Dict, List
 from urllib.parse import quote
@@ -34,50 +35,11 @@ _CREATE_BODY_FIELDS = (
 _UPDATE_BODY_FIELDS = _CREATE_BODY_FIELDS + ("is_active",)
 
 
-async def list_items(arguments: dict = None) -> List[types.TextContent]:
-    """List all items for a campaign (read-only)."""
-    account_id = arguments.get("account_id") if arguments else None
-    campaign_id = arguments.get("campaign_id") if arguments else None
-
-    is_valid, error_message = validate_account_id(account_id)
-    if not is_valid:
-        raise ToolInputError(error_message)
-
-    if not campaign_id:
-        raise ToolInputError("campaign_id is required")
-
-    response = await client.get(
-        f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}/items"
-    )
-
-    return [types.TextContent(
-        type="text",
-        text=f"Campaign items for campaign {campaign_id}:\n{format_response(response)}",
-    )]
-
-
-async def get_item(arguments: dict = None) -> List[types.TextContent]:
-    """Get specific campaign item details (read-only)."""
-    account_id = arguments.get("account_id") if arguments else None
-    campaign_id = arguments.get("campaign_id") if arguments else None
-    item_id = arguments.get("item_id") if arguments else None
-
-    is_valid, error_message = validate_account_id(account_id)
-    if not is_valid:
-        raise ToolInputError(error_message)
-
-    if not campaign_id or not item_id:
-        raise ToolInputError("campaign_id and item_id are both required")
-
-    response = await client.get(
-        f"/{quote(account_id, safe='')}/campaigns/{quote(campaign_id, safe='')}"
-        f"/items/{quote(item_id, safe='')}"
-    )
-
-    return [types.TextContent(
-        type="text",
-        text=f"Campaign item {item_id} details:\n{format_response(response)}",
-    )]
+def _validate_creative_name(value: Any) -> None:
+    if not isinstance(value, str):
+        raise ToolInputError("creative_name must be a string")
+    if not value.strip():
+        raise ToolInputError("creative_name must be a non-empty string")
 
 
 def _build_item_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str, Any]:
@@ -94,6 +56,11 @@ def _build_item_payload(args: Dict[str, Any], *, is_create: bool) -> Dict[str, A
     for f in scalar_fields:
         if args.get(f) is not None:
             body[f] = args[f]
+
+    creative_name = args.get("creative_name")
+    if creative_name is not None:
+        _validate_creative_name(creative_name)
+        body["custom_data"] = {"creative_name": creative_name}
 
     cta = args.get("cta")
     if cta is not None:

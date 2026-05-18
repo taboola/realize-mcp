@@ -80,14 +80,14 @@ class TestUpdateCampaignItemBaseValidation:
 
 class TestUpdateCampaignItemWireMapping:
     @pytest.mark.asyncio
-    @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
     async def test_posts_to_item_endpoint(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
         await handle_call_tool("update_native_item", _args())
         assert _post_endpoint(mock_post) == "/acme-inc/campaigns/49184816/items/987654321"
 
     @pytest.mark.asyncio
-    @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
     async def test_url_encodes_path_segments(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
         await handle_call_tool("update_native_item", _args(
@@ -98,7 +98,7 @@ class TestUpdateCampaignItemWireMapping:
         assert _post_endpoint(mock_post) == "/acme%2Fevil/campaigns/c%2F1/items/i%2F1"
 
     @pytest.mark.asyncio
-    @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
     async def test_path_ids_not_in_body(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
         await handle_call_tool("update_native_item", _args())
@@ -108,7 +108,7 @@ class TestUpdateCampaignItemWireMapping:
         assert "item_id" not in body
 
     @pytest.mark.asyncio
-    @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
     async def test_single_scalar_passes_through(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
         await handle_call_tool("update_native_item", _args())
@@ -123,17 +123,37 @@ class TestUpdateCampaignItemWireMapping:
         ("is_active", True),
     ])
     @pytest.mark.asyncio
-    @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
     async def test_scalar_field_pass_through(self, mock_post, field, value):
         mock_post.return_value = {"id": "987654321"}
         args = {"account_id": "acme-inc", "campaign_id": "49184816", "item_id": "987654321", field: value}
         await handle_call_tool("update_native_item", args)
         assert _post_body(mock_post) == {field: value}
 
+    @pytest.mark.asyncio
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
+    async def test_creative_name_only(self, mock_post):
+        mock_post.return_value = {"id": "987654321"}
+        await handle_call_tool(
+            "update_native_item",
+            {
+                "account_id": "acme-inc",
+                "campaign_id": "49184816",
+                "item_id": "987654321",
+                "creative_name": "Native renamed",
+            },
+        )
+        assert _post_body(mock_post) == {"custom_data": {"creative_name": "Native renamed"}}
+
+    @pytest.mark.asyncio
+    async def test_creative_name_blank_rejected(self):
+        with pytest.raises(ToolInputError, match="creative_name must be a non-empty string"):
+            await handle_call_tool("update_native_item", _args(creative_name=""))
+
 
 class TestUpdateCampaignItemNested:
     @pytest.mark.asyncio
-    @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
     async def test_cta_passes_through(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
         await handle_call_tool(
@@ -149,7 +169,7 @@ class TestUpdateCampaignItemNested:
             await handle_call_tool("update_native_item", _args(cta={"cta_type": ""}))
 
     @pytest.mark.asyncio
-    @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
     async def test_verification_pixel_full_replace(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
         await handle_call_tool("update_native_item", _args(
@@ -169,7 +189,7 @@ class TestUpdateCampaignItemNested:
         }
 
     @pytest.mark.asyncio
-    @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
     async def test_verification_pixel_empty_clears(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
         await handle_call_tool("update_native_item", _args(
@@ -206,7 +226,7 @@ class TestUpdateCampaignItemNested:
             await handle_call_tool("update_native_item", _args(verification_pixel=[]))
 
     @pytest.mark.asyncio
-    @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
     async def test_viewability_tag_full_replace(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
         await handle_call_tool("update_native_item", _args(
@@ -226,7 +246,7 @@ class TestUpdateCampaignItemNested:
         }
 
     @pytest.mark.asyncio
-    @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
     async def test_viewability_tag_empty_clears(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
         await handle_call_tool("update_native_item", _args(
@@ -250,7 +270,7 @@ class TestUpdateCampaignItemNested:
 
 class TestUpdateCampaignItemMultiField:
     @pytest.mark.asyncio
-    @patch('realize.tools.item_handlers.client.post', new_callable=AsyncMock)
+    @patch('realize.tools.item_native_handlers.client.post', new_callable=AsyncMock)
     async def test_multi_field_update(self, mock_post):
         mock_post.return_value = {"id": "987654321"}
         await handle_call_tool("update_native_item", _args(
