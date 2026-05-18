@@ -13,26 +13,37 @@ A Model Context Protocol (MCP) server providing read and write access to Taboola
 
 Connect to the hosted Realize MCP server using [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) transport with OAuth 2.1. Multi-user, stateless, no local install required.
 
-**Cursor IDE / Claude Desktop** — Add to your MCP client config:
+Pick the section for your client:
 
-```json
-{
-  "mcpServers": {
-    "realize-mcp": {
-      "url": "https://mcp.realize.com/mcp"
-    }
-  }
-}
-```
+### Claude Desktop
 
-**Claude Desktop (UI)**
+Two options — use the UI for the simplest setup, or the config file if you prefer to manage MCP servers as code.
+
+**Option 1 — UI (recommended):**
 
 1. Go to Settings → Connectors → Add Custom Connector
 2. Enter the MCP Server name and URL: `https://mcp.realize.com/mcp`
 3. Select **Connect** to initiate the OAuth 2.1 flow
 4. A browser window will open to Taboola SSO—enter your credentials to obtain a bearer token used by Realize tools
 
-**Claude Code (CLI)**
+**Option 2 — config file:**
+
+Prerequisite: Node.js 18+ (provides `npx`). Install from [nodejs.org](https://nodejs.org) or run `brew install node`.
+
+Add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "realize-mcp": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.realize.com/mcp", "--port", "3000"]
+    }
+  }
+}
+```
+
+### Claude Code (CLI)
 
 ```bash
 claude mcp add --transport http --callback-port 3000 realize-mcp https://mcp.realize.com/mcp
