@@ -33,13 +33,9 @@ def get_protected_resource_metadata(base_url: str) -> dict:
 async def proxy_authorization_server_metadata(base_url: str) -> dict:
     """Proxy and modify upstream Authorization Server Metadata (RFC 8414).
 
-    Fetches metadata from the upstream authorization server, then rewrites
-    two fields: `issuer` to assert this server as the issuer (RFC 8414
-    §3.3 requires it match the URL the client used to fetch metadata),
-    and `registration_endpoint` to route client registration through this
-    server (upstream doesn't support RFC 7591 Dynamic Client Registration,
-    so we point clients at our fake DCR endpoint). All other fields,
-    including `token_endpoint_auth_methods_supported`, pass through.
+    Proxies upstream AS metadata. Rewrites `issuer` (RFC 8414 §3.3) and
+    `registration_endpoint` (upstream lacks RFC 7591 DCR — routes to our
+    fake). Other fields pass through.
 
     Args:
         base_url: Public-facing base URL of this MCP server
