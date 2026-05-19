@@ -13,3 +13,7 @@ os.environ.setdefault("REALIZE_CLIENT_ID", "realize_mcp_ci_client")
 os.environ.setdefault("REALIZE_CLIENT_SECRET", "realize_mcp_ci_secret")
 os.environ.setdefault("MCP_TRANSPORT", "stdio")
 os.environ.setdefault("METRICS_ENABLED", "true")
+# Enable the display item tools by default in tests so existing display tests
+# pass without per-test setup. The dedicated flag tests override this via
+# monkeypatch.
+os.environ.setdefault("ENABLE_DISPLAY_ITEM_TOOLS", "true")

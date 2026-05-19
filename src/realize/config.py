@@ -19,6 +19,12 @@ class Config(BaseSettings):
     metrics_enabled: bool = True
     metrics_port: int = 8092
 
+    # === Feature flags ===
+    # Gate display item write tools (create_display_item, update_display_item)
+    # behind an opt-in env var. Default off — MCP clients see only the native
+    # item surface until display rollout is enabled.
+    enable_display_item_tools: bool = False
+
     # === Stdio mode (required when mcp_transport="stdio") ===
     realize_client_id: Optional[str] = None
     realize_client_secret: Optional[str] = None

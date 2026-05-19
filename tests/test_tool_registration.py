@@ -77,7 +77,9 @@ class TestToolRegistryEdgeCases:
             'auth_handlers.',
             'account_handlers.',
             'campaign_handlers.',
-            'item_handlers.',
+            'item_read_handlers.',
+            'item_native_handlers.',
+            'item_display_handlers.',
             'report_handlers.',
             'resources.',
             'discovery_handlers.',
@@ -186,7 +188,9 @@ class TestToolHandlerImports:
             'realize.tools.auth_handlers',
             'realize.tools.account_handlers',
             'realize.tools.campaign_handlers',
-            'realize.tools.item_handlers',
+            'realize.tools.item_read_handlers',
+            'realize.tools.item_native_handlers',
+            'realize.tools.item_display_handlers',
             'realize.tools.report_handlers'
         ]
         
@@ -306,7 +310,7 @@ class TestItemAndDiscoveryAdditions:
         assert "create_native_item" in TOOL_REGISTRY
         entry = TOOL_REGISTRY["create_native_item"]
         assert entry["category"] == "items"
-        assert entry["handler"] == "item_handlers.create_native_item"
+        assert entry["handler"] == "item_native_handlers.create_native_item"
         assert entry["annotations"]["destructiveHint"] is True
         assert entry["annotations"]["idempotentHint"] is False
 
@@ -314,9 +318,34 @@ class TestItemAndDiscoveryAdditions:
         assert "update_native_item" in TOOL_REGISTRY
         entry = TOOL_REGISTRY["update_native_item"]
         assert entry["category"] == "items"
-        assert entry["handler"] == "item_handlers.update_native_item"
+        assert entry["handler"] == "item_native_handlers.update_native_item"
         assert entry["annotations"]["destructiveHint"] is True
         assert entry["annotations"]["idempotentHint"] is True
+
+    def test_create_display_item_registered(self):
+        assert "create_display_item" in TOOL_REGISTRY
+        entry = TOOL_REGISTRY["create_display_item"]
+        assert entry["category"] == "items"
+        assert entry["handler"] == "item_display_handlers.create_display_item"
+        assert entry["annotations"]["destructiveHint"] is True
+        assert entry["annotations"]["idempotentHint"] is False
+        # ad_tag and asset_url are mutually-exclusive discriminators enforced
+        # by the handler, not the JSON Schema. dimensions is required only
+        # when ad_tag is sent.
+        assert set(entry["schema"]["required"]) == {
+            "account_id", "campaign_id", "url", "creative_name"
+        }
+
+    def test_update_display_item_registered(self):
+        assert "update_display_item" in TOOL_REGISTRY
+        entry = TOOL_REGISTRY["update_display_item"]
+        assert entry["category"] == "items"
+        assert entry["handler"] == "item_display_handlers.update_display_item"
+        assert entry["annotations"]["destructiveHint"] is True
+        assert entry["annotations"]["idempotentHint"] is True
+        assert set(entry["schema"]["required"]) == {
+            "account_id", "campaign_id", "item_id"
+        }
 
     def test_list_cta_types_registered(self):
         assert "list_cta_types" in TOOL_REGISTRY
@@ -325,8 +354,8 @@ class TestItemAndDiscoveryAdditions:
         assert entry["handler"] == "resources.list_cta_types"
 
     def test_read_item_tools_repointed(self):
-        assert TOOL_REGISTRY["list_items"]["handler"] == "item_handlers.list_items"
-        assert TOOL_REGISTRY["get_item"]["handler"] == "item_handlers.get_item"
+        assert TOOL_REGISTRY["list_items"]["handler"] == "item_read_handlers.list_items"
+        assert TOOL_REGISTRY["get_item"]["handler"] == "item_read_handlers.get_item"
 
 
 if __name__ == "__main__":
