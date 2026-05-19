@@ -27,12 +27,17 @@ async def handle_list_tools() -> list[types.Tool]:
 
     tools = []
     for tool_name, tool_config in get_all_tools().items():
-        annotations = None
-        if "annotations" in tool_config:
-            annotations = types.ToolAnnotations(**tool_config["annotations"])
+        title = tool_config.get("title")
+        annotations_dict = dict(tool_config.get("annotations", {}))
+        # Duplicate title into annotations so older MCP hosts (that read annotations.title)
+        # see it; newer hosts (spec 2025-06-18+) prefer Tool.title.
+        if title and "title" not in annotations_dict:
+            annotations_dict["title"] = title
+        annotations = types.ToolAnnotations(**annotations_dict) if annotations_dict else None
         tools.append(
             types.Tool(
                 name=tool_name,
+                title=title,
                 description=tool_config["description"],
                 inputSchema=tool_config["schema"],
                 annotations=annotations,

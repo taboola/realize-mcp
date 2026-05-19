@@ -212,7 +212,7 @@ class TestToolDescriptions:
         The earlier check forbidding 'create'/'update' substrings was removed:
         read tools now intentionally cross-reference write tools by name (e.g.
         create_campaign, update_campaign_*) to point callers at the next step.
-        Write semantics are tracked authoritatively via the destructiveHint
+        Write semantics are tracked authoritatively via the readOnlyHint
         annotation, not via substring sniffing.
         """
         tools = get_all_tools()
@@ -220,9 +220,9 @@ class TestToolDescriptions:
         read_only_indicators = ['read-only', 'get', 'retrieve', 'fetch', 'search', 'view', 'list', 'authenticate', 'discover']
 
         for tool_name, tool_config in tools.items():
-            # Skip write tools (declared via destructiveHint annotation)
+            # Skip write tools (readOnlyHint absent or false → mutates state).
             annotations = tool_config.get("annotations") or {}
-            if annotations.get("destructiveHint"):
+            if annotations.get("readOnlyHint") is not True:
                 continue
 
             description = tool_config['description'].lower()
@@ -311,7 +311,7 @@ class TestItemAndDiscoveryAdditions:
         entry = TOOL_REGISTRY["create_native_item"]
         assert entry["category"] == "items"
         assert entry["handler"] == "item_native_handlers.create_native_item"
-        assert entry["annotations"]["destructiveHint"] is True
+        assert entry["annotations"]["destructiveHint"] is False
         assert entry["annotations"]["idempotentHint"] is False
 
     def test_update_native_item_registered(self):
@@ -327,7 +327,7 @@ class TestItemAndDiscoveryAdditions:
         entry = TOOL_REGISTRY["create_display_item"]
         assert entry["category"] == "items"
         assert entry["handler"] == "item_display_handlers.create_display_item"
-        assert entry["annotations"]["destructiveHint"] is True
+        assert entry["annotations"]["destructiveHint"] is False
         assert entry["annotations"]["idempotentHint"] is False
         # ad_tag and asset_url are mutually-exclusive discriminators enforced
         # by the handler, not the JSON Schema. dimensions is required only
@@ -356,6 +356,132 @@ class TestItemAndDiscoveryAdditions:
     def test_read_item_tools_repointed(self):
         assert TOOL_REGISTRY["list_items"]["handler"] == "item_read_handlers.list_items"
         assert TOOL_REGISTRY["get_item"]["handler"] == "item_read_handlers.get_item"
+
+
+_WRITE_TOOL_NAMES = frozenset({
+    "create_campaign",
+    "update_campaign",
+    "create_native_item",
+    "update_native_item",
+    "create_display_item",
+    "update_display_item",
+})
+
+_CREATE_TOOL_NAMES = frozenset({
+    "create_campaign",
+    "create_native_item",
+    "create_display_item",
+})
+
+_UPDATE_TOOL_NAMES = frozenset({
+    "update_campaign",
+    "update_native_item",
+    "update_display_item",
+})
+
+
+class TestToolAnnotations:
+    """Tool-annotation coverage for every entry in TOOL_REGISTRY.
+
+    Annotations drive UX in every MCP host (Claude Code, Cursor, Continue, etc.)
+    and are required by Anthropic's Connectors Directory.
+    """
+
+    def test_every_tool_has_non_empty_title(self):
+        for tool_name, tool_config in TOOL_REGISTRY.items():
+            assert "title" in tool_config, f"Tool {tool_name} missing 'title'"
+            title = tool_config["title"]
+            assert isinstance(title, str)
+            assert len(title) > 0, f"Tool {tool_name} has empty title"
+            assert len(title) <= 50, f"Tool {tool_name} title >50 chars: {title!r}"
+
+    def test_every_tool_has_annotations(self):
+        for tool_name, tool_config in TOOL_REGISTRY.items():
+            assert "annotations" in tool_config, f"Tool {tool_name} missing 'annotations'"
+            ann = tool_config["annotations"]
+            assert isinstance(ann, dict)
+            is_write = tool_name in _WRITE_TOOL_NAMES
+            if is_write:
+                # Writes must signal mutation: readOnlyHint must NOT be true.
+                assert ann.get("readOnlyHint") is not True, (
+                    f"Tool {tool_name} is a write but has readOnlyHint=True"
+                )
+                # destructiveHint must be explicitly set (true for updates, false for creates).
+                assert "destructiveHint" in ann, (
+                    f"Tool {tool_name} (write) must set destructiveHint explicitly"
+                )
+            else:
+                assert ann.get("readOnlyHint") is True, (
+                    f"Tool {tool_name} (read) must set readOnlyHint=True"
+                )
+
+    def test_read_tools_marked_read_only(self):
+        for tool_name, tool_config in TOOL_REGISTRY.items():
+            if tool_name in _WRITE_TOOL_NAMES:
+                continue
+            ann = tool_config["annotations"]
+            assert ann.get("readOnlyHint") is True, f"{tool_name} should have readOnlyHint"
+            assert ann.get("destructiveHint") is not True, (
+                f"{tool_name} should not have destructiveHint"
+            )
+
+    def test_update_tools_marked_destructive(self):
+        """Updates overwrite prior field values — destructiveHint True per MCP spec."""
+        for tool_name in _UPDATE_TOOL_NAMES:
+            ann = TOOL_REGISTRY[tool_name]["annotations"]
+            assert ann.get("destructiveHint") is True, f"{tool_name} should have destructiveHint"
+            assert ann.get("readOnlyHint") is not True, (
+                f"{tool_name} should not have readOnlyHint"
+            )
+
+    def test_create_tools_additive(self):
+        """Creates insert new records (additive) — destructiveHint False per MCP spec."""
+        for tool_name in _CREATE_TOOL_NAMES:
+            ann = TOOL_REGISTRY[tool_name]["annotations"]
+            assert ann.get("destructiveHint") is False, (
+                f"{tool_name} (create) should be additive (destructiveHint=False)"
+            )
+            assert ann.get("readOnlyHint") is not True, (
+                f"{tool_name} should not have readOnlyHint"
+            )
+
+    def test_create_tools_not_idempotent(self):
+        for tool_name in _CREATE_TOOL_NAMES:
+            ann = TOOL_REGISTRY[tool_name]["annotations"]
+            assert ann.get("idempotentHint") is False, (
+                f"{tool_name} (create) should be non-idempotent"
+            )
+
+    def test_update_tools_idempotent(self):
+        for tool_name in _UPDATE_TOOL_NAMES:
+            ann = TOOL_REGISTRY[tool_name]["annotations"]
+            assert ann.get("idempotentHint") is True, (
+                f"{tool_name} (update) should be idempotent"
+            )
+
+    def test_titles_unique(self):
+        titles = [tool_config["title"] for tool_config in TOOL_REGISTRY.values()]
+        duplicates = {t for t in titles if titles.count(t) > 1}
+        assert not duplicates, f"Duplicate titles in registry: {duplicates}"
+
+    def test_handle_list_tools_round_trip(self):
+        """handle_list_tools() round-trips title + annotations from registry to types.Tool."""
+        import asyncio
+        from realize.realize_server import handle_list_tools
+
+        tools = asyncio.run(handle_list_tools())
+        by_name = {t.name: t for t in tools}
+
+        # Sample of read + write tools
+        for name in ("search_accounts", "list_campaigns", "create_campaign", "update_native_item"):
+            assert name in by_name, f"{name} missing from handle_list_tools output"
+            tool = by_name[name]
+            registry_title = TOOL_REGISTRY[name]["title"]
+            # Tool.title (spec 2025-06-18+)
+            assert tool.title == registry_title, f"{name} Tool.title mismatch"
+            # annotations.title fallback (older MCP hosts)
+            assert tool.annotations is not None, f"{name} missing annotations"
+            assert tool.annotations.title == registry_title, f"{name} annotations.title mismatch"
 
 
 if __name__ == "__main__":

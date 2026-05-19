@@ -141,18 +141,22 @@ class TestCreateCampaignAnnotations:
         create = next(t for t in tools if t.name == "create_campaign")
 
         assert create.annotations is not None
-        assert create.annotations.destructiveHint is True
+        assert create.annotations.destructiveHint is False
         assert create.annotations.idempotentHint is False
-        assert create.annotations.openWorldHint is True
+        assert create.annotations.openWorldHint is False
 
     @pytest.mark.asyncio
-    async def test_read_tools_have_no_annotations(self):
+    async def test_read_tools_marked_read_only(self):
         from realize.realize_server import handle_list_tools
 
         tools = await handle_list_tools()
         for name in ("get_campaign", "list_campaigns", "search_accounts"):
             tool = next(t for t in tools if t.name == name)
-            assert tool.annotations is None, f"{name} is read-only and should have no annotations"
+            assert tool.annotations is not None, f"{name} should have annotations"
+            assert tool.annotations.readOnlyHint is True, f"{name} should have readOnlyHint"
+            assert tool.annotations.destructiveHint is not True, (
+                f"{name} should not be destructive"
+            )
 
     @pytest.mark.asyncio
     async def test_marketing_objective_enum_in_schema(self):

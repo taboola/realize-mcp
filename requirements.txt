@@ -1,5 +1,5 @@
 # Core runtime dependencies
-mcp>=1.0.0
+mcp>=1.27,<2
 requests>=2.31.0
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
