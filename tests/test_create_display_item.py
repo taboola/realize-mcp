@@ -260,9 +260,9 @@ class TestCreateDisplayItemAnnotations:
         create = next(t for t in tools if t.name == "create_display_item")
 
         assert create.annotations is not None
-        assert create.annotations.destructiveHint is True
+        assert create.annotations.destructiveHint is False
         assert create.annotations.idempotentHint is False
-        assert create.annotations.openWorldHint is True
+        assert create.annotations.openWorldHint is False
 
     @pytest.mark.asyncio
     async def test_required_fields_in_schema(self):

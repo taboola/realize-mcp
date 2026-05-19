@@ -383,7 +383,7 @@ class TestUpdateDisplayItemAnnotations:
         assert update.annotations is not None
         assert update.annotations.destructiveHint is True
         assert update.annotations.idempotentHint is True
-        assert update.annotations.openWorldHint is True
+        assert update.annotations.openWorldHint is False
 
     @pytest.mark.asyncio
     async def test_required_fields_in_schema(self):

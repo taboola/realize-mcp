@@ -33,7 +33,11 @@ class TestProductionReadiness:
             assert tool in tools, f"Required read-only tool {tool} not found in registry"
     
     def test_no_write_operations(self):
-        """Write tools must declare destructiveHint; unknown write tools are forbidden."""
+        """Write tools must declare readOnlyHint=False (default); unknown write tools forbidden.
+
+        Writes are identified by readOnlyHint != True (covers both destructiveHint=True
+        updates and destructiveHint=False additive creates).
+        """
         tools = get_all_tools()
 
         forbidden_operations = [
@@ -44,12 +48,12 @@ class TestProductionReadiness:
 
         for tool_name, tool_config in tools.items():
             annotations = tool_config.get("annotations") or {}
-            if annotations.get("destructiveHint"):
-                # Declared write tool; allowed.
+            if annotations.get("readOnlyHint") is not True:
+                # Declared write tool (create/update/delete); allowed.
                 continue
             for forbidden in forbidden_operations:
                 assert not tool_name.startswith(forbidden.lower()), \
-                    f"Found write operation {tool_name} without destructiveHint annotation"
+                    f"Found write operation {tool_name} without write annotation"
     
     def test_tool_categories_exist(self):
         """Test that all tool categories are properly defined for read-only operations."""
@@ -70,12 +74,21 @@ class TestProductionReadiness:
             assert 'handler' in tool_config
             assert 'category' in tool_config
 
-            # Write tools must declare destructiveHint via annotations; read tools
-            # may omit annotations entirely.
-            if tool_name.startswith(('create_', 'update_', 'delete_')):
+            # Write tools must declare annotations with readOnlyHint absent/false.
+            # Per MCP spec: updates set destructiveHint=True (overwrite prior state),
+            # creates set destructiveHint=False (additive — insert new records).
+            if tool_name.startswith(('update_', 'delete_')):
                 annotations = tool_config.get('annotations', {})
                 assert annotations.get('destructiveHint') is True, \
-                    f"Write tool {tool_name} must declare destructiveHint=True"
+                    f"Update/delete tool {tool_name} must declare destructiveHint=True"
+                assert annotations.get('readOnlyHint') is not True, \
+                    f"Update/delete tool {tool_name} must not declare readOnlyHint=True"
+            elif tool_name.startswith('create_'):
+                annotations = tool_config.get('annotations', {})
+                assert annotations.get('destructiveHint') is False, \
+                    f"Create tool {tool_name} must declare destructiveHint=False (additive)"
+                assert annotations.get('readOnlyHint') is not True, \
+                    f"Create tool {tool_name} must not declare readOnlyHint=True"
 
             # Check schema structure supports flexible JSON
             schema = tool_config['schema']

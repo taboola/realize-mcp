@@ -698,18 +698,33 @@ Example — edit one classic geo dimension:
 _UPDATE_CAMPAIGN_DESCRIPTION = _UPDATE_CAMPAIGN_PROSE + _UPDATE_CAMPAIGN_EXAMPLES
 
 
-# Destructive-write annotations (signal to MCP hosts that these tools mutate state).
-_DESTRUCTIVE_ANNOTATIONS_CREATE = {
-    "destructiveHint": True,
+# Write annotations (signal to MCP hosts that these tools mutate state).
+# openWorldHint: False — domain is bounded to the authenticated user's surface on the
+# Taboola Realize/Backstage API (internal infra, finite accounts/campaigns/items).
+
+# Create tools insert new records (additive). They do not overwrite or remove prior state,
+# so destructiveHint is False per MCP spec ("additive updates"). readOnlyHint stays unset
+# (default False) so hosts still know these are writes.
+_ADDITIVE_WRITE_ANNOTATIONS = {
+    "destructiveHint": False,
     "idempotentHint": False,
-    "openWorldHint": True,
+    "openWorldHint": False,
 }
 
 
+# Update tools overwrite field values on existing records (destructive in the spec sense).
 _DESTRUCTIVE_ANNOTATIONS_UPDATE = {
     "destructiveHint": True,
     "idempotentHint": True,
-    "openWorldHint": True,
+    "openWorldHint": False,
+}
+
+
+# Read-only annotation hints (signals that these tools do not mutate state).
+_READONLY_ANNOTATIONS = {
+    "readOnlyHint": True,
+    "idempotentHint": True,
+    "openWorldHint": False,
 }
 
 
@@ -1156,7 +1171,9 @@ _AUTH_TOOLS = {
             "required": []
         },
         "handler": "auth_handlers.get_auth_token",
-        "category": "authentication"
+        "category": "authentication",
+        "title": "Get OAuth access token (stdio only)",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 
     "get_token_details": {
@@ -1167,7 +1184,9 @@ _AUTH_TOOLS = {
             "required": []
         },
         "handler": "auth_handlers.get_token_details",
-        "category": "authentication"
+        "category": "authentication",
+        "title": "Inspect OAuth token (stdio only)",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 }
 
@@ -1207,7 +1226,9 @@ missing results.""",
             "required": ["query"]
         },
         "handler": "account_handlers.search_accounts",
-        "category": "accounts"
+        "category": "accounts",
+        "title": "Search Realize accounts",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 }
 
@@ -1227,7 +1248,9 @@ _CAMPAIGN_READ_TOOLS = {
             "required": ["account_id"]
         },
         "handler": "campaign_handlers.list_campaigns",
-        "category": "campaigns"
+        "category": "campaigns",
+        "title": "List campaigns",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 
     "get_campaign": {
@@ -1247,7 +1270,9 @@ _CAMPAIGN_READ_TOOLS = {
             "required": ["account_id", "campaign_id"]
         },
         "handler": "campaign_handlers.get_campaign",
-        "category": "campaigns"
+        "category": "campaigns",
+        "title": "Get campaign details",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 }
 
@@ -1263,7 +1288,8 @@ _CAMPAIGN_WRITE_TOOLS = {
         },
         "handler": "campaign_handlers.create_campaign",
         "category": "campaigns",
-        "annotations": _DESTRUCTIVE_ANNOTATIONS_CREATE,
+        "title": "Create campaign",
+        "annotations": _ADDITIVE_WRITE_ANNOTATIONS,
     },
 
     "update_campaign": {
@@ -1275,6 +1301,7 @@ _CAMPAIGN_WRITE_TOOLS = {
         },
         "handler": "campaign_handlers.update_campaign",
         "category": "campaigns",
+        "title": "Update campaign",
         "annotations": _DESTRUCTIVE_ANNOTATIONS_UPDATE,
     },
 }
@@ -1299,7 +1326,9 @@ _CAMPAIGN_ITEM_TOOLS = {
             "required": ["account_id", "campaign_id"]
         },
         "handler": "item_read_handlers.list_items",
-        "category": "items"
+        "category": "items",
+        "title": "List campaign items",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 
     "get_item": {
@@ -1323,7 +1352,9 @@ _CAMPAIGN_ITEM_TOOLS = {
             "required": ["account_id", "campaign_id", "item_id"]
         },
         "handler": "item_read_handlers.get_item",
-        "category": "items"
+        "category": "items",
+        "title": "Get campaign item",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 
     "create_native_item": {
@@ -1335,7 +1366,8 @@ _CAMPAIGN_ITEM_TOOLS = {
         },
         "handler": "item_native_handlers.create_native_item",
         "category": "items",
-        "annotations": _DESTRUCTIVE_ANNOTATIONS_CREATE,
+        "title": "Create native item",
+        "annotations": _ADDITIVE_WRITE_ANNOTATIONS,
     },
 
     "update_native_item": {
@@ -1347,6 +1379,7 @@ _CAMPAIGN_ITEM_TOOLS = {
         },
         "handler": "item_native_handlers.update_native_item",
         "category": "items",
+        "title": "Update native item",
         "annotations": _DESTRUCTIVE_ANNOTATIONS_UPDATE,
     },
 
@@ -1359,7 +1392,8 @@ _CAMPAIGN_ITEM_TOOLS = {
         },
         "handler": "item_display_handlers.create_display_item",
         "category": "items",
-        "annotations": _DESTRUCTIVE_ANNOTATIONS_CREATE,
+        "title": "Create display item",
+        "annotations": _ADDITIVE_WRITE_ANNOTATIONS,
     },
 
     "update_display_item": {
@@ -1371,6 +1405,7 @@ _CAMPAIGN_ITEM_TOOLS = {
         },
         "handler": "item_display_handlers.update_display_item",
         "category": "items",
+        "title": "Update display item",
         "annotations": _DESTRUCTIVE_ANNOTATIONS_UPDATE,
     },
 }
@@ -1410,6 +1445,8 @@ Example — list US states: { "dimension": "regions", "country_code": "US" }""",
         },
         "handler": "resources.search_geos",
         "category": "resources",
+        "title": "Search geographic targets",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 
     "search_techno": {
@@ -1445,6 +1482,8 @@ Example — list iOS versions: { "dimension": "operating_system_versions", "os_f
         },
         "handler": "resources.search_techno",
         "category": "resources",
+        "title": "Search platform/device targets",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 
     "search_audiences": {
@@ -1473,6 +1512,8 @@ create_campaign / update_campaign.""",
         },
         "handler": "discovery_handlers.search_audiences",
         "category": "resources",
+        "title": "Search custom audiences",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 
     "search_lookalike_audiences": {
@@ -1497,6 +1538,8 @@ Optional country_code (ISO-2) narrows to audiences targeting one country.""",
         },
         "handler": "discovery_handlers.search_lookalike_audiences",
         "category": "resources",
+        "title": "Search lookalike audiences",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 
     "search_publishers": {
@@ -1543,6 +1586,8 @@ country, is_active}.""",
         },
         "handler": "discovery_handlers.search_publishers",
         "category": "resources",
+        "title": "Search publishers",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 
     "search_contextual_segments": {
@@ -1571,6 +1616,8 @@ on create_campaign / update_campaign.""",
         },
         "handler": "discovery_handlers.search_contextual_segments",
         "category": "resources",
+        "title": "Search contextual segments",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 
     "search_conversion_rules": {
@@ -1591,6 +1638,8 @@ campaigns typically require at least one conversion rule attached.""",
         },
         "handler": "discovery_handlers.search_conversion_rules",
         "category": "resources",
+        "title": "Search conversion rules",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 
     "list_time_zones": {
@@ -1605,6 +1654,8 @@ List valid IANA time zone names for `activity_schedule.time_zone` on create_camp
         },
         "handler": "resources.list_time_zones",
         "category": "resources",
+        "title": "List supported time zones",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 
     "list_cta_types": {
@@ -1619,6 +1670,8 @@ hard-coded enums.""",
         },
         "handler": "resources.list_cta_types",
         "category": "resources",
+        "title": "List call-to-action types",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 }
 
@@ -1673,7 +1726,9 @@ Check `Total` in the response header for the full record count across all pages.
             "required": ["account_id", "start_date", "end_date"]
         },
         "handler": "report_handlers.get_top_campaign_content_report",
-        "category": "reports"
+        "category": "reports",
+        "title": "Fetch top campaign content report",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 
     "get_campaign_history_report": {
@@ -1713,7 +1768,9 @@ Check `Total` in the response header for the full record count across all pages.
             "required": ["account_id", "start_date", "end_date"]
         },
         "handler": "report_handlers.get_campaign_history_report",
-        "category": "reports"
+        "category": "reports",
+        "title": "Fetch campaign history report",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 
     "get_campaign_breakdown_report": {
@@ -1769,7 +1826,9 @@ Check `Total` in the response header for the full record count across all pages.
             "required": ["account_id", "start_date", "end_date"]
         },
         "handler": "report_handlers.get_campaign_breakdown_report",
-        "category": "reports"
+        "category": "reports",
+        "title": "Fetch campaign breakdown report",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 
     "get_campaign_site_day_breakdown_report": {
@@ -1825,7 +1884,9 @@ Check `Total` in the response header for the full record count across all pages.
             "required": ["account_id", "start_date", "end_date"]
         },
         "handler": "report_handlers.get_campaign_site_day_breakdown_report",
-        "category": "reports"
+        "category": "reports",
+        "title": "Fetch campaign site/day breakdown report",
+        "annotations": _READONLY_ANNOTATIONS,
     },
 }
 

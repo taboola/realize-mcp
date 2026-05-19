@@ -306,4 +306,4 @@ class TestUpdateCampaignAnnotations:
         assert update.annotations is not None
         assert update.annotations.destructiveHint is True
         assert update.annotations.idempotentHint is True
-        assert update.annotations.openWorldHint is True
+        assert update.annotations.openWorldHint is False
