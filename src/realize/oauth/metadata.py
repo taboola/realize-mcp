@@ -33,10 +33,9 @@ def get_protected_resource_metadata(base_url: str) -> dict:
 async def proxy_authorization_server_metadata(base_url: str) -> dict:
     """Proxy and modify upstream Authorization Server Metadata (RFC 8414).
 
-    Fetches metadata from the upstream authorization server, then modifies it
-    to route client registration through the MCP server. The upstream auth
-    server doesn't support RFC 7591 Dynamic Client Registration, so we
-    override registration_endpoint to point to our fake DCR endpoint.
+    Proxies upstream AS metadata. Rewrites `issuer` (RFC 8414 §3.3) and
+    `registration_endpoint` (upstream lacks RFC 7591 DCR — routes to our
+    fake). Other fields pass through.
 
     Args:
         base_url: Public-facing base URL of this MCP server
@@ -59,11 +58,6 @@ async def proxy_authorization_server_metadata(base_url: str) -> dict:
 
     # Override registration_endpoint (upstream doesn't support RFC 7591)
     metadata["registration_endpoint"] = f"{base_url}/register"
-
-    # Override to "none" only — MCP clients are public (PKCE, no client secret).
-    # Upstream advertises client_secret_basic/post too, but those exist for
-    # M2M flows and can't be removed server-side.
-    metadata["token_endpoint_auth_methods_supported"] = ["none"]
 
     logger.debug("Returning modified OAuth AS metadata")
     return metadata

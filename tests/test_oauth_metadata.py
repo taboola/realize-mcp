@@ -99,7 +99,7 @@ class TestAuthorizationServerMetadataProxy:
 
     @pytest.mark.asyncio
     async def test_includes_optional_fields_when_present(self):
-        """Verify optional fields are included and auth methods are filtered."""
+        """Verify optional fields pass through from upstream unchanged."""
         upstream_metadata = {
             "issuer": "https://auth.example.com",
             "authorization_endpoint": "https://auth.example.com/authorize",
@@ -109,7 +109,11 @@ class TestAuthorizationServerMetadataProxy:
             "scopes_supported": ["openid", "profile"],
             "grant_types_supported": ["authorization_code", "refresh_token"],
             "code_challenge_methods_supported": ["S256"],
-            "token_endpoint_auth_methods_supported": ["client_secret_post", "none"],
+            "token_endpoint_auth_methods_supported": [
+                "client_secret_basic",
+                "client_secret_post",
+                "none",
+            ],
         }
 
         mock_response = MagicMock()
@@ -138,8 +142,12 @@ class TestAuthorizationServerMetadataProxy:
                 assert metadata["scopes_supported"] == ["openid", "profile"]
                 assert metadata["grant_types_supported"] == ["authorization_code", "refresh_token"]
                 assert metadata["code_challenge_methods_supported"] == ["S256"]
-                # Auth methods overridden based on DCR client type (no secret = public client)
-                assert metadata["token_endpoint_auth_methods_supported"] == ["none"]
+                # Auth methods pass through from upstream verbatim
+                assert metadata["token_endpoint_auth_methods_supported"] == [
+                    "client_secret_basic",
+                    "client_secret_post",
+                    "none",
+                ]
 
     @pytest.mark.asyncio
     async def test_issuer_overridden_to_mcp_server(self):

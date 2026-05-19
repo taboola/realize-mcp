@@ -503,7 +503,7 @@ MCP_TRANSPORT=streamable-http OAUTH_DCR_CLIENT_ID=your_dcr_client_id realize-mcp
 
 - `GET /.well-known/oauth-protected-resource` - RFC 9728 Protected Resource Metadata (supports path-based discovery)
 - `GET /.well-known/oauth-authorization-server` - RFC 8414 metadata (registration_endpoint rewritten)
-- `POST /register` - RFC 7591 Dynamic Client Registration
+- `POST /register` - RFC 7591 Dynamic Client Registration (public PKCE clients only; confidential clients provisioned directly by Taboola)
 - `POST|GET|DELETE /mcp` - MCP Streamable HTTP endpoint (requires Bearer token)
 - `GET /health` - Health check endpoint for Kubernetes probes
 - `GET /` on port 8092 - Prometheus metrics endpoint (separate port)
