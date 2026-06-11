@@ -37,7 +37,7 @@ Add to `claude_desktop_config.json`:
   "mcpServers": {
     "realize-mcp": {
       "command": "npx",
-      "args": ["-y", "mcp-remote", "https://mcp.realize.com/mcp", "--port", "3000"]
+      "args": ["-y", "mcp-remote", "https://mcp.realize.com/mcp", "3000"]
     }
   }
 }
