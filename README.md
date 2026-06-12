@@ -466,4 +466,4 @@ Licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
 
 ---
 
-**Realize MCP Server** - Safe, efficient, access to Taboola's advertising platform through natural language.
+**Realize MCP** - Safe, efficient, access to Taboola's advertising platform through natural language.
