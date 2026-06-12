@@ -1,11 +1,10 @@
-# Realize MCP Server
+# Realize MCP
 
 A Model Context Protocol (MCP) server providing read and write access to Taboola's Realize API. Enables AI assistants to analyze campaigns, retrieve performance data, generate reports, and manage campaigns and items through natural language. Connect to the hosted server over Streamable HTTP transport with OAuth 2.1 — multi-user, no local install required.
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![Python](https://img.shields.io/badge/Python-3.10+-green.svg)](https://python.org) [![MCP](https://img.shields.io/badge/MCP-Compatible-orange.svg)](https://modelcontextprotocol.io/) [![Latest Version][mdversion-button]][md-pypi]
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![MCP](https://img.shields.io/badge/MCP-Compatible-orange.svg)](https://modelcontextprotocol.io/)
 
 [mdversion-button]: https://img.shields.io/pypi/v/realize-mcp.svg
-[md-pypi]: https://pypi.org/project/realize-mcp/
 
 ---
 
