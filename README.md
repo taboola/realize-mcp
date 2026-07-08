@@ -1,10 +1,8 @@
-# Realize MCP
+# Realize MCP Server
 
-A Model Context Protocol (MCP) server providing read and write access to Taboola's Realize API. Enables AI assistants to analyze campaigns, retrieve performance data, generate reports, and manage campaigns and items through natural language. Connect to the hosted server over Streamable HTTP transport with OAuth 2.1 — multi-user, no local install required.
+A Model Context Protocol (MCP) server providing read and write access to Taboola's Realize API. Enables AI assistants to analyze campaigns, retrieve performance data, generate reports, and manage campaigns and items through natural language. Runs as a Streamable HTTP server with OAuth 2.1 — use the hosted server, or run it yourself via Docker.
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![MCP](https://img.shields.io/badge/MCP-Compatible-orange.svg)](https://modelcontextprotocol.io/)
-
-[mdversion-button]: https://img.shields.io/pypi/v/realize-mcp.svg
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![Python](https://img.shields.io/badge/Python-3.10+-green.svg)](https://python.org) [![MCP](https://img.shields.io/badge/MCP-Compatible-orange.svg)](https://modelcontextprotocol.io/)
 
 ---
 
@@ -460,10 +458,211 @@ AI Process:
 
 ---
 
+## Prometheus Metrics
+
+Enabled by default (`METRICS_ENABLED=true`). Served on a dedicated port (default `8092`, configurable via `METRICS_PORT`) in Streamable HTTP mode.
+
+| Metric | Type | Labels |
+|--------|------|--------|
+| `realize_mcp_http_requests_total` | Counter | `method`, `endpoint`, `http_status` |
+| `realize_mcp_http_request_latency_seconds` | Histogram | `endpoint` |
+| `realize_mcp_tool_calls_total` | Counter | `tool_name`, `status` |
+| `realize_mcp_tool_call_latency_seconds` | Histogram | `tool_name` |
+| `realize_mcp_client_connections_total` | Counter | `client_name`, `client_version` |
+| `realize_mcp_api_requests_total` | Counter | `method`, `endpoint_pattern`, `http_status` |
+| `realize_mcp_api_request_latency_seconds` | Histogram | `method`, `endpoint_pattern` |
+| `realize_mcp_api_errors_total` | Counter | `method`, `endpoint_pattern`, `error_type` |
+
+---
+
+## Local Setup (Docker)
+
+Run the server yourself as a Docker container, in one of two modes:
+
+- **Mode 1 — Production:** pointed at Taboola's production authentication, for real use.
+- **Mode 2 — On-demand:** pointed at an ephemeral Taboola on-demand (OD) env, for internal development/QA.
+
+Both use Streamable HTTP transport with OAuth 2.1 and listen on port `8000`.
+
+### Prerequisites
+
+- Docker
+- An MCP-compatible client (Claude Desktop, Claude Code, Cursor, VS Code, etc.)
+
+### The image
+
+Published per build to Taboola's internal registry (`master` → `docker-releases.taboolasyndication.com`,
+branches → `docker-snapshots.taboolasyndication.com`; tags are `YYYYMMDD.N`). Pull a published image:
+
+```bash
+docker pull docker-releases.taboolasyndication.com/taboola/realize-mcp:<version>
+```
+
+…or build it from the repo:
+
+```bash
+docker build -t realize-mcp .
+```
+
+The image runs as a non-root user; Prometheus metrics are on port `8092` (map `-p 8092:8092` to expose them).
+
+### Mode 1: Production
+
+Set your OAuth client id in `.env`, then start the `production` profile:
+
+```bash
+cp env.template .env
+# edit .env →  OAUTH_DCR_CLIENT_ID=your_dcr_client_id
+docker compose --profile production up --build
+```
+
+`OAUTH_SERVER_URL` defaults to `https://authentication.taboola.com/authentication`; set it in
+`.env` to point elsewhere. Then [connect a client](#connect-a-client).
+
+### Mode 2: On-demand env (docker compose)
+
+> **Internal development/QA only — this is not how you normally use the Realize MCP.**
+> Mode 1 (and the hosted server in Quick Start) connect to a server meant for real use. This
+> mode instead runs the server **locally, pointed at an ephemeral Taboola on-demand (OD) env**,
+> to develop or test the server against that env. It uses a shared, hard-coded public OAuth
+> client and in-cluster URLs. To keep it separate from any general `realize-mcp` you've added,
+> register it under a **distinct name, `realize-mcp-local`** (as the commands below do).
+
+`docker-compose.yml` runs the server in Streamable HTTP mode wired to the env's in-cluster
+`authentication` and `backstage` services, using the hard-coded public OAuth client
+`realize-mcp-local`.
+
+**1. One-time — configure the env's authentication DB.** New on-demand envs ship with
+this `realize-mcp-local` OAuth config already baked in, so you can normally skip this step.
+Only run the SQL below if your env predates the baking or otherwise lacks the config (e.g.
+the OAuth flow fails with `invalid_target` or an unapproved-redirect error). Connect to the
+env's MySQL (`<env>-mysql.on-demand.svc.kube.taboolasyndication.com:3306`, user `root` /
+password `taboola`) and run (`performer` is just an audit label):
+
+```sql
+-- RFC 8707 resource allowlist (performer is NOT NULL; cache rebuild ~10 min, or restart the auth pod)
+INSERT INTO common.config (name, env, service, setting, performer)
+VALUES ('oauth21:resource:allowlist', 'ALL', 'ALL',
+        '[{"code":"rzmcp","uri":"http://localhost:8000/mcp"}]', 'realize-mcp')
+ON DUPLICATE KEY UPDATE setting = VALUES(setting);
+
+-- Public PKCE client (both secret columns NULL -> public); api_key is the client id
+INSERT INTO apps_config.pc_auth_tokens (user_id, api_key, secret_key, hashed_secret_key, auto_approve)
+VALUES (1, 'realize-mcp-local', NULL, NULL, 1);
+
+-- Exact-match approved redirect, linked by the token's id
+INSERT INTO apps_config.pc_auth_approved_redirects (auth_token_id, redirect_uri, is_active)
+SELECT id, 'http://localhost:3000/callback', 1
+FROM apps_config.pc_auth_tokens WHERE api_key = 'realize-mcp-local';
+```
+
+**2. Start the server** (set `ENV_NAME` in `.env`, or inline as below):
+
+```bash
+ENV_NAME=<on-demand-env-name> docker compose --profile on-demand up --build
+```
+
+Runs on `localhost:8000`, pointed at the env's `authentication` service (default port `10290`)
+and `backstage` (via its nginx sidecar, default port `80`). Override if your env differs:
+`ENV_NAME=… AUTH_PORT=… BACKSTAGE_PORT=… docker compose --profile on-demand up`
+(the per-container ports are in `kubectl get pod <pod> -o jsonpath='{.spec.containers[*].ports[*]}'`).
+Then [connect a client](#connect-a-client).
+
+**Notes:**
+- The compose file uses `network_mode: host` so the container can use your machine's cluster
+  DNS/routing to reach `*.on-demand.svc.kube.taboolasyndication.com`. Your host must already
+  be able to reach the env (VPN/cluster routing) — a port-forward won't work, because the auth
+  metadata advertises the in-cluster issuer URL.
+- The `localhost:8000/mcp` resource and `localhost:3000/callback` redirect in the SQL must
+  match how you run and connect.
+
+### Connect a client
+
+Both modes serve the MCP at `http://localhost:8000/mcp`. Connect for a **single session
+only** — the locally run server is ephemeral, so it must never be persisted to your client
+config (use `--mcp-config`, not `claude mcp add`):
+
+```bash
+claude --mcp-config '{"mcpServers":{"realize-mcp-local":{"type":"http","url":"http://localhost:8000/mcp","oauth":{"callbackPort":3000}}}}'
+```
+
+The callback port (`3000`) must match the approved redirect (`http://localhost:3000/callback`)
+registered for the OAuth client. The client id is supplied by Dynamic Client Registration —
+your `OAUTH_DCR_CLIENT_ID` in production, `realize-mcp-local` on-demand — so it doesn't need to
+be set here.
+
+### Endpoints
+
+Both modes expose the same HTTP endpoints:
+
+- `GET /.well-known/oauth-protected-resource` - RFC 9728 Protected Resource Metadata (supports path-based discovery)
+- `GET /.well-known/oauth-authorization-server` - RFC 8414 metadata (registration_endpoint rewritten)
+- `POST /register` - RFC 7591 Dynamic Client Registration (public PKCE clients only; confidential clients provisioned directly by Taboola)
+- `POST|DELETE /mcp` - MCP Streamable HTTP endpoint (requires Bearer token)
+- `GET /health` - Health check endpoint for Kubernetes probes
+- `GET /` on port 8092 - Prometheus metrics endpoint (separate port)
+
+### Traffic attribution
+
+To distinguish traffic that comes through the realize-claude-plugin from raw/direct
+MCP clients, the server tags every outbound Backstage call's `User-Agent` with the
+calling client. Backstage attributes traffic by `User-Agent`.
+
+The header follows RFC 9110 §10.1.5:
+
+```
+realize-mcp/<version> [<caller-product>]
+```
+
+- `realize-mcp/<version>` - this server.
+- `<caller-product>` - the value of the inbound `X-Realize-Client` request header,
+  if present (e.g. `example-client/<version>`). Client-controlled, so it
+  is validated against the RFC product grammar and dropped if it does not conform.
+
+Example for a request that sets the header: `realize-mcp/1.0.43 example-client/1.0`;
+for a raw client: `realize-mcp/1.0.43`.
+
+This is an attribution heuristic, not an authentication control: any client can set the
+header.
+
+### Troubleshooting
+
+Check the container started cleanly:
+
+```bash
+docker compose logs          # Mode 2  (or: docker logs <container> for Mode 1)
+```
+
+You should see: `INFO:realize.realize_server:Starting Realize MCP Server...`
+
+---
+
+## Detailed Documentation
+
+For comprehensive information, see [design.md](design.md):
+
+- **Recent Fixes & Version History** - Detailed release notes and upgrade instructions
+- **Deployment & Installation** - Docker and source installation with troubleshooting
+- **Architecture & Design Principles** - Technical implementation details
+- **Advanced Features** - CSV format, pagination, sorting, and optimization
+- **Development Guide & Testing** - Setup, testing, and contribution guidelines
+- **Comprehensive Troubleshooting** - Detailed solutions for common issues
+- **Security Best Practices** - Credential management and operational security
+- **Complete API Reference** - Full technical API documentation
+- **Technology Stack Details** - Dependencies and system requirements
+
+---
+
+## Privacy & Data Handling
+
+Realize MCP accesses the Realize API using your OAuth credentials and returns data only to your connected MCP client. Information processed in connection with your use of Realize MCP is handled in accordance with the [Taboola Privacy Policy](https://policies.taboola.com/privacy-policy/).
+
+---
+
 ## License
 
 Licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
 
 ---
 
-**Realize MCP** - Safe, efficient, access to Taboola's advertising platform through natural language.
+**Realize MCP Server** - Safe, efficient, access to Taboola's advertising platform through natural language.
