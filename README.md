@@ -653,6 +653,13 @@ For comprehensive information, see [design.md](design.md):
 
 ---
 
+## Support
+
+For product or security concerns, bug reports, and feature requests, open an issue at
+[github.com/taboola/realize-mcp/issues](https://github.com/taboola/realize-mcp/issues).
+
+---
+
 ## Privacy & Data Handling
 
 Realize MCP accesses the Realize API using your OAuth credentials and returns data only to your connected MCP client. Information processed in connection with your use of Realize MCP is handled in accordance with the [Taboola Privacy Policy](https://policies.taboola.com/privacy-policy/).
