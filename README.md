@@ -10,41 +10,92 @@ A Model Context Protocol (MCP) server providing read and write access to Taboola
 
 Connect to the hosted Realize MCP server using [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) transport with OAuth 2.1. Multi-user, stateless, no local install required.
 
+Every client below connects to the same URL, `https://mcp.realize.com/mcp`, and authenticates
+the same way: on first use it opens a browser to Taboola SSO, and the resulting bearer token is
+what the Realize tools run as.
+
 Pick the section for your client:
 
-### Claude Desktop
+### Claude Desktop and claude.ai
 
-Two options — use the UI for the simplest setup, or the config file if you prefer to manage MCP servers as code.
+Realize is listed in Claude's connector directory, so you can add it without typing a URL.
 
-**Option 1 — UI (recommended):**
+**Option 1 — from the connector directory (recommended):**
+
+1. Go to Settings → Connectors and browse the available connectors
+2. Find **Realize** and select **Connect**
+3. A browser window will open to Taboola SSO—enter your credentials to obtain a bearer token used by Realize tools
+
+**Option 2 — as a custom connector:**
+
+Use this if you need to point Claude at a different Realize MCP endpoint.
 
 1. Go to Settings → Connectors → Add Custom Connector
 2. Enter the MCP Server name and URL: `https://mcp.realize.com/mcp`
 3. Select **Connect** to initiate the OAuth 2.1 flow
 4. A browser window will open to Taboola SSO—enter your credentials to obtain a bearer token used by Realize tools
 
-**Option 2 — config file:**
+### Claude Code (CLI)
 
-Prerequisite: Node.js 18+ (provides `npx`). Install from [nodejs.org](https://nodejs.org) or run `brew install node`.
+```bash
+claude mcp add --transport http realize-mcp https://mcp.realize.com/mcp
+```
 
-Add to `claude_desktop_config.json`:
+Then run `/mcp` inside Claude Code to trigger the OAuth flow.
+
+### Codex
+
+```bash
+codex mcp add realize-mcp --url https://mcp.realize.com/mcp
+```
+
+Codex detects that the server requires OAuth and starts the flow for you. To re-authenticate
+later, run `codex mcp login realize-mcp`.
+
+`codex mcp add` writes the entry to `~/.codex/config.toml`, so Codex Desktop picks it up as
+well — restart it after adding. To write the entry by hand instead:
+
+```toml
+[mcp_servers.realize-mcp]
+url = "https://mcp.realize.com/mcp"
+```
+
+### Cursor
+
+Add the server to `~/.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "realize-mcp": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "https://mcp.realize.com/mcp", "3000"]
+      "url": "https://mcp.realize.com/mcp"
     }
   }
 }
 ```
 
-### Claude Code (CLI)
+Cursor's cloud/web agents are supported too — they complete the same OAuth flow through
+Cursor's own hosted callback, with nothing to register in advance.
 
-```bash
-claude mcp add --transport http --callback-port 3000 realize-mcp https://mcp.realize.com/mcp
+### Other MCP clients
+
+Any client that speaks Streamable HTTP can connect with the server URL alone:
+
+```json
+{
+  "mcpServers": {
+    "realize-mcp": {
+      "type": "http",
+      "url": "https://mcp.realize.com/mcp"
+    }
+  }
+}
 ```
+
+Your client registers itself automatically on first connect, so there is nothing to set up
+beforehand — no client ID to request from Taboola, no callback port to pin, and no bridge
+process such as `mcp-remote`. Whichever callback your client uses, a local port or its own
+hosted URL, is accepted as-is.
 
 ---
 
@@ -55,7 +106,7 @@ claude mcp add --transport http --callback-port 3000 realize-mcp https://mcp.rea
 **`search_accounts`** — Search accounts by numeric ID or text query. **Call this first** to get `account_id` values needed by all other tools. Results include `currency`, `country`, and `time_zone_name` so the LLM can pick the right budget amounts and timezone.
 
 ```
-query        (string, required)            Cannot be empty. Numeric = exact ID; text = fuzzy name
+query        (string, optional)            Digit-only = exact ID lookup; text = fuzzy name lookup; leave empty to list all accounts
 page         (integer, default: 1)         min: 1
 page_size    (integer, default: 10)        min: 1, max: 10 (hard cap)
 ```
@@ -133,7 +184,7 @@ os_targeting                   OS family + version (versions via search_techno)
 browser_targeting              Browser names from search_techno dimension=browsers
 connection_type_targeting      WIFI
 activity_schedule              Dayparting (time_zone via list_time_zones)
-conversion_rules               Conversion rule attachments (rules via search_conversion_rules)
+conversion_rules               Conversion rule attachments (rules via get_conversion_rules)
 publisher_targeting            Publisher allow/block-list (search_publishers)
 publisher_bid_modifier         Per-publisher CPC bid modifier
 contextual_segments_targeting  Contextual segments (search_contextual_segments)
@@ -273,11 +324,14 @@ page           (integer, default: 1)        min: 1
 page_size      (integer, default: 10)       min: 1, max: 50
 ```
 
-**`search_conversion_rules`** — Conversion rules attached to an account.
+**`get_conversion_rules`** — Read an account's conversion rules. Omit `rule_id` for all of them; the returned IDs populate `conversion_rules.rules: [{id}]` on `create_campaign` / `update_campaign`. Not paginated — one call returns every rule in full.
 
 ```
 account_id  (string, required)
+rule_id     (string)                      Omit for all rules; set (numeric id as a string) to narrow to one. Empty string is rejected — omit it entirely
 ```
+
+**`search_conversion_rules`** — **Deprecated alias of `get_conversion_rules`**, kept so existing callers keep working; identical behaviour. Scheduled for removal after **2026-11-01** — switch to `get_conversion_rules`.
 
 **`list_time_zones`** — IANA time-zone names for `activity_schedule.time_zone`. No parameters.
 
