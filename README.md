@@ -324,77 +324,117 @@ page           (integer, default: 1)        min: 1
 page_size      (integer, default: 10)       min: 1, max: 50
 ```
 
-**`get_conversion_rules`** — Read an account's conversion rules. Omit `rule_id` for all of them; the returned IDs populate `conversion_rules.rules: [{id}]` on `create_campaign` / `update_campaign`. Not paginated — one call returns every rule in full.
-
-```
-account_id  (string, required)
-rule_id     (string)                      Omit for all rules; set (numeric id as a string) to narrow to one. Empty string is rejected — omit it entirely
-```
-
-**`search_conversion_rules`** — **Deprecated alias of `get_conversion_rules`**, kept so existing callers keep working; identical behaviour. Scheduled for removal after **2026-11-01** — switch to `get_conversion_rules`.
-
 **`list_time_zones`** — IANA time-zone names for `activity_schedule.time_zone`. No parameters.
 
 **`list_cta_types`** — `cta.cta_type` values for `create_native_item` / `update_native_item`. No parameters.
 
+### Conversion Rules
+
+Conversion rules define how the universal pixel attributes conversions for an account, and their IDs populate `conversion_rules` on create/update campaign. There is no delete — retire a rule by setting `status` to `DISABLED` / `ARCHIVED`.
+
+**`get_conversion_rules`** — List an account's ACTION rules (paginated), or fetch one by `rule_id`. On a NETWORK/parent account the listing spans child accounts; each rule's `advertiser_id` names its owner.
+
+```
+account_id   (string, required)
+rule_id      (string)                      Omit to list; set (numeric id as a string) to fetch one. Empty string is rejected
+page         (integer, default: 1)         Ignored when rule_id is set
+page_size    (integer, default: 25)        min: 1, max: 50. Ignored when rule_id is set
+status       (string enum)                 ACTIVE | DISABLED | ARCHIVED (ARCHIVED also selects disabled rules)
+search_text  (string)                      Case-insensitive substring match on display_name
+```
+
+**`create_conversion_rule`** — Create a conversion rule. `display_name` is unique per account, and an event can hold only one ACTIVE rule. Returns the created rule with its server-assigned `id`.
+
+```
+account_id                     (string, required)
+display_name                   (string, required)       Unique per account
+event_name                     (string, required)       'page_view' for BASIC; any custom event for EVENT_BASED
+type                           (string enum, required)  BASIC | EVENT_BASED
+category                       (string enum, required)  VIEW_CONTENT | SEARCH | ADD_TO_CART | ... | MAKE_PURCHASE | LEAD | ... | OTHER
+condition                      (object, required)       Recursive match tree; leaf = property + predicate, branch = AND/OR/NOT + children[]
+look_back_window               (integer, required)      Click-through attribution window in DAYS (1-30)
+include_in_total_conversions   (boolean, required)      Count toward account Total Conversions
+status                         (string enum, required)  ACTIVE | DISABLED | ARCHIVED
+effects                        (array, required)        Revenue effects: [{type: REVENUE, data: "<numeric string>"}]; [] for none
+view_through_look_back_window  (integer)                View-through window in MINUTES (1-10080)
+include_in_total_value         (boolean)                Defaults to include_in_total_conversions
+aggregation_type               (string enum)            AGGREGATED | LAST_VALUE (default AGGREGATED)
+description                    (string)
+```
+
+**`update_conversion_rule`** — Update a conversion rule. Send only the fields you are changing; omitted fields keep their stored value. Do not echo back a `get_conversion_rules` object — its nulls and read-only fields are rejected. `type` / `category` / `event_name` are immutable.
+
+```
+account_id  (string, required)
+rule_id     (string, required)
+...         Any writable field from create_conversion_rule (send only the ones you are changing)
+```
+
 ### Reporting (CSV Format)
 
-All report tools return CSV with a summary header. Every report requires these parameters:
+Report tools return CSV: a summary banner (record count, row grain, pagination) followed by the rows themselves. There are two reporting surfaces:
+
+- **Dynamic reports** — `get_dynamic_report_settings`, then `get_dynamic_report_data`. You choose the dimensions, metrics, filters and sort, so campaign, site, day and content breakdowns and top-N lists are all built here.
+- **`get_campaign_history_report`** — a fixed change/audit log for campaigns.
+
+#### Dynamic reports
+
+**`get_dynamic_report_settings`** — **Required first step.** Returns the account's metamodel: every available dimension, metric and filter, and the operators each filter accepts. `get_dynamic_report_data` rejects names that aren't in it, so take them from here rather than guessing.
+
+```
+account_id   (string, required)              From search_accounts
+report_type  (string, default: PERFORMANCE)  PERFORMANCE is currently the only supported value
+name_filter  (string)                        Case-insensitive substring; narrows columns, filters and the conversion-rule list
+```
+
+**`get_dynamic_report_data`** — Run a query built from those names and return the rows as CSV.
+
+```
+account_id   (string, required)              From search_accounts
+columns      (array, required)               Fully qualified dimension/metric names from the metamodel
+date_preset  (string enum)                   YESTERDAY | LAST_7_DAYS | LAST_14_DAYS | LAST_30_DAYS | LAST_90_DAYS |
+                                             THIS_MONTH | LAST_MONTH | THIS_QUARTER | LAST_QUARTER | THIS_YEAR | LAST_12_MONTHS
+date_from    (string)                        Custom range start, yyyy-MM-dd
+date_to      (string)                        Custom range end, yyyy-MM-dd, on or after date_from
+filters      (array)                         [{name, operator, values}] — EQUALS | NOT_EQUALS | IN | NOT_IN |
+                                             GREATER_THAN | LESS_THAN | BETWEEN | LIKE. Account and date filters are added for you
+sort         (array)                         [{column, direction}], applied in list order; each column must also appear in `columns`
+page         (integer, default: 1)           min: 1
+page_size    (integer, default: 20)          min: 1, max: 100
+report_type  (string, default: PERFORMANCE)  PERFORMANCE is currently the only supported value
+```
+
+Pass **either** `date_preset` **or** `date_from` + `date_to`, never both; a custom range may span at most 12 months. For top N by a metric, sort on it `DESC` and set `page_size` to N. There is no grand total — a full page means more rows remain.
+
+#### `get_campaign_history_report`
+
+A change/audit log rather than a performance report: one row per change event (`change_type`, `old_value` → `new_value`, `performer`), with no impression, click, spend or rate metrics.
 
 ```
 account_id  (string, required)            From search_accounts
 start_date  (string, required)            Format: YYYY-MM-DD
 end_date    (string, required)            Format: YYYY-MM-DD
-```
-
-Paginated reports also accept:
-
-```
 page        (integer, default: 1)         min: 1
 page_size   (integer, default: 20)        min: 1, max: 100
 ```
 
-Some reports also support sorting and filtering:
-
-```
-sort_field      (string enum)             clicks | spent | impressions
-sort_direction  (string enum, default: DESC)   ASC | DESC
-filters         (object)                  JSON object with string values only
-```
-
-**`get_top_campaign_content_report`** — Top performing campaign content.
-Supports: shared params only. Not paginated and not sortable — returns the full result set in a single call, fixed-sorted by revenue DESC (the `spent` column), capped at top 1000 server-side.
-
-**`get_campaign_breakdown_report`** — Campaign performance breakdown.
-Supports: shared params + pagination + sort + filters.
-
-**`get_campaign_history_report`** — Historical campaign data.
-Supports: shared params + pagination (no sort, no filters).
-
-**`get_campaign_site_day_breakdown_report`** — Site/day performance breakdown.
-Supports: shared params + pagination + sort + filters.
-
 #### Data grain & interpretation
 
-Reports return flattened rows. Each report has a fixed **row grain** (the composite key that makes a row unique). The same `site_id` can appear under several campaigns, so rows must be read at their grain — not merged by a single id. Column names below are the literal CSV headers (note: campaign id is `campaign` in the performance reports but `campaign_id` in the history report).
+Reports return flattened rows. Each report has a **row grain** — the composite key that makes a row unique. The same `site_id` can appear under several campaigns, so rows must be read at their grain, not merged by a single id.
 
 ```
-get_campaign_breakdown_report             campaign
-get_campaign_site_day_breakdown_report    (campaign, site_id, date)
-get_top_campaign_content_report           (campaign, item)
-get_campaign_history_report               (campaign_id, change_time, id)   # audit log, not metrics
+get_dynamic_report_data       the dimension columns you requested   # metrics-only query = one aggregate row, no grain
+get_campaign_history_report   (campaign_id, change_time, id)        # audit log, not metrics
 ```
 
-Don't rely on column position — grain/key columns aren't guaranteed to lead or be adjacent. Each response names the row key explicitly on a `Row key:` line, the authoritative set of columns that makes a row unique.
+Each response names its grain explicitly in the banner — that, not column order, is the authoritative key. Grain and key columns aren't guaranteed to lead or be adjacent, and column names are the metamodel labels, so don't rely on position.
 
-**Metrics are computed server-side** (performance reports only). `ctr`, `cpc`, `cpm`, `cpa`, `cvr`, `roas` are pre-computed per row — read them as-is. Do not recompute or average them across rows. To aggregate volume, sum only the raw counters (`clicks`, `impressions`, `spent`).
-
-**`get_campaign_history_report` is a change/audit log**, not a performance report — one row per change event (`change_type`, `old_value`→`new_value`, `performer`). It has no impression/click/spend or rate metrics.
+**Metrics are computed server-side.** `ctr`, `cpc`, `cpm`, `cpa`, `cvr`, `roas` are pre-computed per row — read them as-is. Do not recompute or average them across rows. To aggregate volume, sum only the raw counters (`clicks`, `impressions`, `spent`).
 
 **Cross-account:** reports are scoped to the single `account_id` queried and do not roll up child accounts; query each child account separately. Campaign/site/item ids are globally unique, so no account column is needed in the grain.
 
 **Rules for correct numbers:**
-- The `Total` in the summary line is authoritative — do not sum rows across pages to derive totals or rates.
+- Where the banner reports a `Total`, it is authoritative — do not sum rows across pages to derive totals or rates.
 
 ---
 
@@ -418,7 +458,7 @@ AI:
 User: "Show campaigns for account 12345"
 AI Process:
   Step 1: search_accounts("12345") → Returns account_id: "advertiser_12345_prod"
-  Step 2: get_all_campaigns(account_id="advertiser_12345_prod")
+  Step 2: list_campaigns(account_id="advertiser_12345_prod")
   Result: List of campaigns with details
 ```
 
@@ -428,12 +468,19 @@ AI Process:
 User: "Get campaign performance for Marketing Corp last month"
 AI Process:
   Step 1: search_accounts("Marketing Corp") → account_id: "mktg_corp_001"
-  Step 2: get_campaign_breakdown_report(
+  Step 2: get_dynamic_report_settings(account_id="mktg_corp_001")
+          → the exact column names to use, e.g. PERFORMANCE_REPORT.CAMPAIGN.CAMPAIGN_NAME,
+            PERFORMANCE_REPORT.METRICS.CLICKS, PERFORMANCE_REPORT.METRICS.SPENT
+  Step 3: get_dynamic_report_data(
     account_id="mktg_corp_001",
-    start_date="2024-01-01",
-    end_date="2024-01-31"
+    columns=[
+      "PERFORMANCE_REPORT.CAMPAIGN.CAMPAIGN_NAME",
+      "PERFORMANCE_REPORT.METRICS.CLICKS",
+      "PERFORMANCE_REPORT.METRICS.SPENT"
+    ],
+    date_preset="LAST_MONTH"
   )
-  Result: CSV report with campaign metrics
+  Result: CSV report with one row per campaign
 ```
 
 ### Top Performing Content
@@ -441,15 +488,17 @@ AI Process:
 ```
 User: "Show top 20 performing content items"
 AI Process:
-  get_top_campaign_content_report(
-    account_id="account_id_from_search",
-    start_date="2024-01-01",
-    end_date="2024-01-31",
-    page_size=20,
-    sort_field="spent",
-    sort_direction="DESC"
+  Step 1: search_accounts(...) → account_id: "mktg_corp_001"
+  Step 2: get_dynamic_report_settings(account_id="mktg_corp_001", name_filter="item")
+          → the item/content dimension and metric names available to this account
+  Step 3: get_dynamic_report_data(
+    account_id="mktg_corp_001",
+    columns=["<item dimension>", "PERFORMANCE_REPORT.METRICS.SPENT"],
+    date_preset="LAST_30_DAYS",
+    sort=[{"column": "PERFORMANCE_REPORT.METRICS.SPENT", "direction": "DESC"}],
+    page_size=20
   )
-  Result: Top content sorted by spend
+  Result: Top 20 content items by spend
 ```
 
 ### Update a Campaign Budget
@@ -505,9 +554,9 @@ AI Process:
 
 ### Report Features
 
-- **CSV Format**: Reports return efficient CSV data with headers and pagination info
+- **CSV Format**: Reports return efficient CSV data with a summary banner (records, row grain, pagination) above the rows
 - **Pagination**: Default page_size=20, max=100 to prevent overwhelming responses
-- **Sorting**: Available for most reports by `clicks`, `spent`, or `impressions`
+- **Sorting**: Dynamic reports sort on any column you requested, in either direction; combine a `DESC` sort with `page_size=N` for a top-N list
 - **Size Optimization**: Automatic truncation for large datasets
 
 ---
